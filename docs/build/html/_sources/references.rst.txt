@@ -1,0 +1,7 @@
+.. _references:
+
+References
+==========
+
+.. [Smith2019] Smith, J. (2019). *The Comprehensive Guide to Importance Sampling*. Publisher Name.
+.. [Doe2020] Doe, A. (2020). *Another Important Work*. Another Publisher.

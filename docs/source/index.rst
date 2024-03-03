@@ -10,7 +10,8 @@ Welcome to sampler's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-
+   sampler
+   references
 
 Indices and tables
 ==================
