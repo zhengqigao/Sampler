@@ -1,4 +1,4 @@
-from sampler.base import MH_sampling
+from sampler.base import *
 import torch
 from sampler._common import Wrapper, Distribution
 import matplotlib.pyplot as plt
@@ -46,7 +46,7 @@ class UnconditionalMultiGauss(Distribution):
 
 gauss1 = ConditionalMultiGauss(std = [1, 1])
 gauss2 = UnconditionalMultiGauss([-1,1], [1, 1])
-results, info = MH_sampling(10000, gauss2, gauss1, torch.zeros((1,2)))
+results, info = mh_sampling(10000, gauss2, gauss1, torch.zeros((1, 2)))
 
 plt.figure()
 plt.scatter(results[:, 0], results[:, 1], s=1)

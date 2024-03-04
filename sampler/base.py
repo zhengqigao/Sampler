@@ -1,10 +1,10 @@
 import numpy as np
 import torch
-from typing import Union, Tuple, Callable, Any, Optional
+from typing import Union, Tuple, Callable, Any, Optional, List
 from ._common import Func, Distribution
 import warnings
 
-__all__ = ['importance_sampling', 'rejection_sampling', 'MH_sampling']
+__all__ = ['importance_sampling', 'rejection_sampling', 'mh_sampling', 'gibbs_sampling']
 
 
 def importance_sampling(num_samples: int,
@@ -44,7 +44,7 @@ def importance_sampling(num_samples: int,
 def rejection_sampling(num_samples: int, target: Distribution, proposal: Distribution, k: float) -> Tuple[
     torch.Tensor, Any]:
     r"""
-    Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor :math: `k>0`. See Section 11.1.2 of [Bishop2006PRML]_.
+    Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor :math:`k>0`. See Section 11.1.2 of [Bishop2006PRML]_.
 
     Args:
         num_samples (int): the number of samples to be drawn.
@@ -79,22 +79,32 @@ def adaptive_rejection_sampling():
     pass
 
 
-def MH_sampling(num_samples: int, target: Distribution, proposal: Distribution, initial: torch.Tensor) -> Tuple[
-    torch.Tensor, Any]:
+def mh_sampling(num_samples: int,
+                target: Distribution,
+                proposal: Distribution,
+                initial: torch.Tensor,
+                burn_in: Optional[int] = 0) -> Tuple[torch.Tensor, Any]:
     r"""
-    Metropolis-Hastings (MH) sampling to draw samples from a target distribution using a proposal distribution.
+    Metropolis-Hastings (MH) sampling to draw samples from a target distribution using a proposal distribution. See Section 11.2.2. of [Bishop2006PRML]_.
 
 
     Args:
         num_samples (int): the number of samples to be drawn.
         target (Distribution): the target distribution.
         proposal (Distribution): the proposal distribution.
+        initial (torch.Tensor): the initial point to start the sampling process.
+        burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
     """
+
+    ## TODO: should we introduce a conditional distribution class for clearness? Because the proposal must be a conditional distribution.
+
+    if burn_in < 0:
+        raise ValueError(f"The number of burn-in samples should be non-negative, but got burn_in = {burn_in}.")
 
     initial = initial.view(1, -1)
     samples, num_accept = torch.clone(initial), 0
 
-    while samples.shape[0] < num_samples:
+    while samples.shape[0] < num_samples + burn_in:
         new = proposal.sample(1, y=initial)
         ratio = target(new, in_log=True) + proposal(initial, new, in_log=True) \
                 - target(initial, in_log=True) - proposal(new, initial, in_log=True)
@@ -104,4 +114,46 @@ def MH_sampling(num_samples: int, target: Distribution, proposal: Distribution, 
             num_accept, initial = num_accept + 1, new
         else:
             samples = torch.cat([samples, initial], dim=0)
-    return samples, {'acceptance_rate': num_accept / (samples.shape[0] - 1)}
+    return samples[burn_in:], {'acceptance_rate': num_accept / (samples.shape[0] - 1)}
+
+
+def gibbs_sampling(num_samples: int,
+                   condis: Union[Tuple[Distribution], List[Distribution], Distribution],
+                   initial: torch.Tensor,
+                   burn_in: Optional[int] = 0) -> Tuple[torch.Tensor, Any]:
+    r"""
+    Gibbs sampling to draw samples given conditional distributions. See Section 11.3 of [Bishop2006PRML]_.
+
+
+    .. note:: Even though given all those conditional probabilities, it is still impossible to directly evaluate the
+    joint distribution density. However, Gibbs sampling provides a way to draw samples from the joint distribution.
+
+
+    Args:
+        num_samples (int): the number of samples to be drawn.
+        condis (Union[Tuple[Distribution], List[Distribution], Distribution]): the conditional distributions.
+        initial (torch.Tensor): the initial point to start the sampling process.
+        burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
+    """
+
+    if burn_in < 0:
+        raise ValueError(f"The number of burn-in samples should be non-negative, but got burn_in = {burn_in}.")
+
+    initial = initial.view(1, -1)
+    dim = initial.shape[1]
+
+    samples = torch.clone(initial)
+    mask = torch.ones(dim, dtype=torch.bool)
+    for i in range(num_samples + burn_in):
+        for j in range(dim):
+            mask[j] = False
+            if isinstance(condis, (tuple, list)):
+                initial[j] = condis[j].sample(1, y=samples[i][mask])
+            elif isinstance(condis, Distribution):
+                initial[j] = condis.sample(1, y=samples[i][mask])
+            else:
+                raise ValueError(
+                    f"The conditional distribution should be a Distribution object or a tuple/list of Distribution objects, but got {type(condis)}.")
+            mask[j] = True
+        samples = torch.cat([samples, initial], dim=0)
+    return samples[burn_in:], None

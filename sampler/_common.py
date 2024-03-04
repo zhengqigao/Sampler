@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 import math
 from torch.distributions import Distribution as TorchDistribution
 
-__all__ = ['Func', 'Distribution']
+__all__ = ['Func', 'Distribution', 'Wrapper']
 
 Func = TypeVar('Func', bound=Callable[[Union[torch.Tensor]], Union[torch.Tensor]])
 
@@ -75,6 +75,7 @@ class Distribution(ABC):
         if self.norm is not None:
             result = result * self.norm if not kwargs['in_log'] else result + math.log(self.norm)
         return result
+
 
 class Wrapper(Distribution):
     def __init__(self, distribution: TorchDistribution):
