@@ -79,17 +79,18 @@
   <h1>Source code for sampler.base</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">torch</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span>
-<span class="kn">from</span> <span class="nn">.common</span> <span class="kn">import</span> <span class="n">Func</span><span class="p">,</span> <span class="n">Distribution</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span>
+<span class="kn">from</span> <span class="nn">._common</span> <span class="kn">import</span> <span class="n">Func</span><span class="p">,</span> <span class="n">Distribution</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
 
-
-<span class="n">__all__</span> <span class="o">=</span><span class="p">[</span><span class="s1">&#39;importance_sampling&#39;</span><span class="p">,</span> <span class="s1">&#39;rejection_sampling&#39;</span><span class="p">]</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;importance_sampling&#39;</span><span class="p">,</span> <span class="s1">&#39;rejection_sampling&#39;</span><span class="p">,</span> <span class="s1">&#39;MH_sampling&#39;</span><span class="p">]</span>
 
 
 <div class="viewcode-block" id="importance_sampling"><a class="viewcode-back" href="../../sampler.html#sampler.base.importance_sampling">[docs]</a><span class="k">def</span> <span class="nf">importance_sampling</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
                         <span class="n">target</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span>
                         <span class="n">proposal</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span>
-                        <span class="n">eval_func</span><span class="p">:</span> <span class="n">Func</span><span class="p">,)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+                        <span class="n">eval_func</span><span class="p">:</span> <span class="n">Func</span><span class="p">,</span>
+                        <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Importance sampling (IS) estimator to calculate the expectation of a function :math: `f(x)` with respect to a target distribution :math:`p(x)` using a proposal distribution :math:`q(x)`. The estimator is given by:</span>
 
@@ -97,56 +98,89 @@
 
 <span class="sd">        \mathbb{E}[f(x)] = \int f(x) p(x) dx \approx \frac{1}{N} \sum_{i=1}^{N} w(x_i) f(x_i)</span>
 
-<span class="sd">    where the weights are given by :math:`w(x) = \frac{p(x)}{q(x)}`. The provided ``eval_func`` can be a multi-dimensional function. The target and the proposal must be normalized.</span>
+<span class="sd">    where the weights are given by :math:`w(x) = \frac{p(x)}{q(x)}`. The provided ``eval_func`` can be a multi-dimensional function.</span>
+
+<span class="sd">    .. note:: IS works regardless of normalized or not. See Eq. (11.19) of [Bishop2006PRML]_ for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        num_samples (int): the number of samples to be drawn.</span>
 <span class="sd">        target (Distribution): the target distribution.</span>
 <span class="sd">        proposal (Distribution): the proposal distribution.</span>
 <span class="sd">        eval_func (Func): the function to be evaluated.</span>
-
 <span class="sd">    &quot;&quot;&quot;</span>
-
-    <span class="k">if</span> <span class="n">target</span><span class="o">.</span><span class="n">const</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">proposal</span><span class="o">.</span><span class="n">const</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;When using IS, the target and proposal should be normalized.&quot;</span><span class="p">)</span>
 
     <span class="n">samples</span> <span class="o">=</span> <span class="n">proposal</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">num_samples</span><span class="p">)</span>
     <span class="n">evals</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>
     <span class="n">weights</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">target</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">in_log</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">-</span> <span class="n">proposal</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">in_log</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
     <span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">evals</span><span class="o">.</span><span class="n">ndim</span><span class="p">)))</span>
-    <span class="k">return</span> <span class="p">(</span><span class="n">weights</span> <span class="o">*</span> <span class="n">evals</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+    <span class="k">if</span> <span class="n">target</span><span class="o">.</span><span class="n">norm</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">proposal</span><span class="o">.</span><span class="n">norm</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">weights</span> <span class="o">*</span> <span class="n">evals</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">weights</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">weights</span> <span class="o">*</span> <span class="n">evals</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="rejection_sampling"><a class="viewcode-back" href="../../sampler.html#sampler.base.rejection_sampling">[docs]</a><span class="k">def</span> <span class="nf">rejection_sampling</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">proposal</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<div class="viewcode-block" id="rejection_sampling"><a class="viewcode-back" href="../../sampler.html#sampler.base.rejection_sampling">[docs]</a><span class="k">def</span> <span class="nf">rejection_sampling</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">proposal</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Rejection sampling to draw samples from a target distribution :math: `\hat{p}(x)` using a proposal distribution :math: `q(x)` and a scaling factor :math: `k&gt;0`. See Section 11.1.2 of [Smith2019]_.</span>
+<span class="sd">    Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor :math: `k&gt;0`. See Section 11.1.2 of [Bishop2006PRML]_.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        num_samples (int): the number of samples to be drawn.</span>
 <span class="sd">        target (Distribution): the target distribution.</span>
 <span class="sd">        proposal (Distribution): the proposal distribution.</span>
-<span class="sd">        k (float): a positive constant such that :math: `k q(x) \geq \hat{p}(x)`.</span>
+<span class="sd">        k (float): a positive constant such that :math: `k q(x) \geq \tilde{p}(x)`.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="k">if</span> <span class="n">proposal</span><span class="o">.</span><span class="n">const</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The proposal distribution should be normalized in rejection sampling.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">k</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The scaling factor k should be positive, but got k = </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
 
+    <span class="c1"># TODO: perform the comparison in the log domain? Is it worthy to implement the squeezing function as in [Gilks1992ars]_?</span>
     <span class="n">total_num_sample</span><span class="p">,</span> <span class="n">reject_num_sample</span><span class="p">,</span> <span class="n">accept_sample</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span>
-    <span class="k">while</span> <span class="n">total_num_sample</span> <span class="o">&lt;</span> <span class="n">num_samples</span><span class="p">:</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">total_num_sample</span> <span class="o">-</span> <span class="n">reject_num_sample</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">num_samples</span><span class="p">:</span>
         <span class="n">samples</span> <span class="o">=</span> <span class="n">proposal</span><span class="o">.</span><span class="n">sample</span><span class="p">((</span><span class="n">num_samples</span> <span class="o">-</span> <span class="n">accept_sample</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">accept_sample</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">num_samples</span><span class="p">)</span>
-        <span class="n">evals</span> <span class="o">=</span> <span class="n">target</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">in_log</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
-        <span class="n">bound</span> <span class="o">=</span> <span class="n">k</span> <span class="o">*</span> <span class="n">proposal</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">in_log</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">bound</span> <span class="o">&lt;</span> <span class="n">evals</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The scaling factor is not enough to guarantee the bound.&quot;</span><span class="p">)</span>
+        <span class="n">evals</span> <span class="o">=</span> <span class="n">target</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">in_log</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">bound</span> <span class="o">=</span> <span class="n">k</span> <span class="o">*</span> <span class="n">proposal</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">in_log</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">bound</span> <span class="o">&lt;</span> <span class="n">evals</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The scaling factor k = </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> is not large enough.&quot;</span><span class="p">)</span>
         <span class="n">u</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand_like</span><span class="p">(</span><span class="n">bound</span><span class="p">)</span> <span class="o">*</span> <span class="n">bound</span>
         <span class="n">current_accept_samples</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="n">evals</span> <span class="o">&gt;</span> <span class="n">u</span><span class="p">]</span>
         <span class="k">if</span> <span class="n">accept_sample</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">accept_sample</span> <span class="o">=</span> <span class="n">current_accept_samples</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">accept_sample</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">accept_sample</span><span class="p">,</span> <span class="n">current_accept_samples</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-        <span class="n">reject_num_sample</span> <span class="o">+=</span> <span class="p">(</span><span class="n">evals</span> <span class="o">&lt;=</span> <span class="n">u</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">reject_num_sample</span> <span class="o">+=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">evals</span> <span class="o">&lt;=</span> <span class="n">u</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
         <span class="n">total_num_sample</span> <span class="o">+=</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">accept_sample</span><span class="p">[:</span><span class="n">num_samples</span><span class="p">],</span> <span class="p">{</span><span class="s1">&#39;rejection_rate&#39;</span><span class="p">:</span> <span class="n">reject_num_sample</span> <span class="o">/</span> <span class="n">total_num_sample</span><span class="p">}</span></div>
+
+
+<span class="k">def</span> <span class="nf">adaptive_rejection_sampling</span><span class="p">():</span>
+    <span class="k">pass</span>
+
+
+<div class="viewcode-block" id="MH_sampling"><a class="viewcode-back" href="../../sampler.html#sampler.base.MH_sampling">[docs]</a><span class="k">def</span> <span class="nf">MH_sampling</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">target</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">proposal</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">initial</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span>
+    <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Metropolis-Hastings (MH) sampling to draw samples from a target distribution using a proposal distribution.</span>
+
+
+<span class="sd">    Args:</span>
+<span class="sd">        num_samples (int): the number of samples to be drawn.</span>
+<span class="sd">        target (Distribution): the target distribution.</span>
+<span class="sd">        proposal (Distribution): the proposal distribution.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">samples</span><span class="p">,</span> <span class="n">num_accept</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">initial</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="mi">0</span>
+
+    <span class="k">while</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">num_samples</span><span class="p">:</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="n">proposal</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">initial</span><span class="p">)</span>
+        <span class="n">ratio</span> <span class="o">=</span> <span class="n">target</span><span class="p">(</span><span class="n">current</span><span class="p">)</span> <span class="o">*</span> <span class="n">proposal</span><span class="p">(</span><span class="n">initial</span><span class="p">,</span> <span class="n">current</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">target</span><span class="p">(</span><span class="n">initial</span><span class="p">)</span> <span class="o">*</span> <span class="n">proposal</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="n">initial</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">ratio</span><span class="p">:</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">samples</span><span class="p">,</span> <span class="n">current</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">num_accept</span><span class="p">,</span> <span class="n">initial</span> <span class="o">=</span> <span class="n">num_accept</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">current</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">samples</span><span class="p">,</span> <span class="n">initial</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">samples</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;acceptance_rate&#39;</span><span class="p">:</span> <span class="n">num_accept</span> <span class="o">/</span> <span class="p">(</span><span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)}</span></div>
 </pre></div>
 
            </div>

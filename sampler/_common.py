@@ -11,7 +11,7 @@ Func = TypeVar('Func', bound=Callable[[Union[torch.Tensor]], Union[torch.Tensor]
 
 class Distribution(ABC):
     r"""
-    Abstract class for probability density functions :math:`p(x)=c*\hat{p}(x)`. When defining a distribution using this template, the users must implement the following methods:
+    Abstract class for probability density functions :math:`p(x)=c*\tilde{p}(x)`. When defining a distribution using this template, the users must implement the following methods:
 
     - ``__init__``: the initialization method, especially setting the normalization constant :math:`c`. If the normalization constant is not known, it should be set to None. This is also the default behavior.
     - ``sample``: draw samples from the PDF.
@@ -52,7 +52,7 @@ class Distribution(ABC):
     @abstractmethod
     def evaluate_density(self, *args, **kwargs) -> torch.Tensor:
         r"""
-        Evaluate the density function :math:`\hat{p}(x|y)` at given :math:`x`. When in_log is True, the logarithm of the density function :math:`log\hat{p}(x|y)` should be returned.
+        Evaluate the density function :math:`\tilde{p}(x|y)` at given :math:`x`. When in_log is True, the logarithm of the density function :math:`log\tilde{p}(x|y)` should be returned.
 
         Args:
             x (Union[float, torch.Tensor]): the point(s) at which to evaluate the potential function.
@@ -63,7 +63,7 @@ class Distribution(ABC):
 
     def __call__(self, *args, **kwargs) -> torch.Tensor:
         r"""
-        Evaluate the probability distribution :math: `p(x|y)=c*\hat{p}(x|y)` at given :math: `x`. When the normalization constant is known, :math:`p(x|y)/logp(x|y)` will be returned if in_log is False / True. Alternatively, when the normalization constant is None, :math:`\hat{p}(x|y) / log(\hat{p}(x|y))` will be returned if in_log is False / True.
+        Evaluate the probability distribution :math: `p(x|y)=c*\tilde{p}(x|y)` at given :math: `x`. When the normalization constant is known, :math:`p(x|y)/logp(x|y)` will be returned if in_log is False / True. Alternatively, when the normalization constant is None, :math:`\tilde{p}(x|y) / log(\tilde{p}(x|y))` will be returned if in_log is False / True.
 
         Args:
             x (Union[float, torch.Tensor]): the point(s) at which to evaluate the PDF.

@@ -12,10 +12,10 @@ sampler.base module
    :undoc-members:
    :show-inheritance:
 
-sampler.common module
+sampler._common module
 ---------------------
 
-.. automodule:: sampler.common
+.. automodule:: sampler._common
    :members:
    :undoc-members:
    :show-inheritance:

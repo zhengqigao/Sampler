@@ -15,7 +15,7 @@ sampler.base module
 sampler.common module
 ---------------------
 
-.. automodule:: sampler.common
+.. automodule:: sampler._common
    :members:
    :undoc-members:
    :show-inheritance:

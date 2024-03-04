@@ -50,7 +50,7 @@ def rejection_sampling(num_samples: int, target: Distribution, proposal: Distrib
         num_samples (int): the number of samples to be drawn.
         target (Distribution): the target distribution.
         proposal (Distribution): the proposal distribution.
-        k (float): a positive constant such that :math: `k q(x) \geq \hat{p}(x)`.
+        k (float): a positive constant such that :math: `k q(x) \geq \tilde{p}(x)`.
     """
 
     if k <= 0:
@@ -91,14 +91,17 @@ def MH_sampling(num_samples: int, target: Distribution, proposal: Distribution, 
         proposal (Distribution): the proposal distribution.
     """
 
-    samples, num_accept = torch.clone(initial).view(1, -1), 0
+    initial = initial.view(1, -1)
+    samples, num_accept = torch.clone(initial), 0
 
     while samples.shape[0] < num_samples:
-        current = proposal.sample(1, y=initial)
-        ratio = target(current) * proposal(initial, current) / (target(initial) * proposal(current, initial))
-        if torch.rand(1) > ratio:
-            samples = torch.cat([samples, current], dim=0)
-            num_accept, initial = num_accept + 1, current
+        new = proposal.sample(1, y=initial)
+        ratio = target(new, in_log=True) + proposal(initial, new, in_log=True) \
+                - target(initial, in_log=True) - proposal(new, initial, in_log=True)
+        ratio = min(1, torch.exp(ratio).item())
+        if torch.rand(1) <= ratio:
+            samples = torch.cat([samples, new], dim=0)
+            num_accept, initial = num_accept + 1, new
         else:
             samples = torch.cat([samples, initial], dim=0)
     return samples, {'acceptance_rate': num_accept / (samples.shape[0] - 1)}
