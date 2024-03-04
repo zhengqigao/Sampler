@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from typing import Union, Tuple, Callable, Any, Optional
-from .common import Func, Distribution
+from ._common import Func, Distribution
 import warnings
 
 __all__ = ['importance_sampling', 'rejection_sampling', 'MH_sampling']

@@ -2,6 +2,7 @@ from typing import TypeVar, Callable, Union, Optional
 import torch
 from abc import ABC, abstractmethod
 import math
+from torch.distributions import Distribution as TorchDistribution
 
 __all__ = ['Func', 'Distribution']
 
@@ -36,7 +37,7 @@ class Distribution(ABC):
             self._norm = value
 
     @abstractmethod
-    def sample(self, num_samples: int, y: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def sample(self, *args, **kwargs) -> torch.Tensor:
         r"""
         Draw samples from the distribution :math: `p(\cdot | y)`. The samples should be of shape (num_samples, ...).
 
@@ -44,12 +45,12 @@ class Distribution(ABC):
             num_samples (int): the number of samples to be drawn.
             y (Optional[torch.Tensor]): the parameters being conditioned on. It will only be used to represent drawing samples from a conditional distribution.
         """
-        pass
+        raise NotImplementedError
+
+
 
     @abstractmethod
-    def evaluate_density(self, x: Union[float, torch.Tensor],
-                         y: Optional[torch.Tensor] = None,
-                         in_log: Optional[bool] = False) -> torch.Tensor:
+    def evaluate_density(self, *args, **kwargs) -> torch.Tensor:
         r"""
         Evaluate the density function :math:`\hat{p}(x|y)` at given :math:`x`. When in_log is True, the logarithm of the density function :math:`log\hat{p}(x|y)` should be returned.
 
@@ -58,11 +59,9 @@ class Distribution(ABC):
             y (Optional[torch.Tensor]): the parameters being conditioned on. It will be used when evaluating the density of a conditional distribution.
             in_log (bool): the returned values are in natural logarithm scale if True.
         """
-        pass
+        raise NotImplementedError
 
-    def __call__(self, x: torch.Tensor,
-                 y: Optional[torch.Tensor] = None,
-                 in_log: Optional[bool] = False) -> torch.Tensor:
+    def __call__(self, *args, **kwargs) -> torch.Tensor:
         r"""
         Evaluate the probability distribution :math: `p(x|y)=c*\hat{p}(x|y)` at given :math: `x`. When the normalization constant is known, :math:`p(x|y)/logp(x|y)` will be returned if in_log is False / True. Alternatively, when the normalization constant is None, :math:`\hat{p}(x|y) / log(\hat{p}(x|y))` will be returned if in_log is False / True.
 
@@ -72,7 +71,22 @@ class Distribution(ABC):
             in_log (bool): whether to return the logarithm of the PDF.
         """
 
-        result = self.evaluate_density(x, y, in_log)
+        result = self.evaluate_density(*args, **kwargs)
         if self.norm is not None:
-            result = result * self.norm if not in_log else result + math.log(self.norm)
+            result = result * self.norm if not kwargs['in_log'] else result + math.log(self.norm)
         return result
+
+class Wrapper(Distribution):
+    def __init__(self, distribution: TorchDistribution):
+        super().__init__()
+        self.distribution = distribution
+        self.norm = 1.0
+    def sample(self, num_samples: int) -> torch.Tensor:
+        return self.distribution.sample((num_samples,))
+
+    def evaluate_density(self, x: torch.Tensor, in_log: bool = False) -> torch.Tensor:
+        if in_log:
+            return self.distribution.log_prob(x)
+        else:
+            return torch.exp(self.distribution.log_prob(x))
+

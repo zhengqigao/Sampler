@@ -1,11 +1,10 @@
 import numpy as np
 import torch
 from sampler.base import *
-from sampler.common import Distribution
+from sampler._common import Distribution
 from typing import Optional
 
-
-test_mean = [-1,1, 0.5]
+test_mean = [-1, 1, 0.5]
 
 
 class MultiGauss(Distribution):
@@ -15,14 +14,18 @@ class MultiGauss(Distribution):
         self.std = torch.tensor(std, dtype=torch.float32)
         self.dim = len(mean)
         self.const = 1.0
-    def sample(self, num_samples: int, y = None) -> torch.Tensor:
+
+    def sample(self, num_samples: int) -> torch.Tensor:
         return torch.randn((num_samples, self.dim)) * self.std + self.mean
 
-    def evaluate_density(self, x: torch.Tensor, y = None, in_log: bool = True) -> torch.Tensor:
+    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
         if in_log:
-            return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(torch.tensor(2 * torch.pi)) * self.dim)
+            return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(
+                torch.tensor(2 * torch.pi)) * self.dim)
         else:
-            return torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)) / (torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
+            return torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)) / (
+                        torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
+
 
 target = MultiGauss(mean=test_mean, std=[1, 1, 1])
 target.const = None
