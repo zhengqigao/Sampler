@@ -4,20 +4,12 @@ from abc import ABC, abstractmethod
 import math
 from torch.distributions import Distribution as TorchDistribution
 
-__all__ = ['Func', 'Distribution', 'Wrapper']
+__all__ = ['Func', 'Distribution', 'Condistribution', 'Wrapper']
 
 Func = TypeVar('Func', bound=Callable[[Union[torch.Tensor]], Union[torch.Tensor]])
 
 
-class Distribution(ABC):
-    r"""
-    Abstract class for probability density functions :math:`p(x)=c*\tilde{p}(x)`. When defining a distribution using this template, the users must implement the following methods:
-
-    - ``__init__``: the initialization method, especially setting the normalization constant :math:`c`. If the normalization constant is not known, it should be set to None. This is also the default behavior.
-    - ``sample``: draw samples from the PDF.
-    - ``evaluate_density``: evaluate the density function :math:`g(x)` at given points.
-
-    """
+class _BaseDistribution(ABC):
 
     def __init__(self):
         self._norm = None
@@ -38,27 +30,10 @@ class Distribution(ABC):
 
     @abstractmethod
     def sample(self, *args, **kwargs) -> torch.Tensor:
-        r"""
-        Draw samples from the distribution :math: `p(\cdot | y)`. The samples should be of shape (num_samples, ...).
-
-        Args:
-            num_samples (int): the number of samples to be drawn.
-            y (Optional[torch.Tensor]): the parameters being conditioned on. It will only be used to represent drawing samples from a conditional distribution.
-        """
         raise NotImplementedError
-
-
 
     @abstractmethod
     def evaluate_density(self, *args, **kwargs) -> torch.Tensor:
-        r"""
-        Evaluate the density function :math:`\tilde{p}(x|y)` at given :math:`x`. When in_log is True, the logarithm of the density function :math:`log\tilde{p}(x|y)` should be returned.
-
-        Args:
-            x (Union[float, torch.Tensor]): the point(s) at which to evaluate the potential function.
-            y (Optional[torch.Tensor]): the parameters being conditioned on. It will be used when evaluating the density of a conditional distribution.
-            in_log (bool): the returned values are in natural logarithm scale if True.
-        """
         raise NotImplementedError
 
     def __call__(self, *args, **kwargs) -> torch.Tensor:
@@ -75,6 +50,77 @@ class Distribution(ABC):
         if self.norm is not None:
             result = result * self.norm if not kwargs['in_log'] else result + math.log(self.norm)
         return result
+
+class Distribution(_BaseDistribution):
+    r"""
+    Abstract class for probability density functions :math:`p(x)=c*\tilde{p}(x)`. When defining a distribution using this template, the users must implement the following methods:
+
+    - ``sample``: draw samples from the PDF.
+    - ``evaluate_density``: evaluate the density function at given points.
+
+    """
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def sample(self, num_samples: int) -> torch.Tensor:
+        r"""
+        Draw samples from the distribution :math: `p(\cdot)`. The samples should be of shape (num_samples, ...).
+
+        Args:
+            num_samples (int): the number of samples to be drawn.
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def evaluate_density(self, x: torch.Tensor, in_log: bool) -> torch.Tensor:
+        r"""
+        Evaluate the density function :math:`\tilde{p}(x)` at given :math:`x`. When in_log is True, the logarithm of the density function :math:`log\tilde{p}(x)` should be returned.
+
+        Args:
+            x (torch.Tensor): the point(s) at which to evaluate the potential function.
+            in_log (bool): the returned values are in natural logarithm scale if True.
+        """
+
+        raise NotImplementedError
+
+class Condistribution(_BaseDistribution):
+    r"""
+    Abstract class for probability density functions :math:`p(x|y)=c*\tilde{p}(x|y)`. When defining a distribution using this template, the users must implement the following methods:
+
+    - ``sample``: draw samples from the PDF.
+    - ``evaluate_density``: evaluate the density function at given points.
+
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    @abstractmethod
+    def sample(self, num_samples, y: torch.Tensor) -> torch.Tensor:
+        r"""
+        Draw samples from the distribution :math: `p(\cdot | y)`. The samples should be of shape (num_samples, ...).
+
+        Args:
+            num_samples (int): the number of samples to be drawn.
+            y (torch.Tensor): the parameters being conditioned on.
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def evaluate_density(self, x: torch.Tensor, y: torch.Tensor, in_log: bool) -> torch.Tensor:
+        r"""
+        Evaluate the density function :math:`\tilde{p}(x|y)` at given :math:`x`. When in_log is True, the logarithm of the density function :math:`log\tilde{p}(x|y)` should be returned.
+
+        Args:
+            x (Union[float, torch.Tensor]): the point(s) at which to evaluate the potential function.
+            y (torch.Tensor): the parameters being conditioned on.
+            in_log (bool): the returned values are in natural logarithm scale if True.
+        """
+
+        raise NotImplementedError
 
 
 class Wrapper(Distribution):

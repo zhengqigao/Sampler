@@ -1,12 +1,12 @@
 from sampler.base import *
 import torch
-from sampler._common import Wrapper, Distribution
+from sampler._common import Wrapper, Distribution, Condistribution
 import matplotlib.pyplot as plt
 
 
 
 
-class ConditionalMultiGauss(Distribution):
+class ConditionalMultiGauss(Condistribution):
     def __init__(self, std):
         super().__init__()
         self.std = torch.tensor(std, dtype=torch.float32)

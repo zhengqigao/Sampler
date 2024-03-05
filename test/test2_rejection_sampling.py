@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from sampler.base import *
-from sampler._common import Distribution
+from sampler._common import Distribution, Condistribution
 from typing import Optional
 
 test_mean = [-1, 1, 0.5]

@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from typing import Union, Tuple, Callable, Any, Optional, List
-from ._common import Func, Distribution
+from ._common import Func, Distribution, Condistribution
 import warnings
 
 __all__ = ['importance_sampling', 'rejection_sampling', 'mh_sampling', 'gibbs_sampling']
@@ -81,7 +81,7 @@ def adaptive_rejection_sampling():
 
 def mh_sampling(num_samples: int,
                 target: Distribution,
-                proposal: Distribution,
+                proposal: Condistribution,
                 initial: torch.Tensor,
                 burn_in: Optional[int] = 0) -> Tuple[torch.Tensor, Any]:
     r"""
@@ -96,8 +96,7 @@ def mh_sampling(num_samples: int,
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
     """
 
-    ## TODO: should we introduce a conditional distribution class for clearness? Because the proposal must be a conditional distribution.
-
+    ## TODO: is there a batched version of MH sampling? Every time only one new sample is generated, which is not efficient.
     if burn_in < 0:
         raise ValueError(f"The number of burn-in samples should be non-negative, but got burn_in = {burn_in}.")
 
@@ -118,7 +117,7 @@ def mh_sampling(num_samples: int,
 
 
 def gibbs_sampling(num_samples: int,
-                   condis: Union[Tuple[Distribution], List[Distribution], Distribution],
+                   condis: Union[Tuple[Condistribution], List[Condistribution], Condistribution],
                    initial: torch.Tensor,
                    burn_in: Optional[int] = 0) -> Tuple[torch.Tensor, Any]:
     r"""
@@ -130,7 +129,7 @@ def gibbs_sampling(num_samples: int,
 
     Args:
         num_samples (int): the number of samples to be drawn.
-        condis (Union[Tuple[Distribution], List[Distribution], Distribution]): the conditional distributions.
+        condis (Union[Tuple[Condistribution], List[Condistribution], Condistribution]): the conditional distributions.
         initial (torch.Tensor): the initial point to start the sampling process.
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
     """
@@ -148,11 +147,11 @@ def gibbs_sampling(num_samples: int,
             mask[j] = False
             if isinstance(condis, (tuple, list)):
                 initial[j] = condis[j].sample(1, y=samples[i][mask])
-            elif isinstance(condis, Distribution):
+            elif isinstance(condis, Condistribution):
                 initial[j] = condis.sample(1, y=samples[i][mask])
             else:
                 raise ValueError(
-                    f"The conditional distribution should be a Distribution object or a tuple/list of Distribution objects, but got {type(condis)}.")
+                f"The conditional distributions should be a tuple, list or a single instance of Condistribution, but got {type(condis)}.")
             mask[j] = True
         samples = torch.cat([samples, initial], dim=0)
     return samples[burn_in:], None
