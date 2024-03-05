@@ -9,7 +9,11 @@ setup(
     author='Zhengqi Gao',
     author_email='zhengqi@mit.edu',
     description='A python package for various sampling methods',
+    long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
     install_requires=[
-        # List of dependencies, if any
+        "torch",
     ],
+    python_requires='>=2.8',
 )
+
