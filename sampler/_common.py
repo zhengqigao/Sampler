@@ -23,14 +23,17 @@ class _BaseDistribution(ABC):
 
     @norm.setter
     def norm(self, value):
-        if value is not None and value <= 0:
-            raise ValueError("The normalization constant must be positive.")
+        if value is None:
+            self._norm = None
+        elif isinstance(value, (int, float)) and value > 0:
+            self._norm = float(value)
         else:
-            self._norm = value
+            raise ValueError("The normalization constant must be a positive scalar.")
 
     @abstractmethod
     def sample(self, *args, **kwargs) -> torch.Tensor:
         raise NotImplementedError
+
 
     @abstractmethod
     def evaluate_density(self, *args, **kwargs) -> torch.Tensor:
@@ -38,12 +41,8 @@ class _BaseDistribution(ABC):
 
     def __call__(self, *args, **kwargs) -> torch.Tensor:
         r"""
-        Evaluate the probability distribution :math: `p(x|y)=c*\tilde{p}(x|y)` at given :math: `x`. When the normalization constant is known, :math:`p(x|y)/logp(x|y)` will be returned if in_log is False / True. Alternatively, when the normalization constant is None, :math:`\tilde{p}(x|y) / log(\tilde{p}(x|y))` will be returned if in_log is False / True.
+        Evaluate the probability distribution.
 
-        Args:
-            x (Union[float, torch.Tensor]): the point(s) at which to evaluate the PDF.
-            y (Optional[torch.Tensor]): the parameters being conditioned on. It will be used when evaluating the density of a conditional distribution.
-            in_log (bool): whether to return the logarithm of the PDF.
         """
 
         result = self.evaluate_density(*args, **kwargs)
@@ -79,7 +78,7 @@ class Distribution(_BaseDistribution):
         Evaluate the density function :math:`\tilde{p}(x)` at given :math:`x`. When in_log is True, the logarithm of the density function :math:`log\tilde{p}(x)` should be returned.
 
         Args:
-            x (torch.Tensor): the point(s) at which to evaluate the potential function.
+            x (torch.Tensor): the point(s) at which to evaluate the density function.
             in_log (bool): the returned values are in natural logarithm scale if True.
         """
 
@@ -100,7 +99,7 @@ class Condistribution(_BaseDistribution):
     @abstractmethod
     def sample(self, num_samples, y: torch.Tensor) -> torch.Tensor:
         r"""
-        Draw samples from the distribution :math: `p(\cdot | y)`. The samples should be of shape (num_samples, ...).
+        Draw samples from the distribution :math: `p(\cdot | y)`. The samples should be of shape (num_samples, ...). If y.shape[0] == 1, then we draw samples based on this y. When y.shape[0] > 1, it is assumed that we will draw `num_samples` samples from p(\cdot|y[i,...]), and the returned samples should be of shape (y.shape[0], num_samples, ...).
 
         Args:
             num_samples (int): the number of samples to be drawn.
@@ -115,7 +114,7 @@ class Condistribution(_BaseDistribution):
         Evaluate the density function :math:`\tilde{p}(x|y)` at given :math:`x`. When in_log is True, the logarithm of the density function :math:`log\tilde{p}(x|y)` should be returned.
 
         Args:
-            x (Union[float, torch.Tensor]): the point(s) at which to evaluate the potential function.
+            x (torch.Tensor): the point(s) at which to evaluate the potential function.
             y (torch.Tensor): the parameters being conditioned on.
             in_log (bool): the returned values are in natural logarithm scale if True.
         """
