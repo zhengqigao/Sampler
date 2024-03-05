@@ -24,17 +24,17 @@ print("Test mean:", results)
 
 ```
 
-## Comprehensive List of Algorithms
+## List of Algorithms
 
 This section lists the algorithms that have been implemented and the algorithms that will be implemented in the future. This section will be updated regularly as new algorithms are added. We use <font color='red'>[c]</font>, <font color='red'>[d]</font>, and <font color='red'>[r]</font> to represent classical, deep learning-based, and rare event samplers, respectively.
 
 
 The following algorithms have been implemented:
 
-- [Importance sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) <font color='red'>[c]</font>
-- [Rejection sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) <font color='red'>[c]</font>
-- [Metropolis-Hastings sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) <font color='red'>[c]</font>
-- [Gibbs sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) <font color='red'>[c]</font>
+- [Importance sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) :cat:
+- [Rejection sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) :cat:
+- [Metropolis-Hastings sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) :cat:
+- [Gibbs sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) :cat:
 
 The following algorithms will be implemented:
 
