@@ -53,6 +53,6 @@ The following algorithms will be implemented:
 
 - [Annealed importance sampling](https://arxiv.org/abs/physics/9803008) :cat:
 
-The following modifications should be performed:
+## Development TODOs:
 
-- [zhengqi] Add sanity check from the developer side for conditional sampling function.
+- [zhengqi] Add sanity check from the developer side for conditional sampling function in the ConDistribution class.
