@@ -26,7 +26,7 @@ print("Test mean:", results)
 
 ## List of Algorithms
 
-This section lists the algorithms that have been implemented and the algorithms that will be implemented in the future. This section will be updated regularly as new algorithms are added. We use :cat:, :dog:, and :rabbit: to represent classical, deep learning-based, and rare event samplers, respectively, because cat, dog, and rabbit have the same first letter as classical, deep learning-based, and rare event samplers, respectively. Note that this categories might be updated along development.
+This section lists the algorithms that have been implemented and the algorithms that will be implemented in the future. This section will be updated regularly as new algorithms are added. We use :cat:, :dog:, and :rabbit: to represent classical, deep learning-based, and rare event samplers, respectively, noticing the first characters are c, d, and r.
 
 
 The following algorithms have been implemented:
@@ -39,4 +39,4 @@ The following algorithms have been implemented:
 The following algorithms will be implemented:
 
 - [Annealed importance sampling](https://arxiv.org/abs/physics/9803008) :cat:
-- 
+

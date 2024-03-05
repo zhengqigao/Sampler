@@ -125,8 +125,7 @@ def gibbs_sampling(num_samples: int,
     Gibbs sampling to draw samples given conditional distributions. See Section 11.3 of [Bishop2006PRML]_.
 
 
-    .. note:: Even though given all those conditional probabilities, it is still impossible to directly evaluate the
-    joint distribution density. However, Gibbs sampling provides a way to draw samples from the joint distribution.
+    .. note:: Even though given all those conditional probabilities, it is still impossible to directly evaluate the joint distribution density. However, Gibbs sampling provides a way to draw samples from the joint distribution.
 
 
     Args:
