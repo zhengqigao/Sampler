@@ -4,12 +4,23 @@
 
 This library is dedicated to providing a comprehensive collection of sampling methods, including but not limited to classical sampling techniques, deep learning-based samplers, and rare event samplers. It is designed with PyTorch data formats in mind for seamless integration into modern machine learning workflows. **It is under active development and will be updated daily.** 
 
+## Installation
+
+To install the package, the `pip` command is needed.
+
+```bash
+
+pip install git+https://github.com/zhengqigao/Sampler.git
+
+```
+
 ## Quick Example
 
 ```python
 import torch
 from torch.distributions import MultivariateNormal
-from sampler import importance_sampling, Wrapper
+from sampler.base import importance_sampling
+from sampler._common import Wrapper
 
 # define the target and proposal distributions using the Wrapper class
 target = Wrapper(MultivariateNormal(torch.Tensor([-1,1,0.5]), torch.eye(3)))
