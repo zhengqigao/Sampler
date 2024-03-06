@@ -4,7 +4,7 @@ from sampler.base import *
 from sampler._common import Distribution
 from typing import Optional
 from torch.distributions.multivariate_normal import MultivariateNormal
-from sampler._common import Wrapper
+from sampler.distribution import Wrapper
 
 test_mean = torch.Tensor([-1, 1, 0.5])
 

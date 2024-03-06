@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod, ABCMeta
 import math
 from torch.distributions import Distribution as TorchDistribution
 
-__all__ = ['Func', 'Distribution', 'Condistribution', 'Wrapper', '_BaseDistribution']
+__all__ = ['Func', 'Distribution', 'Condistribution', '_BaseDistribution']
 
 Func = TypeVar('Func', bound=Callable[[Union[torch.Tensor]], Union[torch.Tensor]])
 
@@ -14,8 +14,7 @@ def _sample_checker(func, cls_name):
 
         samples = func(*args, **kwargs)
         num_samples_expected = kwargs['num_samples'] if 'num_samples' in kwargs.keys() else args[1]
-        num_condis_samples = kwargs['y'] if 'y' in kwargs.keys() else args[1].shape[0]
-        # returned samples should be of shape (num_condis_samples, num_samples_expected, ...)
+        num_condis_samples = (kwargs['y'] if 'y' in kwargs.keys() else args[1]).shape[0]
 
         if not isinstance(samples, torch.Tensor):
             raise ValueError("The returned samples must be of type torch.Tensor.")
@@ -31,7 +30,7 @@ def _sample_checker(func, cls_name):
             raise ValueError("The returned samples must be of type torch.Tensor.")
         elif samples.ndim < 2:
             raise ValueError("The returned samples must be of shape (num_samples, ...), with at least two dims.")
-        elif samples.shape[0] != args[1].shape[0]:
+        elif samples.shape[0] != num_samples_expected:
             raise ValueError(f"The number of samples drawn is {samples.shape[0]}, but it should be {num_samples_expected}.")
         return samples
 
@@ -49,8 +48,8 @@ def _density_checker(func, cls_name):
         num_condis_expected = (kwargs['y'] if 'y' in kwargs.keys() else args[2]).shape[0]
         if not isinstance(density, torch.Tensor):
             raise ValueError("The returned density must be of type torch.Tensor.")
-        elif density.ndim >= 3 or density.shape[0] != num_density_expected:
-            raise ValueError(f"The returned density must be of shape (x.shape[0],y.shape[0]), i.e., ({num_density_expected},{num_condis_expected}), but got {density.shape}.")
+        elif density.ndim >= 3 or density.shape[0] != num_density_expected or density.shape[1] != num_condis_expected:
+            raise ValueError(f"The returned density must be of shape (x.shape[0],y.shape[0]), i.e., ({num_density_expected}, {num_condis_expected}), but got {tuple(density.shape)}.")
         return density
     def _wrapp_uncondtional_density(*args, **kwargs):
         density = func(*args, **kwargs)
@@ -58,7 +57,7 @@ def _density_checker(func, cls_name):
         if not isinstance(density, torch.Tensor):
             raise ValueError("The returned density must be of type torch.Tensor.")
         elif density.ndim >= 2 or density.shape[0] != num_density_expected:
-            raise ValueError(f"The returned density must be of shape (x.shape[0],), but got {density.shape}.")
+            raise ValueError(f"The returned density must be of shape (x.shape[0],), but got {tuple(density.shape)}.")
         return density
 
     if cls_name == "Condistribution":
@@ -72,11 +71,9 @@ def _density_checker(func, cls_name):
 class _Meta(ABCMeta):
     def __new__(cls, name, bases, dct):
         if 'sample' in dct and hasattr(bases[0], 'sample'):
-            # Apply the decorator to the sample method in B if it exists in A
-            # Get the base class name
             base_cls_name = bases[0].__name__
             dct['sample'] = _sample_checker(dct['sample'], base_cls_name)
-        elif 'evaluate_density' in dct and hasattr(bases[0], 'evaluate_density'):
+        if 'evaluate_density' in dct and hasattr(bases[0], 'evaluate_density'):
             base_cls_name = bases[0].__name__
             dct['evaluate_density'] = _density_checker(dct['evaluate_density'], base_cls_name)
         return super().__new__(cls, name, bases, dct)
@@ -197,19 +194,3 @@ class Condistribution(_BaseDistribution):
         """
 
         raise NotImplementedError
-
-
-class Wrapper(Distribution):
-    def __init__(self, distribution: TorchDistribution):
-        super().__init__()
-        self.distribution = distribution
-        self.norm = 1.0
-
-    def sample(self, num_samples: int) -> torch.Tensor:
-        return self.distribution.sample((num_samples,))
-
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = False) -> torch.Tensor:
-        if in_log:
-            return self.distribution.log_prob(x)
-        else:
-            return torch.exp(self.distribution.log_prob(x))

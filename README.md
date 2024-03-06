@@ -22,10 +22,10 @@ pip install git+https://github.com/zhengqigao/Sampler.git
 import torch
 from torch.distributions import MultivariateNormal
 from sampler.base import importance_sampling
-from sampler._common import Wrapper
+from sampler.distribution import Wrapper
 
 # define the target and proposal distributions using the Wrapper class
-target = Wrapper(MultivariateNormal(torch.Tensor([-1,1,0.5]), torch.eye(3)))
+target = Wrapper(MultivariateNormal(torch.Tensor([-1, 1, 0.5]), torch.eye(3)))
 proposal = Wrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
 
 # define a function to estimate the expectation of

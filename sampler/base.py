@@ -104,7 +104,7 @@ def mh_sampling(num_samples: int,
     samples, num_accept = torch.clone(initial), 0
 
     while samples.shape[0] < num_samples + burn_in:
-        new = proposal.sample(1, y=initial)
+        new = proposal.sample(1, y=initial).view(initial.shape)
         ratio = target(new, in_log=True) + proposal(initial, new, in_log=True) \
                 - target(initial, in_log=True) - proposal(new, initial, in_log=True)
         ratio = min(1, torch.exp(ratio).item())
@@ -146,9 +146,9 @@ def gibbs_sampling(num_samples: int,
         for j in range(dim):
             mask[j] = False
             if isinstance(condis, (tuple, list)):
-                initial[j] = condis[j].sample(1, y=samples[i][mask])
+                initial[j] = condis[j].sample(1, y=samples[i][mask]).view(1, -1)
             elif isinstance(condis, Condistribution):
-                initial[j] = condis.sample(1, y=samples[i][mask])
+                initial[j] = condis.sample(1, y=samples[i][mask]).view(1, -1)
             else:
                 raise ValueError(
                 f"The conditional distributions should be a tuple, list or a single instance of Condistribution, but got {type(condis)}.")

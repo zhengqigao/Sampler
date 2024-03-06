@@ -1,8 +1,8 @@
 from sampler.base import *
 import torch
-from sampler._common import Wrapper, Distribution, Condistribution
+from sampler._common import Distribution, Condistribution
 import matplotlib.pyplot as plt
-
+from sampler.distribution import Wrapper
 
 
 
@@ -14,14 +14,21 @@ class ConditionalMultiGauss(Condistribution):
         self.const = 1.0
 
     def sample(self, num_samples: int, y) -> torch.Tensor:
-        return (torch.randn((num_samples, self.dim)) * self.std + y).view(num_samples, y.shape[0], -1)
+        # y has shape (m, d)
+        # return shape (num_samples, m, d) with y as the mean
+        assert len(y.shape) == 2 and y.shape[1] == self.dim
+        return torch.randn((num_samples, y.shape[0], y.shape[1])) * self.std + y
 
     def evaluate_density(self, x: torch.Tensor, y: torch.Tensor, in_log: bool = True) -> torch.Tensor:
+        # x is of shape (N,d), y is of shape (M,d)
+        # return shape (N,M)
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
         if in_log:
-            return -0.5 * (torch.sum(((x - y) / self.std) ** 2, dim=1) + torch.log(
+            return -0.5 * (torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(
                 torch.tensor(2 * torch.pi)) * self.dim)
         else:
-            return torch.exp(-0.5 * torch.sum(((x - y) / self.std) ** 2, dim=1)) / (
+            return torch.exp(-0.5 * torch.sum(((x - y) / self.std) ** 2, dim=2)) / (
                     torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
 
 class UnconditionalMultiGauss(Distribution):
