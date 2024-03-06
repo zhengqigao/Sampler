@@ -14,7 +14,7 @@ class ConditionalMultiGauss(Condistribution):
         self.const = 1.0
 
     def sample(self, num_samples: int, y) -> torch.Tensor:
-        return torch.randn((num_samples, self.dim)) * self.std + y
+        return (torch.randn((num_samples, self.dim)) * self.std + y).view(num_samples, y.shape[0], -1)
 
     def evaluate_density(self, x: torch.Tensor, y: torch.Tensor, in_log: bool = True) -> torch.Tensor:
         if in_log:

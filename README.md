@@ -55,4 +55,4 @@ The following algorithms will be implemented:
 
 ## Development TODOs:
 
-- [zhengqi] Add sanity check from the developer side for conditional sampling function in the ConDistribution class.
+- [zhengqi] Add sanity check from the developer side for conditional sampling function in the Condistribution class.
