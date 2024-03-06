@@ -3,6 +3,7 @@ import torch
 from typing import Union, Tuple, Callable, Any, Optional, List
 from ._common import Func, Distribution, Condistribution
 import warnings
+from ._utils import _alias
 
 __all__ = ['importance_sampling', 'rejection_sampling', 'mh_sampling', 'gibbs_sampling']
 
@@ -155,3 +156,7 @@ def gibbs_sampling(num_samples: int,
             mask[j] = True
         samples = torch.cat([samples, initial], dim=0)
     return samples[burn_in:], None
+
+
+def annealed_importance_sampling():
+    pass
