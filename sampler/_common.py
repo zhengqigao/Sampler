@@ -20,7 +20,7 @@ def _sample_checker(func, cls_name):
             raise ValueError("The returned samples must be of type torch.Tensor.")
         elif samples.ndim < 3:
             raise ValueError("The returned samples must be of shape (num_samples, y.shape[0], ...), with at least three dims.")
-        elif samples.shape[1] != num_samples_expected or samples.shape[0] != num_condis_samples:
+        elif samples.shape[0] != num_samples_expected or samples.shape[1] != num_condis_samples:
             raise ValueError(f"The shape of returned samples is ({samples.shape[0]}, {samples.shape[1]}, ...), but it should be (num_samples, y.shape[0], ...), i.e., ({num_samples_expected},{num_condis_samples}, ...).")
         return samples
     def _wrapp_uncondtional_sample(*args, **kwargs):
@@ -57,7 +57,7 @@ def _density_checker(func, cls_name):
         if not isinstance(density, torch.Tensor):
             raise ValueError("The returned density must be of type torch.Tensor.")
         elif density.ndim >= 2 or density.shape[0] != num_density_expected:
-            raise ValueError(f"The returned density must be of shape (x.shape[0],), but got {tuple(density.shape)}.")
+            raise ValueError(f"The returned density must be of shape (x.shape[0],), i.e., ({num_density_expected},), but got {tuple(density.shape)}.")
         return density
 
     if cls_name == "Condistribution":

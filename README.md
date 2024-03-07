@@ -4,11 +4,11 @@
 
 This library is dedicated to providing a comprehensive collection of sampling methods, including but not limited to classical sampling techniques, deep learning-based samplers, and rare event samplers. It is designed with PyTorch data formats in mind for seamless integration into modern machine learning workflows. 
 
-**This project is under active development and will be updated daily.** At this point, the implemented functions are in Beta stage. Things (functions, code structures, documentations, even the library name) might be subjected to change without notice. If you are interested in using the library, we suggest to take a try and check back constantly for updates. Also, please feel free to raise an issue for any bugs or feature requests.
+**This project is under active development and will be updated daily.** At this point, the implemented functions are in Beta stage. Things (functions, code structures, documentations, even the library name) might be subjected to change without notice. If you are interested in using the library, we suggest to take a try and check back later for updates. Also, please feel free to raise an issue for any bugs or feature requests. 
 
 ## Installation
 
-To install the package, the `pip` command is needed.
+When we believe the library is stable enough, we will release the first version on pypi and conda. For now, to install the package, the `pip` command is needed.
 
 ```bash
 
@@ -28,7 +28,7 @@ from sampler.distribution import Wrapper
 target = Wrapper(MultivariateNormal(torch.Tensor([-1, 1, 0.5]), torch.eye(3)))
 proposal = Wrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
 
-# define a function to estimate the expectation of
+# define a function to estimate the expectation of. It can be a multi-dimensional function. In this example, we consider a R^3 to R^3 identity function.
 f = lambda x: x
 
 # use proposal to estimate the expectation of f with respect to the target
@@ -52,7 +52,3 @@ The following algorithms have been implemented:
 The following algorithms will be implemented:
 
 - [Annealed importance sampling](https://arxiv.org/abs/physics/9803008) :cat:
-
-## Development TODOs:
-
-- [zhengqi] Add sanity check from the developer side for conditional sampling function in the Condistribution class.

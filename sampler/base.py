@@ -5,7 +5,6 @@ from ._common import Func, Distribution, Condistribution
 import warnings
 from ._utils import _alias
 
-__all__ = ['importance_sampling', 'rejection_sampling', 'mh_sampling', 'gibbs_sampling']
 
 
 def importance_sampling(num_samples: int,
@@ -39,7 +38,7 @@ def importance_sampling(num_samples: int,
     if target.norm is None or proposal.norm is None:
         return (weights * evals).mean(0) / weights.mean(0)
     else:
-        return (weights * evals).mean(0)
+        return (weights * evals).mean(0) / (proposal.norm / target.norm)
 
 
 def rejection_sampling(num_samples: int, target: Distribution, proposal: Distribution, k: float) -> Tuple[
@@ -82,7 +81,7 @@ def adaptive_rejection_sampling():
 
 def mh_sampling(num_samples: int,
                 target: Distribution,
-                proposal: Condistribution,
+                transit: Condistribution,
                 initial: torch.Tensor,
                 burn_in: Optional[int] = 0) -> Tuple[torch.Tensor, Any]:
     r"""
@@ -92,7 +91,7 @@ def mh_sampling(num_samples: int,
     Args:
         num_samples (int): the number of samples to be drawn.
         target (Distribution): the target distribution.
-        proposal (Distribution): the proposal distribution.
+        transit (Distribution): the transition distribution.
         initial (torch.Tensor): the initial point to start the sampling process.
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
     """
@@ -105,9 +104,9 @@ def mh_sampling(num_samples: int,
     samples, num_accept = torch.clone(initial), 0
 
     while samples.shape[0] < num_samples + burn_in:
-        new = proposal.sample(1, y=initial).view(initial.shape)
-        ratio = target(new, in_log=True) + proposal(initial, new, in_log=True) \
-                - target(initial, in_log=True) - proposal(new, initial, in_log=True)
+        new = transit.sample(1, y=initial).view(initial.shape)
+        ratio = target(new, in_log=True) + transit(initial, new, in_log=True) \
+                - target(initial, in_log=True) - transit(new, initial, in_log=True)
         ratio = min(1, torch.exp(ratio).item())
         if torch.rand(1) <= ratio:
             samples = torch.cat([samples, new], dim=0)
@@ -152,11 +151,65 @@ def gibbs_sampling(num_samples: int,
                 initial[j] = condis.sample(1, y=samples[i][mask]).view(1, -1)
             else:
                 raise ValueError(
-                f"The conditional distributions should be a tuple, list or a single instance of Condistribution, but got {type(condis)}.")
+                    f"The conditional distributions should be a tuple, list or a single instance of Condistribution, but got {type(condis)}.")
             mask[j] = True
         samples = torch.cat([samples, initial], dim=0)
     return samples[burn_in:], None
 
 
-def annealed_importance_sampling():
-    pass
+def annealed_importance_sampling(num_samples: int,
+                                 target: Distribution,
+                                 base: Distribution,
+                                 transit: Union[List[Condistribution], Tuple[Condistribution], Condistribution],
+                                 eval_func: Func,
+                                 annealing_sequence: Union[Tuple[float], List[float]]) -> float:
+    r"""
+    Annealed importance sampling (AIS) estimator to calculate the expectation of a function :math: `f(x)` with respect to a target distribution :math:`p(x)` using a sequence of intermediate distributions :math:`p_N(x), p_{N-1}(x), ..., p_0(x)`, where :math:`p_j(x) = p^{\beta_j}_{0}(x) p^{(1-\beta_j)}_{N}(x)`. See [Neal2001ais]_.
+
+
+    Args:
+        num_samples (int): the number of samples to be drawn.
+        target (Distribution): the target distribution that the expectation to be estimated with respect to.
+        base (Distribution): the base distribution.
+        transit (Union[List[Condistribution], Tuple[Condistribution], Condistribution]): the transition distributions.
+        eval_func (Func): the function to be evaluated.
+        annealing_sequence (Union[Tuple[float], List[float]]): the annealing sequence.
+    """
+
+    if not isinstance(annealing_sequence, (tuple, list)):
+        raise ValueError(f"The annealing sequence should be a tuple or a list, but got {type(annealing_sequence)}.")
+    else:
+        for i in range(len(annealing_sequence) - 1):
+            if annealing_sequence[i] >= annealing_sequence[i + 1]:
+                raise ValueError(f"The annealing sequence should be strictly increasing.")
+        if annealing_sequence[0] != 0:
+            annealing_sequence = [0] + list(annealing_sequence)
+        if annealing_sequence[-1] != 1:
+            annealing_sequence = list(annealing_sequence) + [1]
+
+
+    num_transit = len(annealing_sequence) - 1
+
+    if isinstance(num_transit, (tuple, list)) and len(transit) != num_transit - 1:
+        raise ValueError(f"The number of transition distributions should equal "
+                         f"the length of the annealing sequence, i.e.,"
+                         f" {num_transit - 1}, but got {len(transit)}.")
+
+
+    annealed_criterion = lambda logpt, logpb, beta: beta * logpt + (1 - beta) * logpb
+
+    for n in range(num_transit):
+        if n == 0:
+            current = base.sample(num_samples)
+            t, b = target(current, in_log = True), base(current, in_log = True)
+            weight = annealed_criterion(t, b, annealing_sequence[n]) - annealed_criterion(t, b, annealing_sequence[n+1])
+        else:
+            current_transit = transit if isinstance(transit, Condistribution) else transit[n]
+            new = current_transit.sample(1, y=current).squeeze(0)
+            t, b = target(new, in_log = True), base(new, in_log = True)
+            weight = weight + annealed_criterion(t, b, annealing_sequence[n]) - annealed_criterion(t, b, annealing_sequence[n+1])
+            current = new
+
+    evals = eval_func(current)
+    weight = torch.exp(weight).view(-1, *tuple(range(1, evals.ndim)))
+    return (weight * evals).mean(0) / weight.mean(0)
