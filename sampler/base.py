@@ -157,6 +157,7 @@ def gibbs_sampling(num_samples: int,
     return samples[burn_in:], None
 
 
+## TODO: debug this function
 def annealed_importance_sampling(num_samples: int,
                                  target: Distribution,
                                  base: Distribution,
@@ -190,7 +191,7 @@ def annealed_importance_sampling(num_samples: int,
 
     num_transit = len(annealing_sequence) - 1
 
-    if isinstance(num_transit, (tuple, list)) and len(transit) != num_transit - 1:
+    if isinstance(transit, (tuple, list)) and len(transit) != num_transit - 1:
         raise ValueError(f"The number of transition distributions should equal "
                          f"the length of the annealing sequence, i.e.,"
                          f" {num_transit - 1}, but got {len(transit)}.")
@@ -201,13 +202,14 @@ def annealed_importance_sampling(num_samples: int,
     for n in range(num_transit):
         if n == 0:
             current = base.sample(num_samples)
-            t, b = target(current, in_log = True), base(current, in_log = True)
-            weight = annealed_criterion(t, b, annealing_sequence[n]) - annealed_criterion(t, b, annealing_sequence[n+1])
+            logpt, logpb = target(current, in_log = True), base(current, in_log = True)
+            weight = annealed_criterion(logpt, logpb, annealing_sequence[n+1]) - annealed_criterion(logpt, logpb, annealing_sequence[n])
         else:
             current_transit = transit if isinstance(transit, Condistribution) else transit[n]
             new = current_transit.sample(1, y=current).squeeze(0)
-            t, b = target(new, in_log = True), base(new, in_log = True)
-            weight = weight + annealed_criterion(t, b, annealing_sequence[n]) - annealed_criterion(t, b, annealing_sequence[n+1])
+            logpt, logpb = target(new, in_log = True), base(new, in_log = True)
+            weight = weight + annealed_criterion(logpt, logpb, annealing_sequence[n+1]) \
+                     - annealed_criterion(logpt, logpb, annealing_sequence[n])
             current = new
 
     evals = eval_func(current)
