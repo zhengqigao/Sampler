@@ -5,4 +5,3 @@ sampler
    :maxdepth: 4
 
    sampler
-   references

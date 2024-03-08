@@ -22,8 +22,7 @@ class MultiGauss(Distribution):
 
     def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
         if in_log:
-            return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(
-                torch.tensor(2 * torch.pi)) * self.dim)
+            return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(2 * torch.pi * self.std * self.std).sum())
         else:
             return torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)) / (
                     torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))

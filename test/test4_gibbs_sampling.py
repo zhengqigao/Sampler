@@ -23,8 +23,7 @@ class ConditionalMultiGauss(Condistribution):
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
         if in_log:
-            return -0.5 * (torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(
-                torch.tensor(2 * torch.pi)) * self.dim)
+            return -0.5 * (torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(2 * torch.pi * self.std * self.std).sum())
         else:
             return torch.exp(-0.5 * torch.sum(((x - y) / self.std) ** 2, dim=2)) / (
                     torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))

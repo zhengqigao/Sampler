@@ -16,3 +16,5 @@ class Wrapper(Distribution):
             return self.distribution.log_prob(x)
         else:
             return torch.exp(self.distribution.log_prob(x))
+
+

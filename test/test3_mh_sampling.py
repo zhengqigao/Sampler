@@ -25,8 +25,7 @@ class ConditionalMultiGauss(Condistribution):
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
         if in_log:
-            return -0.5 * (torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(
-                torch.tensor(2 * torch.pi)) * self.dim)
+            return -0.5 * (torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(2 * torch.pi * self.std * self.std).sum())
         else:
             return torch.exp(-0.5 * torch.sum(((x - y) / self.std) ** 2, dim=2)) / (
                     torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
@@ -44,8 +43,7 @@ class UnconditionalMultiGauss(Distribution):
 
     def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
         if in_log:
-            return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(
-                torch.tensor(2 * torch.pi)) * self.dim)
+            return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(2 * torch.pi * self.std * self.std).sum())
         else:
             return torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)) / (
                     torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
@@ -53,10 +51,11 @@ class UnconditionalMultiGauss(Distribution):
 
 gauss1 = ConditionalMultiGauss(std = [1, 1])
 gauss2 = UnconditionalMultiGauss([-1,1], [1, 1])
-results, info = mh_sampling(10000, gauss2, gauss1, torch.zeros((1, 2)))
+results, info = mh_sampling(10000, gauss2, gauss1, torch.zeros((3, 2))) # 3 different MC chains, each grown by MH independently
 
-plt.figure()
-plt.scatter(results[:, 0], results[:, 1], s=1)
+for batch_index in range(results.shape[1]):
+    plt.figure()
+    plt.scatter(results[:, batch_index, 0], results[:, batch_index, 1], s=1)
 plt.show()
 
 print(f"info['acceptance_rate'] = {info['acceptance_rate']}")
