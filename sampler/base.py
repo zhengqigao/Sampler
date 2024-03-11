@@ -11,6 +11,7 @@ def importance_sampling(num_samples: int,
                         proposal: Distribution,
                         eval_func: Func,
                         ) -> float:
+
     r"""
     Importance sampling (IS) estimator to calculate the expectation of a function :math: `f(x)` with respect to a target distribution :math:`p(x)` using a proposal distribution :math:`q(x)`. The estimator is given by:
 
@@ -28,7 +29,6 @@ def importance_sampling(num_samples: int,
         proposal (Distribution): the proposal distribution.
         eval_func (Func): the function to be evaluated.
     """
-
     samples = proposal.sample(num_samples)
     evals = eval_func(samples)
     weights = torch.exp(target(samples, in_log=True) - proposal(samples, in_log=True))
@@ -96,7 +96,6 @@ def mh_sampling(num_samples: int,
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
     """
 
-    ## TODO: is there a batched version of MH sampling? Every time only one new sample is generated, which is not efficient.
     if burn_in < 0:
         raise ValueError(f"The number of burn-in samples should be non-negative, but got burn_in = {burn_in}.")
     if num_samples <= 0:

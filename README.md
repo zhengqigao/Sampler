@@ -39,7 +39,7 @@ print("Test mean:", results)
 
 ## List of Algorithms
 
-This section lists the algorithms that have been implemented and the algorithms that will be implemented in the future. This section will be updated regularly as new algorithms are added. We use :cat:, :dog:, and :rabbit: to represent classical, deep learning-based, and rare event samplers, respectively, noticing the first characters are c, d, and r.
+This section lists the algorithms that have been implemented and the algorithms that will be implemented in the future. This section will be updated regularly as new algorithms are added. We use :cat:, :dog:, and :rabbit: to represent classical, deep learning-based, and rare event samplers, respectively, noticing the first characters are c, d, and r. We use :tea: to represent the algorithms that have been tested.
 
 
 The following algorithms have been implemented:
@@ -49,3 +49,18 @@ The following algorithms have been implemented:
 - [Metropolis-Hastings sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) :cat:
 - [Gibbs sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) :cat:
 - [Annealed importance sampling](https://arxiv.org/abs/physics/9803008) :cat:
+
+A list of TODOs are shown below. **Please add your name after it in parenthesis if you are working on it.** Move to the list above when finished development, and meanwhile please add a reference that your implementation is based on. Note that some algorithms below should be combined to the previous implemented algorithms, and some algorithms might be able to call previous implemented algorithms as subroutines. 
+
+- Langevin Monte Carlo
+- Hamiltonian Monte Carlo
+- Sequential Monte Carlo
+- Sequential Importance Sampling
+- Adaptive Rejection Sampling
+- The No-U-Turn Sampler
+- Score estimator (a self-written backward function)
+- Blocked Gibbs Sampling (might be combined into Gibbs sampling)
+- Monte Carlo, and Quasi-Monte Carlo
+- Sampling Importance Resampling
+- 
+
