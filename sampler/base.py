@@ -11,7 +11,6 @@ def importance_sampling(num_samples: int,
                         proposal: Distribution,
                         eval_func: Func,
                         ) -> float:
-
     r"""
     Importance sampling (IS) estimator to calculate the expectation of a function :math: `f(x)` with respect to a target distribution :math:`p(x)` using a proposal distribution :math:`q(x)`. The estimator is given by:
 
@@ -168,7 +167,8 @@ def annealed_importance_sampling(num_samples: int,
                                  eval_func: Func,
                                  beta: Union[Tuple[float], List[float]],
                                  anneal_log_criterion: Optional[Callable] = lambda logpt, logpb, beta: beta * logpt + (
-                                         1 - beta) * logpb,) -> float:
+                                         1 - beta) * logpb,
+                                 burn_in: Optional[int] = 3) -> float:
     r"""
     Annealed importance sampling (AIS) estimator to calculate the expectation of a function :math: `f(x)` with
     respect to a target distribution :math:`p(x)` using a sequence of intermediate distributions :math:`p_N(x),
@@ -191,6 +191,7 @@ def annealed_importance_sampling(num_samples: int,
         eval_func (Func): the function to be evaluated.
         beta (Union[Tuple[float], List[float]]): the annealing sequence.
         anneal_log_criterion (Optional[Callable]): the annealed criterion, default to :math: `\beta \log p_t + (1-\beta) \log p_b`.
+        burin_in (Optional[int]): the number of burn-in samples to be discarded in Markov Chain, default to 3.
     """
 
     if not isinstance(beta, (tuple, list)):
@@ -224,16 +225,74 @@ def annealed_importance_sampling(num_samples: int,
 
             ## TODO: for the target argument in mh_sampling, inside MH sampling it might use in_log = True/False, but here here we restrict the annalead_log_criterion to be in log when using ais.
             new, _ = mh_sampling(1,
-                                 lambda x, in_log=True: anneal_log_criterion(target(x, in_log=True), base(x, in_log=True), beta[n]),
+                                 lambda x, in_log=True: anneal_log_criterion(target(x, in_log=True),
+                                                                             base(x, in_log=True), beta[n]),
                                  current_transit,
                                  current,
-                                 burn_in=3)
+                                 burn_in)
 
             logpt, logpb = target(new, in_log=True), base(new, in_log=True)
-            weight +=  anneal_log_criterion(logpt, logpb, beta[n + 1]) \
-                     - anneal_log_criterion(logpt, logpb, beta[n])
+            weight += anneal_log_criterion(logpt, logpb, beta[n + 1]) \
+                      - anneal_log_criterion(logpt, logpb, beta[n])
             current = new
 
     evals = eval_func(current)
     weight = torch.exp(weight).view(-1, *tuple(range(1, evals.ndim)))
     return (weight * evals).mean(0) / weight.mean(0)
+
+def langevin_monte_carlo(num_samples: int,
+                         target: Distribution,
+                         tau: float,
+                         initial: torch.Tensor,
+                         adjusted: Optional[bool] = False,
+                         burn_in: Optional[int] = 0) -> torch.Tensor:
+    r"""
+    Langevin Monte Carlo (LMC) to draw samples from a target distribution.
+
+    Args:
+        num_samples (int): the number of samples to be returned.
+        target (Distribution): the target distribution.
+        tau (float): the step size to discretize the Langevin dynamics.
+        adjusted (Optional[bool]): whether to adjust the acceptance ratio using the Metropolis-Hasting criterion, default to False.
+        burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
+    """
+
+    if isinstance(num_samples, int) != True or num_samples <= 0:
+        raise ValueError(
+            f"The number of samples to be drawn should be a positive integer, but got num_samples = {num_samples}.")
+    if tau <= 0:
+        raise ValueError(f"The step size should be positive, but got tau = {tau}.")
+
+    current = initial.view(1, -1)
+    samples = torch.clone(current)
+
+    current.requires_grad = True
+    logp_current = target(current, in_log=True)
+    logp_current.backward()
+    log_grad_current = current.grad
+
+    while samples.shape[0] < num_samples + burn_in:
+        noise = torch.randn_like(current)
+        new = (current + tau * log_grad_current + (2 * tau) ** 0.5 * noise).detach()
+        new.requires_grad = True
+        logp_new = target(new, in_log=True)
+        logp_new.backward()
+        log_grad_new = new.grad
+
+
+        ## TODO: Refine logic
+        if adjusted:
+            log_accept_ratio = (logp_new - logp_current) + (
+                    - 0.5 * torch.sum((current - new - tau * log_grad_new) ** 2) / (4 * tau)
+                    + 0.5 * torch.sum((new - current - tau * log_grad_current) ** 2) / (4 * tau))
+            if torch.rand(1) <= torch.exp(log_accept_ratio):
+                samples = torch.cat([samples, new], dim=0)
+                current, logp_current, log_grad_current = new, logp_new, log_grad_new
+            else:
+                samples = torch.cat([samples, current], dim=0)
+        else:
+            samples = torch.cat([samples, new], dim=0)
+            current, logp_current, log_grad_current = new, logp_new, log_grad_new
+
+
+    return samples[burn_in:].detach()

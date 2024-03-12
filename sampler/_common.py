@@ -43,17 +43,30 @@ def _sample_checker(func, cls_name):
 
 def _density_checker(func, cls_name):
     def _wrapp_conditional_density(*args, **kwargs):
+        x = kwargs['x'] if 'x' in kwargs.keys() else args[1]
+        y = kwargs['y'] if 'y' in kwargs.keys() else args[2]
+        num_density_expected = x.shape[0]
+        num_condis_expected = y.shape[0]
+
+        if x.ndim == 1 or y.ndim == 1:
+            raise ValueError("The input x and y must be of shape (num_samples, ...), with at least two dims.")
+
         density = func(*args, **kwargs)
-        num_density_expected = (kwargs['x'] if 'x' in kwargs.keys() else args[1]).shape[0]
-        num_condis_expected = (kwargs['y'] if 'y' in kwargs.keys() else args[2]).shape[0]
+
         if not isinstance(density, torch.Tensor):
             raise ValueError("The returned density must be of type torch.Tensor.")
         elif density.ndim >= 3 or density.shape[0] != num_density_expected or density.shape[1] != num_condis_expected:
             raise ValueError(f"The returned density must be of shape (x.shape[0], y.shape[0]), i.e., ({num_density_expected}, {num_condis_expected}), but got {tuple(density.shape)}.")
         return density
     def _wrapp_uncondtional_density(*args, **kwargs):
+        x = kwargs['x'] if 'x' in kwargs.keys() else args[1]
+        num_density_expected = x.shape[0]
+
+        if x.ndim == 1:
+            raise ValueError("The input x must be of shape (num_samples, ...), with at least two dims.")
+
         density = func(*args, **kwargs)
-        num_density_expected = (kwargs['x'] if 'x' in kwargs.keys() else args[1]).shape[0]
+
         if not isinstance(density, torch.Tensor):
             raise ValueError("The returned density must be of type torch.Tensor.")
         elif density.ndim >= 2 or density.shape[0] != num_density_expected:

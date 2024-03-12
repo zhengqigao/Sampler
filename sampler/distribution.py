@@ -1,6 +1,7 @@
 import torch
 from ._common import Distribution
 from torch.distributions import Distribution as TorchDistribution
+import torch.distributions
 
 class Wrapper(Distribution):
     def __init__(self, distribution: TorchDistribution):
@@ -16,5 +17,3 @@ class Wrapper(Distribution):
             return self.distribution.log_prob(x)
         else:
             return torch.exp(self.distribution.log_prob(x))
-
-
