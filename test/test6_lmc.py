@@ -53,7 +53,7 @@ class UnconditionalMultiGauss(Distribution):
 
 samples = langevin_monte_carlo(num_samples=10000,
                                target=UnconditionalMultiGauss([2, -2], [1, 1]),
-                               tau=0.1,
+                               step_size=0.1,
                                initial=torch.zeros(2, 1),
                                adjusted=False,
                                burn_in=0)

@@ -242,7 +242,7 @@ def annealed_importance_sampling(num_samples: int,
 
 def langevin_monte_carlo(num_samples: int,
                          target: Distribution,
-                         tau: float,
+                         step_size: float,
                          initial: torch.Tensor,
                          adjusted: Optional[bool] = False,
                          burn_in: Optional[int] = 0) -> torch.Tensor:
@@ -252,7 +252,7 @@ def langevin_monte_carlo(num_samples: int,
     Args:
         num_samples (int): the number of samples to be returned.
         target (Distribution): the target distribution.
-        tau (float): the step size to discretize the Langevin dynamics.
+        step_size (float): the step size to discretize the Langevin dynamics.
         adjusted (Optional[bool]): whether to adjust the acceptance ratio using the Metropolis-Hasting criterion, default to False.
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
     """
@@ -260,8 +260,8 @@ def langevin_monte_carlo(num_samples: int,
     if isinstance(num_samples, int) != True or num_samples <= 0:
         raise ValueError(
             f"The number of samples to be drawn should be a positive integer, but got num_samples = {num_samples}.")
-    if isinstance(num_samples, float) != True or tau <= 0:
-        raise ValueError(f"The step size should be positive, but got tau = {tau}.")
+    if isinstance(num_samples, float) != True or step_size <= 0:
+        raise ValueError(f"The step size should be positive, but got tau = {step_size}.")
 
     current = initial.view(1, -1)
     samples = torch.clone(current)
@@ -273,7 +273,7 @@ def langevin_monte_carlo(num_samples: int,
 
     while samples.shape[0] < num_samples + burn_in:
         noise = torch.randn_like(current)
-        new = (current + tau * log_grad_current + (2 * tau) ** 0.5 * noise).detach()
+        new = (current + step_size * log_grad_current + (2 * step_size) ** 0.5 * noise).detach()
 
         new.requires_grad = True
         logp_new = target(new, in_log=True)
@@ -281,8 +281,8 @@ def langevin_monte_carlo(num_samples: int,
         log_grad_new = new.grad
 
         if adjusted and torch.rand(1) > torch.exp((logp_new - logp_current) + (
-                - 0.5 * torch.sum((current - new - tau * log_grad_new) ** 2) / (4 * tau)
-                + 0.5 * torch.sum((new - current - tau * log_grad_current) ** 2) / (4 * tau))):
+                - 0.5 * torch.sum((current - new - step_size * log_grad_new) ** 2) / (4 * step_size)
+                + 0.5 * torch.sum((new - current - step_size * log_grad_current) ** 2) / (4 * step_size))):
 
             samples = torch.cat([samples, current], dim=0)
         else:
@@ -290,3 +290,21 @@ def langevin_monte_carlo(num_samples: int,
             current, logp_current, log_grad_current = new, logp_new, log_grad_new
 
     return samples[burn_in:].detach()
+
+
+def hamiltonian_monte_carlo(num_samples: int,
+                            target: Distribution,
+                            tau: float,
+                            initial: torch.Tensor,
+                            burn_in: Optional[int] = 0) -> torch.Tensor:
+    r"""
+    Hamiltonian Monte Carlo (HMC) to draw samples from a target distribution.
+
+    Args:
+        num_samples (int): the number of samples to be returned.
+        target (Distribution): the target distribution.
+        tau (float): the step size to discretize the Langevin dynamics.
+        burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
+    """
+
+    pass
