@@ -110,7 +110,7 @@ def mh_sampling(num_samples: int,
         new = transit.sample(1, y=initial).view(initial.shape)
         ratio = target(new, in_log=True) + transit(initial, new, in_log=True).diag() \
                 - target(initial, in_log=True) - transit(new, initial, in_log=True).diag()
-        ratio = torch.min(torch.exp(ratio), torch.ones_like(ratio))
+        ratio = torch.exp(ratio)  # min(1, ratio) is not necessary.
         accept = torch.rand(ratio.shape) <= ratio
         num_accept += accept
         new[~accept] = initial[~accept]
@@ -159,7 +159,6 @@ def gibbs_sampling(num_samples: int,
     return samples[burn_in:], None
 
 
-## TODO: debug this function
 def annealed_importance_sampling(num_samples: int,
                                  target: Distribution,
                                  base: Distribution,
@@ -240,6 +239,7 @@ def annealed_importance_sampling(num_samples: int,
     weight = torch.exp(weight).view(-1, *tuple(range(1, evals.ndim)))
     return (weight * evals).mean(0) / weight.mean(0)
 
+
 def langevin_monte_carlo(num_samples: int,
                          target: Distribution,
                          tau: float,
@@ -260,7 +260,7 @@ def langevin_monte_carlo(num_samples: int,
     if isinstance(num_samples, int) != True or num_samples <= 0:
         raise ValueError(
             f"The number of samples to be drawn should be a positive integer, but got num_samples = {num_samples}.")
-    if tau <= 0:
+    if isinstance(num_samples, float) != True or tau <= 0:
         raise ValueError(f"The step size should be positive, but got tau = {tau}.")
 
     current = initial.view(1, -1)
@@ -274,25 +274,19 @@ def langevin_monte_carlo(num_samples: int,
     while samples.shape[0] < num_samples + burn_in:
         noise = torch.randn_like(current)
         new = (current + tau * log_grad_current + (2 * tau) ** 0.5 * noise).detach()
+
         new.requires_grad = True
         logp_new = target(new, in_log=True)
         logp_new.backward()
         log_grad_new = new.grad
 
+        if adjusted and torch.rand(1) > torch.exp((logp_new - logp_current) + (
+                - 0.5 * torch.sum((current - new - tau * log_grad_new) ** 2) / (4 * tau)
+                + 0.5 * torch.sum((new - current - tau * log_grad_current) ** 2) / (4 * tau))):
 
-        ## TODO: Refine logic
-        if adjusted:
-            log_accept_ratio = (logp_new - logp_current) + (
-                    - 0.5 * torch.sum((current - new - tau * log_grad_new) ** 2) / (4 * tau)
-                    + 0.5 * torch.sum((new - current - tau * log_grad_current) ** 2) / (4 * tau))
-            if torch.rand(1) <= torch.exp(log_accept_ratio):
-                samples = torch.cat([samples, new], dim=0)
-                current, logp_current, log_grad_current = new, logp_new, log_grad_new
-            else:
-                samples = torch.cat([samples, current], dim=0)
+            samples = torch.cat([samples, current], dim=0)
         else:
             samples = torch.cat([samples, new], dim=0)
             current, logp_current, log_grad_current = new, logp_new, log_grad_new
-
 
     return samples[burn_in:].detach()

@@ -51,7 +51,7 @@ class UnconditionalMultiGauss(Distribution):
                     torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
 
 
-samples = langevin_monte_carlo2(num_samples=10000,
+samples = langevin_monte_carlo(num_samples=10000,
                                target=UnconditionalMultiGauss([2, -2], [1, 1]),
                                tau=0.1,
                                initial=torch.zeros(2, 1),
