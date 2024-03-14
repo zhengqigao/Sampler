@@ -5,7 +5,7 @@ from ._common import Func, Distribution, Condistribution
 import warnings
 from ._utils import _alias
 from .distribution import MultivariateNormal
-
+from _utils import _leapfrog
 
 def importance_sampling(num_samples: int,
                         target: Distribution,
@@ -301,11 +301,12 @@ def langevin_monte_carlo(num_samples: int,
 
     return samples[burn_in:].detach()
 
-
+## TODO: debug hmc
 def hamiltonian_monte_carlo(num_samples: int,
                             target: Distribution,
                             step_size: float,
                             num_leapfrog: int,
+                            initial: torch.Tensor,
                             kinetic: Optional[Distribution] = None,
                             burn_in: Optional[int] = 0) -> torch.Tensor:
     r"""
@@ -316,6 +317,7 @@ def hamiltonian_monte_carlo(num_samples: int,
         target (Distribution): the target distribution.
         step_size (float): the step size to discretize the Hamiltonian dynamics.
         num_leapfrog (int): the number of leapfrog steps to be taken.
+        initial (torch.Tensor): the initial point to start the sampling process.
         kinetic (Optional[Distribution]): the kinetic distribution, default to a standard multivariate Gaussian.
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
 
@@ -330,3 +332,49 @@ def hamiltonian_monte_carlo(num_samples: int,
         raise ValueError(
             f"The dimension of the sample drawn from the kinetic distribution should equal that from the target distribution, "
             f"but got {kinetic.sample(1).shape[1]} and {dim}.")
+
+    if initial.ndim == 1:  # tolerate the user to feed in one chain, reshape to (1, D) when given (D,)
+        current_q = initial.view(1, -1)
+    else:
+        current_q = initial
+
+    # current_q and current_p respectively represent position and momentum
+    current_p = kinetic.sample(current_q.shape[0])
+
+    samples = torch.clone(current_q.unsqueeze(0))
+
+    while samples.shape[0] < num_samples + burn_in:
+        for iter in range(num_leapfrog):
+            current_q.requires_grad = True
+            logq_current = target(current_q, in_log=True)
+            logq_grad_current = torch.autograd.grad(logp_current.sum(), current_q)[0]
+
+            # half step for momentum
+            p_half = current_p + 0.5 * step_size * logq_grad_current
+
+            p_half.requires_grad = True
+            logp_current = kinetic(p_half, in_log=True)
+            logp_grad_current = torch.autograd.grad(logq_current.sum(), p_half)[0]
+
+            # full step for position
+            q_new = current_q + step_size * logp_grad_current
+
+            # full step for momentum
+            q_new.requires_grad = True
+            logq_new = target(q_new, in_log=True)
+            logq_grad_new = torch.autograd.grad(logq_new.sum(), q_new)[0]
+
+            p_new = p_half + 0.5 * step_size * logq_grad_new
+
+        # MH criterion to accept or reject the sample p_new
+        logp_new = kinetic(p_new, in_log=True)
+        logH_new = logq_new + logp_new
+        logH_current = logq_current + logp_current
+        accept = torch.rand(logH_new.shape) <= torch.exp(logH_new - logH_current)
+
+        current_q[~accept] = q_new[~accept]
+        current_p[~accept] = p_new[~accept]
+
+        samples = torch.cat([samples, current_q.unsqueeze(0)], dim=0)
+
+    return samples[burn_in:].detach()
