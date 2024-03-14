@@ -54,12 +54,14 @@ class UnconditionalMultiGauss(Distribution):
 samples = langevin_monte_carlo(num_samples=10000,
                                target=UnconditionalMultiGauss([2, -2], [1, 1]),
                                step_size=0.1,
-                               initial=torch.zeros(2, 1),
-                               adjusted=False,
+                               initial=torch.rand(3, 2), # three different MC chains, sample indepdently
+                               adjusted=True,
                                burn_in=0)
 
-plt.figure()
-plt.scatter(samples[:, 0], samples[:, 1], s=1)
+
+for i in range(samples.shape[1]):
+    plt.figure()
+    plt.scatter(samples[:,i, 0], samples[:, i, 1], s=1)
 plt.show()
 
 print(samples.shape)

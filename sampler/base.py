@@ -4,6 +4,7 @@ from typing import Union, Tuple, Callable, Any, Optional, List
 from ._common import Func, Distribution, Condistribution
 import warnings
 from ._utils import _alias
+from .distribution import MultivariateNormal
 
 
 def importance_sampling(num_samples: int,
@@ -101,8 +102,9 @@ def mh_sampling(num_samples: int,
         raise ValueError(f"The number of samples to be drawn should be positive, but got num_samples = {num_samples}.")
     elif num_samples == 1:
         return initial, None
-    if initial.ndim < 2:
-        raise ValueError(f"The initial point should have at least 2 dimensions, (batch, ...) but got {initial.shape}.")
+
+    if initial.ndim == 1:  # tolerate the user to feed in one chain, reshape to (1, D) when given (D,)
+        initial = initial.view(1, -1)
 
     samples, num_accept = torch.clone(initial).unsqueeze(0), torch.zeros(initial.shape[0])
 
@@ -260,16 +262,21 @@ def langevin_monte_carlo(num_samples: int,
     if isinstance(num_samples, int) != True or num_samples <= 0:
         raise ValueError(
             f"The number of samples to be drawn should be a positive integer, but got num_samples = {num_samples}.")
-    if isinstance(num_samples, float) != True or step_size <= 0:
+    if isinstance(step_size, float) != True or step_size <= 0:
         raise ValueError(f"The step size should be positive, but got tau = {step_size}.")
 
-    current = initial.view(1, -1)
-    samples = torch.clone(current)
+    if initial.ndim == 1: # tolerate the user to feed in one chain, reshape to (1, D) when given (D,)
+        current = initial.view(1, -1)
+    else:
+        current = initial
+
+    samples = torch.clone(current.unsqueeze(0))
 
     current.requires_grad = True
     logp_current = target(current, in_log=True)
-    logp_current.backward()
-    log_grad_current = current.grad
+    # a trick to make the objective to be a scalar so that the gradient can be computed.
+    log_grad_current = torch.autograd.grad(logp_current.sum(), current)[0]
+    current.requires_grad = False
 
     while samples.shape[0] < num_samples + burn_in:
         noise = torch.randn_like(current)
@@ -277,25 +284,29 @@ def langevin_monte_carlo(num_samples: int,
 
         new.requires_grad = True
         logp_new = target(new, in_log=True)
-        logp_new.backward()
-        log_grad_new = new.grad
+        log_grad_new = torch.autograd.grad(logp_new.sum(), new)[0]
+        new.requires_grad = False
 
-        if adjusted and torch.rand(1) > torch.exp((logp_new - logp_current) + (
-                - 0.5 * torch.sum((current - new - step_size * log_grad_new) ** 2) / (4 * step_size)
-                + 0.5 * torch.sum((new - current - step_size * log_grad_current) ** 2) / (4 * step_size))):
+        if adjusted:
+            accept = torch.rand(new.shape[0]) <= torch.exp((logp_new - logp_current) + (
+                - 0.5 * torch.sum((current - new - step_size * log_grad_new) ** 2, dim = tuple(range(1, current.ndim))) / (4 * step_size)
+                + 0.5 * torch.sum((new - current - step_size * log_grad_current) ** 2, dim = tuple(range(1, current.ndim))) / (4 * step_size)))
 
-            samples = torch.cat([samples, current], dim=0)
-        else:
-            samples = torch.cat([samples, new], dim=0)
-            current, logp_current, log_grad_current = new, logp_new, log_grad_new
+            logp_new[~accept] = logp_current[~accept]
+            log_grad_new[~accept] = log_grad_current[~accept]
+            new[~accept] = current[~accept]
+
+        current, logp_current, log_grad_current = new, logp_new, log_grad_new
+        samples = torch.cat([samples, new.unsqueeze(0)], dim=0)
 
     return samples[burn_in:].detach()
 
 
 def hamiltonian_monte_carlo(num_samples: int,
                             target: Distribution,
-                            tau: float,
-                            initial: torch.Tensor,
+                            step_size: float,
+                            num_leapfrog: int,
+                            kinetic: Optional[Distribution] = None,
                             burn_in: Optional[int] = 0) -> torch.Tensor:
     r"""
     Hamiltonian Monte Carlo (HMC) to draw samples from a target distribution.
@@ -303,8 +314,19 @@ def hamiltonian_monte_carlo(num_samples: int,
     Args:
         num_samples (int): the number of samples to be returned.
         target (Distribution): the target distribution.
-        tau (float): the step size to discretize the Langevin dynamics.
+        step_size (float): the step size to discretize the Hamiltonian dynamics.
+        num_leapfrog (int): the number of leapfrog steps to be taken.
+        kinetic (Optional[Distribution]): the kinetic distribution, default to a standard multivariate Gaussian.
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
+
     """
 
-    pass
+    dim = target.sample(1).shape[1]
+    if kinetic is None:
+        kinetic = MultivariateNormal(torch.zeros(dim), torch.eye(dim))
+    elif not isinstance(kinetic, Distribution):
+        raise ValueError(f"The kinetic distribution should be an instance of Distribution, but got {type(kinetic)}.")
+    elif kinetic.sample(1).shape[1] != dim:
+        raise ValueError(
+            f"The dimension of the sample drawn from the kinetic distribution should equal that from the target distribution, "
+            f"but got {kinetic.sample(1).shape[1]} and {dim}.")
