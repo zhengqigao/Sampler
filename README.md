@@ -50,10 +50,10 @@ The following algorithms have been implemented:
 - [Gibbs sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) :cat:
 - [Annealed importance sampling](https://arxiv.org/abs/physics/9803008) :cat:
 - [Langevin Monte Carlo](https://abdulfatir.com/blog/2020/Langevin-Monte-Carlo/) :cat:
+- [Hamiltonian Monte Carlo](https://arxiv.org/pdf/1206.1901.pdf) :cat:
 
 A list of TODOs are shown below. **Please add your name after it in parenthesis if you are working on it (Zhengqi and Jiahe).** Move to the list above when finished development, and meanwhile please add a reference that your implementation is based on. Note that some algorithms below should be combined to the previous implemented algorithms, and some algorithms might be able to call previous implemented algorithms as subroutines. 
 
-- Hamiltonian Monte Carlo (zhengqi)
 - Sequential Monte Carlo
 - Sequential Importance Sampling
 - Adaptive Rejection Sampling
