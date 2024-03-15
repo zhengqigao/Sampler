@@ -80,6 +80,7 @@
 <span></span><span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">._common</span> <span class="kn">import</span> <span class="n">Distribution</span>
 <span class="kn">from</span> <span class="nn">torch.distributions</span> <span class="kn">import</span> <span class="n">Distribution</span> <span class="k">as</span> <span class="n">TorchDistribution</span>
+<span class="kn">import</span> <span class="nn">torch.distributions</span>
 
 <div class="viewcode-block" id="Wrapper"><a class="viewcode-back" href="../../sampler.html#sampler.distribution.Wrapper">[docs]</a><span class="k">class</span> <span class="nc">Wrapper</span><span class="p">(</span><span class="n">Distribution</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">distribution</span><span class="p">:</span> <span class="n">TorchDistribution</span><span class="p">):</span>
@@ -97,6 +98,8 @@
             <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">distribution</span><span class="o">.</span><span class="n">log_prob</span><span class="p">(</span><span class="n">x</span><span class="p">))</span></div>
 
 
+
+<span class="n">MultivariateNormal</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">loc</span><span class="p">,</span> <span class="n">cov</span><span class="p">:</span> <span class="n">Wrapper</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">distributions</span><span class="o">.</span><span class="n">multivariate_normal</span><span class="o">.</span><span class="n">MultivariateNormal</span><span class="p">(</span><span class="n">loc</span><span class="p">,</span> <span class="n">cov</span><span class="p">))</span>
 </pre></div>
 
            </div>

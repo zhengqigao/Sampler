@@ -55,7 +55,7 @@ samples = hamiltonian_monte_carlo(num_samples=10000,
                                target=UnconditionalMultiGauss([2, -2], [1, 1]),
                                step_size=0.1,
                                num_leapfrog=10,
-                               initial=torch.rand(3, 2), # three different MC chains, sample indepdently
+                               initial=torch.rand(1, 2), # three different MC chains, sample independently
                                burn_in=0)
 
 
