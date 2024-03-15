@@ -36,6 +36,12 @@ results = importance_sampling(10000, target, proposal, f)
 print("Test mean:", results)
 
 ```
+## Who should use this library?
+
+1. If you are doing research related to classical sampling methods (e.g., developing new MCMC algorithms), our library provides a comprehensive collection of sampling methods, which are extensively tested. You ca directly call them without wasting time on baseline implementations.
+
+
+
 
 ## List of Algorithms
 
