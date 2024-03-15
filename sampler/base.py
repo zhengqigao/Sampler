@@ -338,44 +338,43 @@ def hamiltonian_monte_carlo(num_samples: int,
     samples = torch.clone(initial.unsqueeze(0))
 
     while samples.shape[0] < num_samples + burn_in:
-        initial_q, initial_p = samples[-1], kinetic.sample(initial.shape[0])  # every time draw a new momentum
+        initial_q, initial_p = samples[-1], kinetic.sample(initial.shape[0])  # draw a new momentum
         current_q, current_p = initial_q, initial_p
+
+        # make a half step for momentum at the beginning
+        current_q.requires_grad = True
+        logq_current = target(current_q, in_log=True)
+        logq_grad_current = torch.autograd.grad(logq_current.sum(), current_q)[0]
+        current_q.requires_grad = False
+        current_p = current_p + 0.5 * step_size * logq_grad_current
+
         for iter in range(num_leapfrog):
+
+            # full step for position
+            current_p.requires_grad = True
+            logp_current = kinetic(current_p, in_log=True)
+            logp_grad_current = torch.autograd.grad(logp_current.sum(), current_p)[0]
+            current_p.requires_grad = False
+            current_q = current_q - step_size * logp_grad_current
+
+            # full step for momentum, except for the last iteration
             current_q.requires_grad = True
             logq_current = target(current_q, in_log=True)
             logq_grad_current = torch.autograd.grad(logq_current.sum(), current_q)[0]
             current_q.requires_grad = False
+            current_p = current_p + step_size * logq_grad_current * (1 if iter != num_leapfrog - 1 else 0.5)
 
-            # half step for momentum
-            p_half = current_p + 0.5 * step_size * logq_grad_current
+        # negative momentum in the end
+        current_p = -current_p
 
-            p_half.requires_grad = True
-            logp_current = kinetic(p_half, in_log=True)
-            logp_grad_current = torch.autograd.grad(logp_current.sum(), p_half)[0]
-            p_half.requires_grad = False
-
-            # full step for position
-            q_new = current_q - step_size * logp_grad_current
-
-            # full step for momentum
-            q_new.requires_grad = True
-            logq_new = target(q_new, in_log=True)
-            logq_grad_new = torch.autograd.grad(logq_new.sum(), q_new)[0]
-            q_new.requires_grad = False
-
-            p_new = p_half + 0.5 * step_size * logq_grad_new
-
-            # update
-            current_p, current_q = p_new, q_new
-
-        # MH criterion to accept or reject the sample p_new
-        logH_new = kinetic(p_new, in_log=True) + target(q_new, in_log=True)
+        # MH criterion to accept or reject the sample
+        logH_new = kinetic(current_p, in_log=True) + logq_current
         logH_initial = kinetic(initial_p, in_log=True) + target(initial_q, in_log=True)
-        accept = torch.rand(logH_new.shape) <= torch.exp(logH_new - logH_initial)
+        accept = torch.rand(logH_new.shape) <= torch.exp(-logH_new + logH_initial)
 
-        current_q[~accept] = q_new[~accept]
-        current_p[~accept] = p_new[~accept]
+        initial_q[accept] = current_q[accept]
+        samples = torch.cat([samples, initial_q.unsqueeze(0)], dim=0)
 
-        samples = torch.cat([samples, current_q.unsqueeze(0)], dim=0)
+
 
     return samples[burn_in:].detach()
