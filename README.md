@@ -57,7 +57,7 @@ A list of TODOs are shown below. **Please add your name after it in parenthesis 
 - Sequential Monte Carlo
 - Sequential Importance Sampling
 - Adaptive Rejection Sampling
-- The No-U-Turn Sampler
+- The No-U-Turn Sampler (zhengqi)
 - Score estimator (a self-written backward function)
 - Blocked Gibbs Sampling (might be combined into Gibbs sampling)
 - Monte Carlo, and Quasi-Monte Carlo
