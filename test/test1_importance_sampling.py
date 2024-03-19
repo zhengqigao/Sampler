@@ -1,8 +1,5 @@
 import numpy as np
 import torch
-import sys
-
-sys.path.append("D:\Coding\py\Sampler")
 from sampler.base import *
 from sampler._common import Distribution
 from typing import Optional
