@@ -98,6 +98,7 @@ print("")
 # whose evaluate_density() returns 33.3x larger value
 # self.norm = 1/33.3 in fact
 target_denser = MultiGaussDenser(mean=test_mean, std=[1, 1, 1])
+target_denser.norm = 1 / 33.3
 results = importance_sampling(10000, target_denser, proposal, lambda x: x)
 print("Test mean:", results)
 # fails, gets approximately [-0.03, 0.03, 0.015]
