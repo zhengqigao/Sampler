@@ -192,10 +192,6 @@ criterion: <span class="math">\(p_j(x) = p^{\beta_j}_{0}(x) p^{(1-\beta_j)}_{N}(
 <div class="math">
 \[\mathbb{E}[f(x)] = \int f(x) p(x) dx \approx \frac{1}{N} \sum_{i=1}^{N} w(x_i) f(x_i)\]</div>
 <p>where the weights are given by <span class="math">\(w(x) = \frac{p(x)}{q(x)}\)</span>. The provided <code class="docutils literal notranslate"><span class="pre">eval_func</span></code> can be a multi-dimensional function.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>IS works regardless of normalized or not. See Eq. (11.19) of <a class="reference internal" href="references.html#bishop2006prml" id="id4"><span>[Bishop2006PRML]</span></a> for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case.</p>
-</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
@@ -206,6 +202,10 @@ criterion: <span class="math">\(p_j(x) = p^{\beta_j}_{0}(x) p^{(1-\beta_j)}_{N}(
 </ul>
 </dd>
 </dl>
+<section id="additional-notes">
+<h3>Additional Notes<a class="headerlink" href="#additional-notes" title="Permalink to this heading"></a></h3>
+<p>The text in this part won’t be used to in documentation generation, only for developers references’ purposes. IS works regardless of normalized or not. See Eq. (11.19) of <a class="reference internal" href="references.html#bishop2006prml" id="id4"><span>[Bishop2006PRML]</span></a> for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case.</p>
+</section>
 </dd></dl>
 
 <dl class="py function">
