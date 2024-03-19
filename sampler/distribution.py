@@ -7,7 +7,7 @@ class Wrapper(Distribution):
     def __init__(self, distribution: TorchDistribution):
         super().__init__()
         self.distribution = distribution
-        self.norm = 1.0
+        self.mul_factor = 1.0
 
     def sample(self, num_samples: int) -> torch.Tensor:
         return self.distribution.sample((num_samples,))

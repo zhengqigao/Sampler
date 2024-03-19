@@ -18,7 +18,7 @@ class MultiGauss(Distribution):
         self.mean = torch.tensor(mean, dtype=torch.float32)
         self.std = torch.tensor(std, dtype=torch.float32)
         self.dim = len(mean)
-        self.norm = 1.0
+        self.mul_factor = 1.0
 
     def sample(self, num_samples: int) -> torch.Tensor:
         return torch.randn((num_samples, self.dim)) * self.std + self.mean
@@ -45,7 +45,7 @@ class MultiGaussDenser(Distribution):
         self.mean = torch.tensor(mean, dtype=torch.float32)
         self.std = torch.tensor(std, dtype=torch.float32)
         self.dim = len(mean)
-        self.norm = 1 / 33.3
+        self.mul_factor = 1 / 33.3
 
     def sample(self, num_samples: int) -> torch.Tensor:
         return torch.randn((num_samples, self.dim)) * self.std + self.mean
@@ -57,35 +57,33 @@ class MultiGaussDenser(Distribution):
                 + torch.log(2 * torch.pi * self.std * self.std).sum()
             ) + torch.log(torch.Tensor([33.3]))
         else:
-            return (
-                torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1))
-                / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
-                    * torch.prod(self.std)
-                )
-                * 33.3
-            )
+            return torch.exp(
+                -0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
+            ) / (
+                torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
+                * torch.prod(self.std)
+            ) * 33.3
 
 
 # MultiGauss
 # normal case
 target = MultiGauss(mean=test_mean, std=[1, 1, 1])
 proposal = MultiGauss(mean=[0, 0, 0], std=[1, 1, 1])
-proposal.norm = 1.0
+proposal.mul_factor = 1.0
 results = importance_sampling(10000, target, proposal, lambda x: x)
 print("Test mean:", results)
 # it works
 
 
-# self.norm = None, actually 1.0
-target.norm = None
+# self.mul_factor = None, actually 1.0
+target.mul_factor = None
 results = importance_sampling(10000, target, proposal, lambda x: x)
 print("Test mean:", results)
 # it works as if norm == 1.0
 
 
-# self.norm = 1/33.3, actually 1.0
-target.norm = 1 / 33.3
+# self.mul_factor = 1/33.3, actually 1.0
+target.mul_factor = 1 / 33.3
 results = importance_sampling(10000, target, proposal, lambda x: x)
 print("Test mean:", results)
 # fails, gets approximately [-0.0009, 0.0009, 0.0004]
@@ -96,24 +94,24 @@ print("")
 
 # MultiGaussDenser,
 # whose evaluate_density() returns 33.3x larger value
-# self.norm = 1/33.3 in fact
+# self.mul_factor = 1/33.3 in fact
 target_denser = MultiGaussDenser(mean=test_mean, std=[1, 1, 1])
-target_denser.norm = 1 / 33.3
+target_denser.mul_factor = 1 / 33.3
 results = importance_sampling(10000, target_denser, proposal, lambda x: x)
 print("Test mean:", results)
 # fails, gets approximately [-0.03, 0.03, 0.015]
 
 
 
-# self.norm = None, actually 1/33.3
-target_denser.norm = None
+# self.mul_factor = None, actually 1/33.3
+target_denser.mul_factor = None
 results = importance_sampling(10000, target_denser, proposal, lambda x: x)
 print("Test mean:", results)
 # it works as if norm == 1.0
 
 
-# self.norm = 1.0, actually 1/33.3
-target_denser.norm = 1.0
+# self.mul_factor = 1.0, actually 1/33.3
+target_denser.mul_factor = 1.0
 results = importance_sampling(10000, target_denser, proposal, lambda x: x)
 print("Test mean:", results)  # fails, gets approximately [-33, 33, 17]
 

@@ -6,6 +6,7 @@ import warnings
 from ._utils import _alias
 from .distribution import MultivariateNormal
 
+
 def importance_sampling(num_samples: int,
                         target: Distribution,
                         proposal: Distribution,
@@ -33,10 +34,10 @@ def importance_sampling(num_samples: int,
     weights = torch.exp(target(samples, in_log=True) - proposal(samples, in_log=True))
     weights = weights.view(-1, *tuple(range(1, evals.ndim)))
 
-    if target.norm is None or proposal.norm is None:
+    if target.mul_factor is None or proposal.mul_factor is None:
         return (weights * evals).mean(0) / weights.mean(0)
     else:
-        return (weights * evals).mean(0) / (proposal.norm / target.norm)
+        return (weights * evals).mean(0) / (proposal.mul_factor / target.mul_factor)
 
 
 def rejection_sampling(num_samples: int, target: Distribution, proposal: Distribution, k: float) -> Tuple[
@@ -264,7 +265,7 @@ def langevin_monte_carlo(num_samples: int,
     if isinstance(step_size, float) != True or step_size <= 0:
         raise ValueError(f"The step size should be positive, but got tau = {step_size}.")
 
-    if initial.ndim == 1: # tolerate the user to feed in one chain, reshape to (1, D) when given (D,)
+    if initial.ndim == 1:  # tolerate the user to feed in one chain, reshape to (1, D) when given (D,)
         current = initial.view(1, -1)
     else:
         current = initial
@@ -288,8 +289,10 @@ def langevin_monte_carlo(num_samples: int,
 
         if adjusted:
             accept = torch.rand(new.shape[0]) <= torch.exp((logp_new - logp_current) + (
-                - 0.5 * torch.sum((current - new - step_size * log_grad_new) ** 2, dim = tuple(range(1, current.ndim))) / (4 * step_size)
-                + 0.5 * torch.sum((new - current - step_size * log_grad_current) ** 2, dim = tuple(range(1, current.ndim))) / (4 * step_size)))
+                    - 0.5 * torch.sum((current - new - step_size * log_grad_new) ** 2,
+                                      dim=tuple(range(1, current.ndim))) / (4 * step_size)
+                    + 0.5 * torch.sum((new - current - step_size * log_grad_current) ** 2,
+                                      dim=tuple(range(1, current.ndim))) / (4 * step_size)))
 
             logp_new[~accept] = logp_current[~accept]
             log_grad_new[~accept] = log_grad_current[~accept]
@@ -332,6 +335,12 @@ def hamiltonian_monte_carlo(num_samples: int,
             f"The dimension of the sample drawn from the kinetic distribution should equal that from the target distribution, "
             f"but got {kinetic.sample(1).shape[1]} and {dim}.")
 
+    if not isinstance(step_size, float) or step_size <= 0:
+        raise ValueError(f"The step size should be positive, but got tau = {step_size}.")
+    if not isinstance(num_leapfrog, int) or num_leapfrog <= 0:
+        raise ValueError(
+            f"The number of leapfrog steps should be a positive integer , but got num_leapfrog = {num_leapfrog}.")
+
     if initial.ndim == 1:  # tolerate the user to feed in one chain, reshape to (1, D) when given (D,)
         initial.view(1, -1)
 
@@ -349,7 +358,6 @@ def hamiltonian_monte_carlo(num_samples: int,
         current_p = current_p + 0.5 * step_size * logq_grad_current
 
         for iter in range(num_leapfrog):
-
             # full step for position
             current_p.requires_grad = True
             logp_current = kinetic(current_p, in_log=True)
@@ -374,7 +382,5 @@ def hamiltonian_monte_carlo(num_samples: int,
 
         initial_q[accept] = current_q[accept]
         samples = torch.cat([samples, initial_q.unsqueeze(0)], dim=0)
-
-
 
     return samples[burn_in:].detach()

@@ -42,7 +42,7 @@ def _sample_checker(func, cls_name):
         return func
 
 def _density_checker(func, cls_name):
-    def _wrapp_conditional_density(*args, **kwargs):
+    def _wrap_conditional_density(*args, **kwargs):
         x = kwargs['x'] if 'x' in kwargs.keys() else args[1]
         y = kwargs['y'] if 'y' in kwargs.keys() else args[2]
         num_density_expected = x.shape[0]
@@ -58,7 +58,7 @@ def _density_checker(func, cls_name):
         elif density.ndim >= 3 or density.shape[0] != num_density_expected or density.shape[1] != num_condis_expected:
             raise ValueError(f"The returned density must be of shape (x.shape[0], y.shape[0]), i.e., ({num_density_expected}, {num_condis_expected}), but got {tuple(density.shape)}.")
         return density
-    def _wrapp_uncondtional_density(*args, **kwargs):
+    def _wrap_uncondtional_density(*args, **kwargs):
         x = kwargs['x'] if 'x' in kwargs.keys() else args[1]
         num_density_expected = x.shape[0]
 
@@ -74,9 +74,9 @@ def _density_checker(func, cls_name):
         return density
 
     if cls_name == "Condistribution":
-        return _wrapp_conditional_density
+        return _wrap_conditional_density
     elif cls_name == "Distribution":
-        return _wrapp_uncondtional_density
+        return _wrap_uncondtional_density
     else:
         return func
 
@@ -96,23 +96,37 @@ class _Meta(ABCMeta):
 class _BaseDistribution(ABC, metaclass=_Meta):
 
     def __init__(self):
-        self._norm = None
+        pass
 
     @property
-    def norm(self):
-        if not hasattr(self, '_norm'):
+    def mul_factor(self):
+        if not hasattr(self, '_mul_factor'):
             raise AttributeError(
-                "The normalization constant is not provided, Please set `self.const = None` if unknown.")
-        return self._norm
+                "The normalization constant is not provided, "
+                "Please set `self.mul_factor = None` or `self.div_factor = None` if unknown.")
+        return self._mul_factor
 
-    @norm.setter
-    def norm(self, value):
+    @mul_factor.setter
+    def mul_factor(self, value):
         if value is None:
-            self._norm = None
+            self._mul_factor = None
         elif isinstance(value, (int, float)) and value > 0:
-            self._norm = float(value)
+            self._mul_factor = float(value)
         else:
-            raise ValueError("The normalization constant must be a positive scalar.")
+            raise ValueError(f"The mul_factor must be a positive scalar, but got {value}.")
+
+    @property
+    def div_factor(self):
+        return (1.0 / self.mul_factor) if self.mul_factor is not None else None
+
+    @div_factor.setter
+    def div_factor(self, value):
+        if value is None:
+            self.mul_factor = None
+        elif isinstance(value, (int, float)) and value > 0:
+            self.mul_factor = 1.0 / float(value)
+        else:
+            raise ValueError(f"The div_factor must be a positive scalar, but got {value}.")
 
     @abstractmethod
     def sample(self, *args, **kwargs) -> torch.Tensor:
@@ -129,8 +143,8 @@ class _BaseDistribution(ABC, metaclass=_Meta):
         """
 
         result = self.evaluate_density(*args, **kwargs)
-        if self.norm is not None:
-            result = result * self.norm if not kwargs['in_log'] else result + math.log(self.norm)
+        if self.mul_factor is not None:
+            result = result * self.mul_factor if not kwargs['in_log'] else result + math.log(self.mul_factor)
         return result
 
 
