@@ -27,9 +27,8 @@ def importance_sampling(num_samples: int,
         proposal (Distribution): the proposal distribution.
         eval_func (Func): the function to be evaluated.
 
-    Additional Notes
-    ----------------
-    The text in this part won't be used to in documentation generation, only for developers references' purposes. IS works regardless of normalized or not. See Eq. (11.19) of [Bishop2006PRML]_ for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case.
+
+    # [Debug this using sphinx feature] The text in this part won't be used to in documentation generation, only for developers references' purposes. IS works regardless of normalized or not. See Eq. (11.19) of [Bishop2006PRML]_ for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case.
 
     """
     samples = proposal.sample(num_samples)
