@@ -60,8 +60,7 @@ The following algorithms have been implemented:
 
 A list of TODOs are shown below. **Please add your name after it in parenthesis if you are working on it (Zhengqi and Jiahe).** Move to the list above when finished development, and meanwhile please add a reference that your implementation is based on. Note that some algorithms below should be combined to the previous implemented algorithms, and some algorithms might be able to call previous implemented algorithms as subroutines. 
 
-- Sequential Monte Carlo
-- Sequential Importance Sampling (zhengqi)
+- Sequential Importance Sampling, Sequential Monte Carlo (zhengqi)
 - Adaptive Rejection Sampling
 - The No-U-Turn Sampler
 - Score estimator (a self-written backward function)
