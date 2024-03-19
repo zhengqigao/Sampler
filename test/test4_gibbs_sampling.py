@@ -9,7 +9,7 @@ class ConditionalMultiGauss(Condistribution):
         super().__init__()
         self.std = torch.tensor(std, dtype=torch.float32)
         self.dim = len(std)
-        self.const = 1.0
+        self.mul_factor = 1.0
 
     def sample(self, num_samples: int, y) -> torch.Tensor:
         # y has shape (m, d)

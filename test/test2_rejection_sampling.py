@@ -13,7 +13,7 @@ class MultiGauss(Distribution):
         self.mean = torch.tensor(mean, dtype=torch.float32)
         self.std = torch.tensor(std, dtype=torch.float32)
         self.dim = len(mean)
-        self.const = 1.0
+        self.mul_factor = 1.0
 
     def sample(self, num_samples: int) -> torch.Tensor:
         return torch.randn((num_samples, self.dim)) * self.std + self.mean
@@ -27,7 +27,7 @@ class MultiGauss(Distribution):
 
 
 target = MultiGauss(mean=test_mean, std=[1, 1, 1])
-target.const = None
+target.mul_factor = None
 
 proposal = MultiGauss(mean=[0, 0, 0], std=[1, 1, 1])
 results, info = rejection_sampling(10000, target, proposal, k=1000.0)

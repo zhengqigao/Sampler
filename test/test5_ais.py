@@ -37,7 +37,7 @@ class UnconditionalMultiGauss(Distribution):
         self.mean = torch.tensor(mean, dtype=torch.float32)
         self.std = torch.tensor(std, dtype=torch.float32)
         self.dim = len(std)
-        self.const = 1.0
+        self.mul_factor = 1.0
 
     def sample(self, num_samples: int) -> torch.Tensor:
         return torch.randn((num_samples, self.dim)) * self.std + self.mean

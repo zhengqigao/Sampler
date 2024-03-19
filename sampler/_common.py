@@ -42,7 +42,7 @@ def _sample_checker(func, cls_name):
         return func
 
 def _density_checker(func, cls_name):
-    def _wrapp_conditional_density(*args, **kwargs):
+    def _wrap_conditional_density(*args, **kwargs):
         x = kwargs['x'] if 'x' in kwargs.keys() else args[1]
         y = kwargs['y'] if 'y' in kwargs.keys() else args[2]
         num_density_expected = x.shape[0]
@@ -58,7 +58,7 @@ def _density_checker(func, cls_name):
         elif density.ndim >= 3 or density.shape[0] != num_density_expected or density.shape[1] != num_condis_expected:
             raise ValueError(f"The returned density must be of shape (x.shape[0], y.shape[0]), i.e., ({num_density_expected}, {num_condis_expected}), but got {tuple(density.shape)}.")
         return density
-    def _wrapp_uncondtional_density(*args, **kwargs):
+    def _wrap_uncondtional_density(*args, **kwargs):
         x = kwargs['x'] if 'x' in kwargs.keys() else args[1]
         num_density_expected = x.shape[0]
 
@@ -74,9 +74,9 @@ def _density_checker(func, cls_name):
         return density
 
     if cls_name == "Condistribution":
-        return _wrapp_conditional_density
+        return _wrap_conditional_density
     elif cls_name == "Distribution":
-        return _wrapp_uncondtional_density
+        return _wrap_uncondtional_density
     else:
         return func
 
@@ -96,7 +96,7 @@ class _Meta(ABCMeta):
 class _BaseDistribution(ABC, metaclass=_Meta):
 
     def __init__(self):
-        self._mul_factor = None
+        pass
 
     @property
     def mul_factor(self):
