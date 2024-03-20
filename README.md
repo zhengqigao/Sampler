@@ -21,7 +21,7 @@ pip install git+https://github.com/zhengqigao/Sampler.git
 ```python
 import torch
 from torch.distributions import MultivariateNormal
-from sampler.base import importance_sampling
+from sampler.base.base import importance_sampling
 from sampler.distribution import Wrapper
 
 # define the target and proposal distributions using the Wrapper class

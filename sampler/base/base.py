@@ -1,10 +1,10 @@
 import numpy as np
 import torch
 from typing import Union, Tuple, Callable, Any, Optional, List
-from ._common import Func, Distribution, Condistribution
+from sampler._common import Func, Distribution, Condistribution
 import warnings
-from ._utils import _alias
-from .distribution import MultivariateNormal
+from sampler._utils import _alias
+from sampler.distribution import MultivariateNormal
 
 
 def importance_sampling(num_samples: int,
@@ -13,7 +13,9 @@ def importance_sampling(num_samples: int,
                         eval_func: Func,
                         ) -> float:
     r"""
-    Importance sampling (IS) estimator to calculate the expectation of a function :math: `f(x)` with respect to a target distribution :math:`p(x)` using a proposal distribution :math:`q(x)`. The estimator is given by:
+    Importance sampling (IS) estimator to calculate the expectation of a function :math:`f(x)` with respect to a target distribution :math:`p(x)` using a proposal distribution :math:`q(x)`. The estimator is given by:
+
+    .. note:: IS works regardless of normalized or not. See Eq. (11.19) of [Bishop2006PRML]_ for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case.
 
     .. math::
 
@@ -27,8 +29,6 @@ def importance_sampling(num_samples: int,
         proposal (Distribution): the proposal distribution.
         eval_func (Func): the function to be evaluated.
 
-
-    # [Debug this using sphinx feature] The text in this part won't be used to in documentation generation, only for developers references' purposes. IS works regardless of normalized or not. See Eq. (11.19) of [Bishop2006PRML]_ for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case.
 
     """
     samples = proposal.sample(num_samples)

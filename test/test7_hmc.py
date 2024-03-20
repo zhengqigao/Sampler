@@ -2,7 +2,6 @@ from sampler.base import *
 import torch
 from sampler._common import Distribution, Condistribution
 import matplotlib.pyplot as plt
-from sampler.distribution import Wrapper
 
 
 class ConditionalMultiGauss(Condistribution):
