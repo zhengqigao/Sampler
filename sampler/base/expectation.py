@@ -4,6 +4,7 @@ from typing import Union, Tuple, Callable, Any, Optional, List
 from .._common import Func, Distribution, Condistribution
 from .base import mh_sampling
 
+
 def importance_sampling(num_samples: int,
                         target: Distribution,
                         proposal: Distribution,
@@ -37,6 +38,7 @@ def importance_sampling(num_samples: int,
         return (weights * evals).mean(0) / weights.mean(0)
     else:
         return (weights * evals).mean(0) / (proposal.mul_factor / target.mul_factor)
+
 
 def annealed_importance_sampling(num_samples: int,
                                  target: Distribution,
@@ -118,3 +120,27 @@ def annealed_importance_sampling(num_samples: int,
     weight = torch.exp(weight).view(-1, *tuple(range(1, evals.ndim)))
     return (weight * evals).mean(0) / weight.mean(0)
 
+
+## TODO: debug
+class ScoreEstimator(torch.autograd.Function):
+    r"""
+    The score estimator
+    """
+
+    @staticmethod
+    def forward(ctx, num_samples: int, distribution: Distribution, eval_func: Func):
+        samples = distribution.sample(num_samples)
+        evals = eval_func(samples)
+        results = torch.mean(evals, dim=0)
+        ctx.save_for_backward(samples, distribution, evals)
+        return results
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        samples, distribution, evals = ctx.saved_tensors
+        dlogp = distribution(samples, in_log=True).backward(grad_output)
+        results = torch.mean(dlogp * evals, dim=0)
+        return results, None
+
+
+score_estimator = ScoreEstimator.apply
