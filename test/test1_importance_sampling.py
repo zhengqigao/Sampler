@@ -3,7 +3,7 @@ from sampler._common import Distribution
 from torch.distributions.multivariate_normal import MultivariateNormal
 from sampler.distribution import Wrapper
 
-test_mean = torch.Tensor([-1, 1, 0.5])
+test_mean = [-1, 1, 0.5]
 
 
 class MultiGauss(Distribution):
@@ -11,7 +11,7 @@ class MultiGauss(Distribution):
         super().__init__()
         self.mean = torch.tensor(mean, dtype=torch.float32)
         self.std = torch.tensor(std, dtype=torch.float32)
-        self.dim = len(mean)
+        self.dim = len(self.mean)
         self.mul_factor = 1.0
 
     def sample(self, num_samples: int) -> torch.Tensor:
@@ -38,7 +38,7 @@ class MultiGaussDenser(Distribution):
         super().__init__()
         self.mean = torch.tensor(mean, dtype=torch.float32)
         self.std = torch.tensor(std, dtype=torch.float32)
-        self.dim = len(mean)
+        self.dim = len(self.mean)
         self.mul_factor = 1 / 33.3
 
     def sample(self, num_samples: int) -> torch.Tensor:
@@ -114,7 +114,7 @@ print("")
 
 
 # torch.distributions.multivariate_normal.MultivariateNormal
-target2 = Wrapper(MultivariateNormal(test_mean, torch.eye(3)))
+target2 = Wrapper(MultivariateNormal(torch.Tensor(test_mean), torch.eye(3)))
 proposal2 = Wrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
 results = importance_sampling(10000, target2, proposal2, lambda x: x)
 print("Test mean:", results)

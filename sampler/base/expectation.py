@@ -139,7 +139,7 @@ class ScoreEstimator(torch.autograd.Function):
         module = ctx.module
         samples, evals, *param = ctx.saved_tensors
         with torch.enable_grad():
-            obj = torch.mean(evals * module.evaluate_density(samples, in_log=True), dim=0)
+            obj = torch.mean(evals * module(samples, in_log=True).view(-1, *tuple(range(1, evals.ndim))), dim=0)
             grad_input = torch.autograd.grad(obj, param, grad_output)
         return None, None, None, *grad_input
 

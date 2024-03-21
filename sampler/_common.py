@@ -2,7 +2,7 @@ from typing import TypeVar, Callable, Union, Optional
 import torch
 from abc import ABC, abstractmethod, ABCMeta
 import math
-from torch.distributions import Distribution as TorchDistribution
+import torch.nn as nn
 
 # __all__ = ['Func', 'Distribution', 'Condistribution', '_BaseDistribution']
 
@@ -93,10 +93,10 @@ class _Meta(ABCMeta):
 
 
 
-class _BaseDistribution(ABC, metaclass=_Meta):
+class _BaseDistribution(nn.Module, ABC, metaclass=_Meta):
 
     def __init__(self):
-        pass
+        super().__init__()
 
     @property
     def mul_factor(self):
@@ -136,7 +136,7 @@ class _BaseDistribution(ABC, metaclass=_Meta):
     def evaluate_density(self, *args, **kwargs) -> torch.Tensor:
         raise NotImplementedError
 
-    def __call__(self, *args, **kwargs) -> torch.Tensor:
+    def forward(self, *args, **kwargs) -> torch.Tensor:
         r"""
         Evaluate the probability distribution.
 
