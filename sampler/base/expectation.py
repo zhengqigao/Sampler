@@ -3,7 +3,7 @@ import torch
 from typing import Union, Tuple, Callable, Any, Optional, List
 from .._common import Func, Distribution, Condistribution
 from .base import mh_sampling
-
+from .._utils import _get_params
 
 def importance_sampling(num_samples: int,
                         target: Distribution,
@@ -121,26 +121,28 @@ def annealed_importance_sampling(num_samples: int,
     return (weight * evals).mean(0) / weight.mean(0)
 
 
-## TODO: debug
 class ScoreEstimator(torch.autograd.Function):
     r"""
-    The score estimator
+    The REINFORCE algorithm, also known as the score function estimator, to estimate the gradient of the expectation of :math: `E_{p_{\theta}(x)}[f(x)]` with respect to the parameters of :math: `\theta`.
     """
 
     @staticmethod
-    def forward(ctx, num_samples: int, distribution: Distribution, eval_func: Func):
-        samples = distribution.sample(num_samples)
-        evals = eval_func(samples)
-        results = torch.mean(evals, dim=0)
-        ctx.save_for_backward(samples, distribution, evals)
-        return results
+    def forward(ctx, num_sample: int, module: torch.nn.Module, func: Func, *param: Tuple[torch.Tensor]) -> torch.Tensor:
+        ctx.module = module
+        samples = module.sample(num_sample)
+        evals = func(samples)
+        ctx.save_for_backward(samples, evals, *param)
+        return torch.mean(evals, dim=0)
 
     @staticmethod
-    def backward(ctx, grad_output):
-        samples, distribution, evals = ctx.saved_tensors
-        dlogp = distribution(samples, in_log=True).backward(grad_output)
-        results = torch.mean(dlogp * evals, dim=0)
-        return results, None
+    def backward(ctx, grad_output: torch.Tensor) -> Tuple[Optional[torch.Tensor], ...]:
+        module = ctx.module
+        samples, evals, *param = ctx.saved_tensors
+        with torch.enable_grad():
+            obj = torch.mean(evals * module.evaluate_density(samples, in_log=True), dim=0)
+            grad_input = torch.autograd.grad(obj, param, grad_output)
+        return None, None, None, *grad_input
 
 
-score_estimator = ScoreEstimator.apply
+score_estimator = lambda num_sample, model, func: ScoreEstimator.apply(num_sample, model, func, *_get_params(model))
+
