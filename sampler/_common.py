@@ -19,10 +19,13 @@ def _sample_checker(func, cls_name):
         if not isinstance(samples, torch.Tensor):
             raise ValueError("The returned samples must be of type torch.Tensor.")
         elif samples.ndim < 3:
-            raise ValueError("The returned samples must be of shape (num_samples, y.shape[0], ...), with at least three dims.")
+            raise ValueError(
+                "The returned samples must be of shape (num_samples, y.shape[0], ...), with at least three dims.")
         elif samples.shape[0] != num_samples_expected or samples.shape[1] != num_condis_samples:
-            raise ValueError(f"The shape of returned samples is ({samples.shape[0]}, {samples.shape[1]}, ...), but it should be (num_samples, y.shape[0], ...), i.e., ({num_samples_expected},{num_condis_samples}, ...).")
+            raise ValueError(
+                f"The shape of returned samples is ({samples.shape[0]}, {samples.shape[1]}, ...), but it should be (num_samples, y.shape[0], ...), i.e., ({num_samples_expected},{num_condis_samples}, ...).")
         return samples
+
     def _wrapp_uncondtional_sample(*args, **kwargs):
         samples = func(*args, **kwargs)
         num_samples_expected = kwargs['num_samples'] if 'num_samples' in kwargs.keys() else args[1]
@@ -31,7 +34,8 @@ def _sample_checker(func, cls_name):
         elif samples.ndim < 2:
             raise ValueError("The returned samples must be of shape (num_samples, ...), with at least two dims.")
         elif samples.shape[0] != num_samples_expected:
-            raise ValueError(f"The number of samples drawn is {samples.shape[0]}, but it should be {num_samples_expected}.")
+            raise ValueError(
+                f"The number of samples drawn is {samples.shape[0]}, but it should be {num_samples_expected}.")
         return samples
 
     if cls_name == "Condistribution":
@@ -40,6 +44,7 @@ def _sample_checker(func, cls_name):
         return _wrapp_uncondtional_sample
     else:
         return func
+
 
 def _density_checker(func, cls_name):
     def _wrap_conditional_density(*args, **kwargs):
@@ -56,8 +61,10 @@ def _density_checker(func, cls_name):
         if not isinstance(density, torch.Tensor):
             raise ValueError("The returned density must be of type torch.Tensor.")
         elif density.ndim >= 3 or density.shape[0] != num_density_expected or density.shape[1] != num_condis_expected:
-            raise ValueError(f"The returned density must be of shape (x.shape[0], y.shape[0]), i.e., ({num_density_expected}, {num_condis_expected}), but got {tuple(density.shape)}.")
+            raise ValueError(
+                f"The returned density must be of shape (x.shape[0], y.shape[0]), i.e., ({num_density_expected}, {num_condis_expected}), but got {tuple(density.shape)}.")
         return density
+
     def _wrap_uncondtional_density(*args, **kwargs):
         x = kwargs['x'] if 'x' in kwargs.keys() else args[1]
         num_density_expected = x.shape[0]
@@ -70,7 +77,8 @@ def _density_checker(func, cls_name):
         if not isinstance(density, torch.Tensor):
             raise ValueError("The returned density must be of type torch.Tensor.")
         elif density.ndim >= 2 or density.shape[0] != num_density_expected:
-            raise ValueError(f"The returned density must be of shape (x.shape[0],), i.e., ({num_density_expected},), but got {tuple(density.shape)}.")
+            raise ValueError(
+                f"The returned density must be of shape (x.shape[0],), i.e., ({num_density_expected},), but got {tuple(density.shape)}.")
         return density
 
     if cls_name == "Condistribution":
@@ -92,7 +100,10 @@ class _Meta(ABCMeta):
         return super().__new__(cls, name, bases, dct)
 
 
-
+## TODO: is it really necessary to use ABC abstract class? We can directly define it by inheriting from nn.Module. But the
+##       trick is actually when inheriting from ABC, it forces that we cannot define an instance of _BaseDistribution.
+##       Namely, _BaseDistribution can only be used to define another class. This is a desired behavior, but using ABC seems
+##       making the code unnecessarily complicated.
 class _BaseDistribution(nn.Module, ABC, metaclass=_Meta):
 
     def __init__(self):
@@ -182,7 +193,6 @@ class Distribution(_BaseDistribution):
         """
 
         raise NotImplementedError
-
 
 
 class Condistribution(_BaseDistribution):
