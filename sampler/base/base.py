@@ -210,8 +210,11 @@ def hamiltonian_monte_carlo(num_samples: int,
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
 
     """
+    if initial.ndim == 1:  # tolerate the user to feed in one chain, reshape to (1, D) when given (D,)
+        initial.view(1, -1)
 
-    dim = target.sample(1).shape[1]
+    dim = initial.shape[1]
+
     if kinetic is None:
         kinetic = MultivariateNormal(torch.zeros(dim), torch.eye(dim))
     elif not isinstance(kinetic, Distribution):
@@ -226,9 +229,6 @@ def hamiltonian_monte_carlo(num_samples: int,
     if not isinstance(num_leapfrog, int) or num_leapfrog <= 0:
         raise ValueError(
             f"The number of leapfrog steps should be a positive integer , but got num_leapfrog = {num_leapfrog}.")
-
-    if initial.ndim == 1:  # tolerate the user to feed in one chain, reshape to (1, D) when given (D,)
-        initial.view(1, -1)
 
     samples = torch.clone(initial.unsqueeze(0))
 
