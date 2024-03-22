@@ -259,7 +259,7 @@ def run_density_matching_example():
 
     module = CustomizeDistribution(2)
     optimizer = torch.optim.Adam(module.parameters(), lr=0.001)
-    max_iter, num_sample = 20, 50000
+    max_iter, num_sample = 100, 50000
     for i in range(max_iter):
         optimizer.zero_grad()
         loss = score_estimator(num_sample, module, lambda x: (potential_func(x) + module(x, in_log=True)).mean())
