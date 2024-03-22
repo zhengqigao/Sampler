@@ -1,8 +1,10 @@
 import torch
 from sampler.base import score_estimator, mh_sampling
 from sampler._common import Distribution, Condistribution
-
 import torch.nn as nn
+from sklearn.datasets import make_moons
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 class MultiGauss(Distribution):
@@ -72,13 +74,20 @@ class ConditionalMultiGauss(Condistribution):
 class MLP(nn.Module):
     def __init__(self, in_dim):
         super().__init__()
-        self.fc1 = nn.Linear(in_dim, 10)
-        self.fc2 = nn.Linear(10, 1)
+        self.fc = nn.Sequential(
+            nn.Linear(in_dim, 32),
+            nn.Tanh(),
+            nn.Linear(32, 32),
+            nn.Tanh(),
+            nn.Linear(32, 32),
+            nn.Tanh(),
+            nn.Linear(32, 16),
+            nn.Tanh(),
+            nn.Linear(16, 1)
+        )
 
     def forward(self, x):
-        x = torch.tanh(self.fc1(x))
-        x = self.fc2(x)
-        return x
+        return self.fc(x)
 
 
 class CustomizeDistribution(Distribution):
@@ -133,18 +142,150 @@ def run_exp(instance):
         print("dummy backward failed:", e)
 
 
-mean, std = torch.Tensor([0.0, 1.0]), torch.Tensor([1.0, 2.0])
+class PotentialFunc(object):
+    def __init__(self, name: str):
+        self.potential = getattr(self, name)
 
-# this is the most specical case, because we write it as N(0,1) * std + mean, so we have done reparametrization trick.
-# Thus, the dummy way can have gradients.
-instance = MultiGauss(mean, std)
-run_exp(instance)
+    def __call__(self, z: torch.Tensor, cal_type=1) -> torch.Tensor:
+        if cal_type == 1:
+            if z.shape[1] != 2:
+                raise ValueError(f"Input shape {z.shape} is not supported")
+            else:
+                return self.potential(z)
+        else:
+            raise NotImplementedError(f"Cal type {cal_type} is not implemented")
 
-# this is another way to write how to sample from N(mu, std^2). In this way, the mean and std are inside the random generation,
-# thus, the dummy way cannot have gradients.
-instance2 = MultiGauss2(mean, std)
-run_exp(instance2)
+    def potential1(self, z: torch.Tensor) -> torch.Tensor:
+        z1, z2 = z[:, 0], z[:, 1]
+        t1 = 0.5 * ((torch.norm(z, dim=1) - 2) / 0.4) ** 2
+        wrk1 = torch.exp(-0.5 * ((z1 - 2) / 0.6) ** 2)
+        wrk2 = torch.exp(-0.5 * ((z1 + 2) / 0.6) ** 2)
+        t2 = torch.log(wrk1 + wrk2)
+        return t1 - t2
 
-# this is what we are supposed to use the score_esimator in a general nn.Module.
-instance3 = CustomizeDistribution(2)
-run_exp(instance3)
+    def potential2(self, z: torch.Tensor) -> torch.Tensor:
+        z1, z2 = z[:, 0], z[:, 1]
+        w1 = torch.sin(2 * np.pi * z1 / 4)
+        return 0.5 * ((z2 - w1) / 0.4) ** 2
+
+    def potential3(self, z: torch.Tensor) -> torch.Tensor:
+        z1, z2 = z[:, 0], z[:, 1]
+        w1 = torch.sin(2 * np.pi * z1 / 4)
+        w2 = 3 * torch.exp(-0.5 * ((z1 - 1) / 0.6) ** 2)
+
+        wrk1 = torch.exp(-0.5 * ((z2 - w1) / 0.35) ** 2)
+        wrk2 = torch.exp(-0.5 * ((z2 - w1 + w2) / 0.35) ** 2)
+        return -torch.log(wrk1 + wrk2)
+
+    def potential4(self, z: torch.Tensor) -> torch.Tensor:
+        z1, z2 = z[:, 0], z[:, 1]
+        w1 = torch.sin(2 * np.pi * z1 / 4)
+        w3 = 3 * torch.nn.functional.sigmoid((z1 - 1) / 0.3)
+
+        wrk1 = torch.exp(-0.5 * ((z2 - w1) / 0.4) ** 2)
+        wrk2 = torch.exp(-0.5 * ((z2 - w1 + w3) / 0.35) ** 2)
+        return -torch.log(wrk1 + wrk2)
+
+    def potential5(self, z: torch.Tensor) -> torch.Tensor:
+        p_z0 = torch.distributions.MultivariateNormal(
+            loc=torch.zeros(2, ).to(z.device),
+            covariance_matrix=torch.diag(torch.ones(2, ).to(z.device))
+        )
+        return -p_z0.log_prob(z)
+
+    def potential6(self, z: torch.Tensor) -> torch.Tensor:
+        # Customize your mixture of Gaussians logic here
+        gaussian1 = torch.distributions.MultivariateNormal(
+            loc=torch.tensor([-1.5, 0.0]).to(z.device),
+            covariance_matrix=torch.tensor([[1.0, 0.0], [0.0, 1.0]]).to(z.device)
+        )
+
+        gaussian2 = torch.distributions.MultivariateNormal(
+            loc=torch.tensor([1.5, 0.0]).to(z.device),
+            covariance_matrix=torch.tensor([[1.0, 0.0], [0.0, 1.0]]).to(z.device)
+        )
+
+        weight1 = 0.5  # Adjust the weights as needed
+        weight2 = 0.5
+
+        return -torch.log(weight1 * torch.exp(gaussian1.log_prob(z)) + weight2 * torch.exp(gaussian2.log_prob(z)))
+
+    def potential7(self, z: torch.Tensor) -> torch.Tensor:
+        # Customize your mixture of Gaussians logic here
+        gaussian1 = torch.distributions.MultivariateNormal(
+            loc=torch.tensor([-1.8, -1]).to(z.device),
+            covariance_matrix=torch.tensor([[1.0, 0.0], [0.0, 1.0]]).to(z.device)
+        )
+
+        gaussian2 = torch.distributions.MultivariateNormal(
+            loc=torch.tensor([1.8, -1]).to(z.device),
+            covariance_matrix=torch.tensor([[1.0, 0.0], [0.0, 1.0]]).to(z.device)
+        )
+
+        gaussian3 = torch.distributions.MultivariateNormal(
+            loc=torch.tensor([0.0, 1.2]).to(z.device),
+            covariance_matrix=torch.tensor([[1.0, 0.0], [0.0, 1.0]]).to(z.device)
+        )
+
+        weight1 = 1 / 3  # Adjust the weights as needed
+        weight2 = 1 / 3
+        weight3 = 1 / 3
+
+        return -torch.log(weight1 * torch.exp(gaussian1.log_prob(z)) +
+                          weight2 * torch.exp(gaussian2.log_prob(z)) +
+                          weight3 * torch.exp(gaussian3.log_prob(z)))
+
+
+def run_density_matching_example():
+    potential_func = PotentialFunc("potential6")
+
+    # show poential_function
+    bound = 4
+    x = torch.linspace(-bound, bound, 100)
+    y = torch.linspace(-bound, bound, 100)
+    xx, yy = torch.meshgrid(x, y)
+    grid_data = torch.cat((xx.reshape(-1, 1), yy.reshape(-1, 1)), dim=1)
+
+    value = potential_func(grid_data)
+
+    # scatter them to see the potential on a heatmap
+    plt.figure()
+    plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
+    plt.title('golden result')
+
+    module = CustomizeDistribution(2)
+    optimizer = torch.optim.Adam(module.parameters(), lr=0.001)
+    max_iter = 100
+    for i in range(max_iter):
+        optimizer.zero_grad()
+        loss = score_estimator(10000, module, lambda x: (potential_func(x) + module(x, in_log=True)).mean())
+        loss.backward()
+        optimizer.step()
+        print(f"iter {i}, loss: {loss.item()}")
+
+    # show the final result
+    plt.figure()
+    wrk = module.sample(10000)
+    plt.scatter(wrk[:, 0], wrk[:, 1], c=module(wrk).detach().cpu().numpy().reshape(-1), cmap='viridis')
+    plt.title("final result learnt by the model using score_estimator")
+    plt.show()
+
+
+if __name__ == '__main__':
+    mean, std = torch.Tensor([0.0, 1.0]), torch.Tensor([1.0, 2.0])
+
+    # this is the most specical case, because we write it as N(0,1) * std + mean, so we have done reparametrization trick.
+    # Thus, the dummy way can have gradients.
+    instance = MultiGauss(mean, std)
+    run_exp(instance)
+
+    # this is another way to write how to sample from N(mu, std^2). In this way, the mean and std are inside the random generation,
+    # thus, the dummy way cannot have gradients.
+    instance2 = MultiGauss2(mean, std)
+    run_exp(instance2)
+
+    # this is what we are supposed to use the score_esimator in a general nn.Module.
+    instance3 = CustomizeDistribution(2)
+    run_exp(instance3)
+
+    run_density_matching_example()
