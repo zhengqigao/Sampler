@@ -120,7 +120,7 @@ def annealed_importance_sampling(num_samples: int,
     weight = torch.exp(weight).view(-1, *tuple(range(1, evals.ndim)))
     return (weight * evals).mean(0) / weight.mean(0)
 
-
+## TODO: add the other part derivative
 class ScoreEstimator(torch.autograd.Function):
     r"""
     The REINFORCE algorithm, also known as the score function estimator, to estimate the gradient of the expectation of :math: `E_{p_{\theta}(x)}[f(x)]` with respect to the parameters of :math: `\theta`.
@@ -139,7 +139,8 @@ class ScoreEstimator(torch.autograd.Function):
         module = ctx.module
         samples, evals, *param = ctx.saved_tensors
         with torch.enable_grad():
-            obj = torch.mean(evals * module(samples, in_log=True).view(-1, *tuple(range(1, evals.ndim))), dim=0)
+            obj = torch.mean(evals.detach() * module(samples, in_log=True).view(-1, *tuple(range(1, evals.ndim)))
+                             + evals, dim=0)
             grad_input = torch.autograd.grad(obj, param, grad_output)
         return None, None, None, *grad_input
 

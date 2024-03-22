@@ -1,3 +1,6 @@
+import sys
+sys.path.append("../")
+
 import torch
 from sampler.base import score_estimator, mh_sampling
 from sampler._common import Distribution, Condistribution
@@ -56,7 +59,7 @@ class ConditionalMultiGauss(Condistribution):
         # y has shape (m, d)
         # return shape (num_samples, m, d) with y as the mean
         assert len(y.shape) == 2 and y.shape[1] == self.dim
-        return torch.randn((num_samples, y.shape[0], y.shape[1])) * self.std + y
+        return (torch.randn((num_samples, y.shape[0], y.shape[1])) * self.std + y).to(y.device)
 
     def evaluate_density(self, x: torch.Tensor, y: torch.Tensor, in_log: bool = True) -> torch.Tensor:
         # x is of shape (N,d), y is of shape (M,d)
@@ -65,10 +68,10 @@ class ConditionalMultiGauss(Condistribution):
         y = y.unsqueeze(0)
         if in_log:
             return -0.5 * (torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(
-                2 * torch.pi * self.std * self.std).sum())
+                2 * torch.pi * self.std * self.std).sum()).to(y.device)
         else:
-            return torch.exp(-0.5 * torch.sum(((x - y) / self.std) ** 2, dim=2)) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
+            return torch.exp(-0.5 * torch.sum(((x - y) / self.std) ** 2, dim=2)).to(y.device) / (
+                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std)).to(y.device)
 
 
 class MLP(nn.Module):
@@ -252,13 +255,14 @@ def run_density_matching_example():
     plt.figure()
     plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
     plt.title('golden result')
+    plt.savefig("./tmp_golden_result.png")
 
     module = CustomizeDistribution(2)
     optimizer = torch.optim.Adam(module.parameters(), lr=0.001)
-    max_iter = 100
+    max_iter, num_sample = 20, 50000
     for i in range(max_iter):
         optimizer.zero_grad()
-        loss = score_estimator(10000, module, lambda x: (potential_func(x) + module(x, in_log=True)).mean())
+        loss = score_estimator(num_sample, module, lambda x: (potential_func(x) + module(x, in_log=True)).mean())
         loss.backward()
         optimizer.step()
         print(f"iter {i}, loss: {loss.item()}")
@@ -268,6 +272,8 @@ def run_density_matching_example():
     wrk = module.sample(10000)
     plt.scatter(wrk[:, 0], wrk[:, 1], c=module(wrk).detach().cpu().numpy().reshape(-1), cmap='viridis')
     plt.title("final result learnt by the model using score_estimator")
+    plt.savefig("./tmp_final_result.png")
+
     plt.show()
 
 
