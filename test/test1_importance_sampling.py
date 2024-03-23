@@ -66,21 +66,20 @@ proposal = MultiGauss(mean=[0, 0, 0], std=[1, 1, 1])
 proposal.mul_factor = 1.0
 results = importance_sampling(10000, target, proposal, lambda x: x)
 print("Test mean:", results)
-# it works
-
+# it works, [-1, 1, .5]
 
 # self.mul_factor = None, actually 1.0
 target.mul_factor = None
 results = importance_sampling(10000, target, proposal, lambda x: x)
 print("Test mean:", results)
-# it works as if norm == 1.0
+# [-1, 1, .5]
 
 
 # self.mul_factor = 1/33.3, actually 1.0
 target.mul_factor = 1 / 33.3
 results = importance_sampling(10000, target, proposal, lambda x: x)
 print("Test mean:", results)
-# fails, gets approximately [-0.0009, 0.0009, 0.0004]
+# [-1, 1, .5]
 
 
 print("")
@@ -93,7 +92,7 @@ target_denser = MultiGaussDenser(mean=test_mean, std=[1, 1, 1])
 target_denser.mul_factor = 1 / 33.3
 results = importance_sampling(10000, target_denser, proposal, lambda x: x)
 print("Test mean:", results)
-# fails, gets approximately [-0.03, 0.03, 0.015]
+# also works, [-1, 1, .5]
 
 
 
@@ -101,13 +100,14 @@ print("Test mean:", results)
 target_denser.mul_factor = None
 results = importance_sampling(10000, target_denser, proposal, lambda x: x)
 print("Test mean:", results)
-# it works as if norm == 1.0
+# [-1, 1, .5]
 
 
 # self.mul_factor = 1.0, actually 1/33.3
 target_denser.mul_factor = 1.0
 results = importance_sampling(10000, target_denser, proposal, lambda x: x)
-print("Test mean:", results)  # fails, gets approximately [-33, 33, 17]
+print("Test mean:", results)
+# rescaled, [-1, 1, .5] * 33.3
 
 
 print("")
@@ -118,3 +118,4 @@ target2 = Wrapper(MultivariateNormal(torch.Tensor(test_mean), torch.eye(3)))
 proposal2 = Wrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
 results = importance_sampling(10000, target2, proposal2, lambda x: x)
 print("Test mean:", results)
+# [-1, 1, .5]
