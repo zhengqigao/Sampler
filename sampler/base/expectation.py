@@ -37,7 +37,7 @@ def importance_sampling(num_samples: int,
     if target.mul_factor is None or proposal.mul_factor is None:
         return (weights * evals).mean(0) / weights.mean(0)
     else:
-        return (weights * evals).mean(0) / (proposal.mul_factor / target.mul_factor)
+        return (weights * evals).mean(0)
 
 
 def annealed_importance_sampling(num_samples: int,
