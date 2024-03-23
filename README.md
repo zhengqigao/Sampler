@@ -21,7 +21,7 @@ pip install git+https://github.com/zhengqigao/Sampler.git
 ```python
 import torch
 from torch.distributions import MultivariateNormal
-from sampler.base import importance_sampling
+from sampler.base.base import importance_sampling
 from sampler.distribution import Wrapper
 
 # define the target and proposal distributions using the Wrapper class
@@ -57,14 +57,13 @@ The following algorithms have been implemented:
 - [Annealed importance sampling](https://arxiv.org/abs/physics/9803008) :cat:
 - [Langevin Monte Carlo](https://abdulfatir.com/blog/2020/Langevin-Monte-Carlo/) :cat:
 - [Hamiltonian Monte Carlo](https://arxiv.org/pdf/1206.1901.pdf) :cat:
+- [Score Estimator](http://stillbreeze.github.io/REINFORCE-vs-Reparameterization-trick/) :cat:
 
 A list of TODOs are shown below. **Please add your name after it in parenthesis if you are working on it (Zhengqi and Jiahe).** Move to the list above when finished development, and meanwhile please add a reference that your implementation is based on. Note that some algorithms below should be combined to the previous implemented algorithms, and some algorithms might be able to call previous implemented algorithms as subroutines. 
 
-- Sequential Monte Carlo
-- Sequential Importance Sampling (zhengqi)
+- Sequential Importance Sampling, Sequential Monte Carlo (zhengqi)
 - Adaptive Rejection Sampling
 - The No-U-Turn Sampler
-- Score estimator (a self-written backward function)
 - Blocked Gibbs Sampling (might be combined into Gibbs sampling)
 - Monte Carlo, and Quasi-Monte Carlo
 - Sampling Importance Resampling

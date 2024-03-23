@@ -1,10 +1,6 @@
-import numpy as np
-import torch
 from sampler.base import *
 from sampler._common import Distribution
-from typing import Optional
-from torch.distributions.multivariate_normal import MultivariateNormal
-from sampler.distribution import Wrapper
+
 
 
 class MultiGauss(Distribution):

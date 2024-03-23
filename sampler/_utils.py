@@ -23,3 +23,10 @@ def _leapfrog(p: torch.Tensor,
         Dq = step_size * dq_dt
         P_half = P_half + Dp
         Q = Q + Dq
+
+
+def _get_params(module: Union[torch.nn.Module, torch.nn.DataParallel]):
+    if isinstance(module, torch.nn.DataParallel):
+        return _get_params(module.module)
+    else:
+        return module.parameters()
