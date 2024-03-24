@@ -100,11 +100,7 @@ class _Meta(ABCMeta):
         return super().__new__(cls, name, bases, dct)
 
 
-## TODO: is it really necessary to use ABC abstract class? We can directly define it by inheriting from nn.Module. But the
-##       trick is actually when inheriting from ABC, it forces that we cannot define an instance of _BaseDistribution.
-##       Namely, _BaseDistribution can only be used to define another class. This is a desired behavior, but using ABC seems
-##       making the code unnecessarily complicated.
-class _BaseDistribution(nn.Module, ABC, metaclass=_Meta):
+class _BaseDistribution(nn.Module, metaclass=_Meta):
 
     def __init__(self):
         super().__init__()
@@ -139,11 +135,9 @@ class _BaseDistribution(nn.Module, ABC, metaclass=_Meta):
         else:
             raise ValueError(f"The div_factor must be a positive scalar, but got {value}.")
 
-    @abstractmethod
     def sample(self, *args, **kwargs) -> torch.Tensor:
         raise NotImplementedError
 
-    @abstractmethod
     def evaluate_density(self, *args, **kwargs) -> torch.Tensor:
         raise NotImplementedError
 
@@ -171,7 +165,6 @@ class Distribution(_BaseDistribution):
     def __init__(self):
         super().__init__()
 
-    @abstractmethod
     def sample(self, num_samples: int) -> torch.Tensor:
         r"""
         Draw samples from the distribution :math: `p(\cdot)`. The samples should be of shape (num_samples, ...).
@@ -182,7 +175,6 @@ class Distribution(_BaseDistribution):
 
         raise NotImplementedError
 
-    @abstractmethod
     def evaluate_density(self, x: torch.Tensor, in_log: bool) -> torch.Tensor:
         r"""
         Evaluate the density function :math:`\tilde{p}(x)` at given :math:`x`. When in_log is True, the logarithm of the density function :math:`log\tilde{p}(x)` should be returned. The returned values should be of shape (x.shape[0],).
@@ -207,7 +199,7 @@ class Condistribution(_BaseDistribution):
     def __init__(self):
         super().__init__()
 
-    @abstractmethod
+
     def sample(self, num_samples, y: torch.Tensor) -> torch.Tensor:
         r"""
         Draw samples from the distribution :math: `p(\cdot | y)`. The returned samples should be of shape (num_samples, y.shape[0], ...)
@@ -219,7 +211,7 @@ class Condistribution(_BaseDistribution):
 
         raise NotImplementedError
 
-    @abstractmethod
+
     def evaluate_density(self, x: torch.Tensor, y: torch.Tensor, in_log: bool) -> torch.Tensor:
         r"""
         Evaluate the density function :math:`\tilde{p}(x|y)` at given :math:`x`. When in_log is True, the logarithm of the density function :math:`log\tilde{p}(x|y)` should be returned. The returned values should be of shape (x.shape[0], y.shape[0]).

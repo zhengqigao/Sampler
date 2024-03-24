@@ -1,5 +1,5 @@
 from sampler.base import *
-from sampler._common import Distribution
+from sampler._common import Distribution, _BaseDistribution
 
 
 
@@ -29,6 +29,7 @@ class MultiGauss(Distribution):
 
 
 instance1 = MultiGauss([1, 2], [1, 1])
+instance1.sample(10)
 
 try:
     instance1.mul_factor = 0  # should raise an error, as mul_factor should be positive
@@ -62,3 +63,6 @@ print(instance1.mul_factor, instance1.div_factor)  # None None
 instance2 = MultiGauss([1, 2], [1, 1])
 instance2.div_factor = 2.0
 print(instance2.mul_factor, instance2.div_factor)  # should return 0.5 2.0
+
+s = instance2.sample(10)
+print(s)
