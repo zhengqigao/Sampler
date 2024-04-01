@@ -51,12 +51,14 @@ class MultiGaussDenser(Distribution):
                 + torch.log(2 * torch.pi * self.std * self.std).sum()
             ) + torch.log(torch.Tensor([33.3]))
         else:
-            return torch.exp(
-                -0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
-            ) / (
-                torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
-                * torch.prod(self.std)
-            ) * 33.3
+            return (
+                torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1))
+                / (
+                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
+                    * torch.prod(self.std)
+                )
+                * 33.3
+            )
 
 
 # MultiGauss
@@ -95,7 +97,6 @@ print("Test mean:", results)
 # also works, [-1, 1, .5]
 
 
-
 # self.mul_factor = None, actually 1/33.3
 target_denser.mul_factor = None
 results = importance_sampling(10000, target_denser, proposal, lambda x: x)
@@ -108,6 +109,34 @@ target_denser.mul_factor = 1.0
 results = importance_sampling(10000, target_denser, proposal, lambda x: x)
 print("Test mean:", results)
 # rescaled, [-1, 1, .5] * 33.3
+
+
+print("")
+
+
+class exponentDistribution(Distribution):
+    def __init__(self, mean, start):
+        super().__init__()
+        self.mean = torch.Tensor(mean)
+        self.start = torch.Tensor(start)
+        self.mul_factor = 1.0
+
+    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
+        mask = x < self.start
+        ret = self.mean * torch.exp(-self.mean * x)
+        ret[mask] = 0.
+        ret = torch.sum(ret, dim=1)
+        if in_log:
+            return torch.log(ret)
+        else:
+            return ret
+        
+
+target_custom = exponentDistribution(mean=[0.3], start=[0])
+proposal_1d = MultiGauss(mean=[0], std=[10])
+results = importance_sampling(10000, target_custom, proposal_1d, lambda x: x)
+print("Test mean:", results)
+# 1/0.3 ≈ 3.3
 
 
 print("")
