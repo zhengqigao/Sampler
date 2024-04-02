@@ -1,7 +1,14 @@
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
 
 # these are copied from a paper:  https://arxiv.org/pdf/1505.05770.pdf
+
+
+# For precise description, say we denote: distribution_value = exp(density) = exp(-potential) In the
+# evalulate_density function defined in our Distribution class, we need to provide `distribution_value` when
+# in_log=False, and `density` when in_log=True. However, here the PotentialFunc actually returns the `potential` not the `density`.
+
 class PotentialFunc(object):
     def __init__(self, name: str):
         self.potential = getattr(self, name)
@@ -94,3 +101,32 @@ class PotentialFunc(object):
         return -torch.log(weight1 * torch.exp(gaussian1.log_prob(z)) +
                           weight2 * torch.exp(gaussian2.log_prob(z)) +
                           weight3 * torch.exp(gaussian3.log_prob(z)))
+
+if __name__ == '__main__':
+    func_list = ['potential1',
+                 'potential2',
+                 'potential3',
+                 'potential4',
+                 'potential5',
+                 'potential6',
+                 'potential7', ]
+
+    for i in range(len(func_list)):
+        key = func_list[i]
+        potential_func = PotentialFunc(key)
+
+        bound = 4
+        # generate grid data in [-3,3] * [-3,3]
+        x = torch.linspace(-bound, bound, 100)
+        y = torch.linspace(-bound, bound, 100)
+        xx, yy = torch.meshgrid(x, y)
+        grid_data = torch.cat((xx.reshape(-1, 1), yy.reshape(-1, 1)), dim=1)
+
+        value = potential_func(grid_data)
+
+        # scatter them to see the potential on a heatmap
+        plt.figure()
+        plt.title(key)
+        plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
+        plt.colorbar()
+        plt.show()
