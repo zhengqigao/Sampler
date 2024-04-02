@@ -7,3 +7,4 @@ dummy/
 ./sampler/base/__pycache__/
 *__pycache__/
 *.pyc
+*.png

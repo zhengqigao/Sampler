@@ -48,8 +48,8 @@ class UnconditionalMultiGauss(Distribution):
 
 
 gauss1 = ConditionalMultiGauss(std = [1, 1])
-gauss2 = UnconditionalMultiGauss([-1,1], [1, 1])
-results, info = mh_sampling(10000, gauss2, gauss1, torch.zeros((3, 2))) # 3 different MC chains, each grown by MH independently
+gauss2 = UnconditionalMultiGauss(mean=[-2,2], std=[1, 1])
+results, info = mh_sampling(50000, gauss2, gauss1, torch.zeros((3, 2)), burn_in=10000) # 3 different MC chains, each grown by MH independently
 
 for batch_index in range(results.shape[1]):
     plt.figure()
@@ -57,3 +57,30 @@ for batch_index in range(results.shape[1]):
 plt.show()
 
 print(f"info['acceptance_rate'] = {info['acceptance_rate']}")
+
+
+# TODO: another testing to debug [added by zhengqi]
+from test_common_helper import PotentialFunc
+potential_func = PotentialFunc("potential6")
+bound = 4
+x = torch.linspace(-bound, bound, 100)
+y = torch.linspace(-bound, bound, 100)
+xx, yy = torch.meshgrid(x, y)
+grid_data = torch.cat((xx.reshape(-1, 1), yy.reshape(-1, 1)), dim=1)
+
+value = potential_func(grid_data)
+
+# scatter them to see the potential on a heatmap
+# For precise description, say we denote: distribution = exp(density) = exp(-potential)
+# In the evalulate_density function, we need to provide `distribution` when in_log=False, and `density` when in_log=True
+# However, in the potential_func defined in test_common_helper, it actually returns the `potential` not the `density`.
+plt.figure()
+plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
+plt.title('golden result')
+
+# sample by mh_sampling
+tmp, _ = mh_sampling(50000, target=lambda x, in_log: -potential_func(x, True),
+                     transit=ConditionalMultiGauss(torch.ones(2)), initial=torch.zeros((1, 2)), burn_in=10000)
+plt.figure()
+plt.scatter(tmp[:, 0, 0], tmp[:, 0, 1], s=1)
+plt.show()
