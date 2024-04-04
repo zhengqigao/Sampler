@@ -26,7 +26,7 @@ class ConditionalMultiGauss(Condistribution):
             return -0.5 * (torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(2 * torch.pi * self.std * self.std).sum())
         else:
             return torch.exp(-0.5 * torch.sum(((x - y) / self.std) ** 2, dim=2)) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
+                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std * self.std))
 
 class UnconditionalMultiGauss(Distribution):
     def __init__(self, mean, std):
@@ -44,12 +44,12 @@ class UnconditionalMultiGauss(Distribution):
             return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(2 * torch.pi * self.std * self.std).sum())
         else:
             return torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
+                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std * self.std))
 
 
 gauss1 = ConditionalMultiGauss(std = [1, 1])
 gauss2 = UnconditionalMultiGauss(mean=[-2,2], std=[1, 1])
-results, info = mh_sampling(50000, gauss2, gauss1, torch.zeros((3, 2)), burn_in=10000) # 3 different MC chains, each grown by MH independently
+results, info = mh_sampling(50000, gauss2, gauss1, torch.zeros(3,2), burn_in=10000) # 3 different MC chains, each grown by MH independently
 
 for batch_index in range(results.shape[1]):
     plt.figure()
@@ -72,7 +72,7 @@ value = potential_func(grid_data)
 
 # scatter them to see the potential on a heatmap
 # For precise description, say we denote: distribution = exp(density) = exp(-potential)
-# In the evalulate_density function, we need to provide `distribution` when in_log=False, and `density` when in_log=True
+# In the evaluate_density function, we need to provide `distribution` when in_log=False, and `density` when in_log=True
 # However, in the potential_func defined in test_common_helper, it actually returns the `potential` not the `density`.
 plt.figure()
 plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')

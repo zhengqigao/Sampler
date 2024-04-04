@@ -24,7 +24,7 @@ class MultiGauss(Distribution):
                 -0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
             ) / (
                 torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
-                * torch.prod(self.std)
+                * torch.prod(self.std * self.std)
             )
 
 
