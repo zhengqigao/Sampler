@@ -59,9 +59,11 @@ plt.show()
 print(f"info['acceptance_rate'] = {info['acceptance_rate']}")
 
 
-# TODO: another testing to debug [added by zhengqi]
+# TODO: zhengqi: I tested potential4, potential3 and potential6. Can you test the others? Also, I think potential6
+#  looks a bit weird. Can you check it? 3 and 4 look fine to me.
+
 from test_common_helper import PotentialFunc
-potential_func = PotentialFunc("potential6")
+potential_func = PotentialFunc("potential4")
 bound = 4
 x = torch.linspace(-bound, bound, 100)
 y = torch.linspace(-bound, bound, 100)
@@ -80,7 +82,14 @@ plt.title('golden result')
 
 # sample by mh_sampling
 tmp, _ = mh_sampling(50000, target=lambda x, in_log: -potential_func(x, True),
-                     transit=ConditionalMultiGauss(torch.ones(2)), initial=torch.zeros((1, 2)), burn_in=10000)
+                     transit=ConditionalMultiGauss(torch.ones(2)), initial=torch.zeros((1, 2)), burn_in=5000)
 plt.figure()
+# only show samples within bound
+tmp = tmp[tmp[:, 0, 0] > -bound]
+tmp = tmp[tmp[:, 0, 0] < bound]
+tmp = tmp[tmp[:, 0, 1] > -bound]
+tmp = tmp[tmp[:, 0, 1] < bound]
 plt.scatter(tmp[:, 0, 0], tmp[:, 0, 1], s=1)
+plt.xlim(-bound, bound)
+plt.ylim(-bound, bound)
 plt.show()
