@@ -48,7 +48,8 @@ def mh_sampling(num_samples: int,
                 target: Union[Distribution, Callable],
                 transit: Condistribution,
                 initial: torch.Tensor,
-                burn_in: Optional[int] = 0) -> Tuple[torch.Tensor, Any]:
+                burn_in: Optional[int] = 0,
+                event_func: Callable[[Tuple[torch.Tensor, Any]], bool] = lambda _: False) -> Tuple[torch.Tensor, Any]:
     r"""
     Metropolis-Hastings (MH) sampling to draw samples from a target distribution using a proposal distribution. See Section 11.2.2. of [Bishop2006PRML]_.
 
@@ -58,8 +59,9 @@ def mh_sampling(num_samples: int,
         num_samples (int): the number of samples to be returned.
         target (Union[Distribution, Callable]): the target distribution. It doesn't need to have a sampling function, so we allow it to be a callable as well.
         transit (Distribution): the transition distribution.
-        initial (torch.Tensor): the initial point to start the sampling process. The first dimension is the batch dimension B, and (num_samples, B, ...) will be returned.
+        initial (torch.Tensor): the initial point to start the sampling process. The first dimension is the batch dimension B, and (num_samples, B, ...) will be returned. I don't understand!
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
+        event_func (Callable[[Tuple[torch.Tensor, Any]], bool]): the function that determines whether sampling needs to end
     """
 
     if burn_in < 0:
@@ -78,12 +80,19 @@ def mh_sampling(num_samples: int,
         new = transit.sample(1, y=initial).view(initial.shape)
         ratio = target(new, in_log=True) + transit(initial, new, in_log=True).diag() \
                 - target(initial, in_log=True) - transit(new, initial, in_log=True).diag()
-        ratio = torch.exp(ratio)  # min(1, ratio) is not necessary.
+        ratio = torch.exp(ratio)  # min(1, ratio) is not necessary
         accept = torch.rand(ratio.shape) <= ratio
         num_accept += accept
         new[~accept] = initial[~accept]
         initial = new
         samples = torch.cat([samples, new.unsqueeze(0)], dim=0)
+        if event_func(samples):
+            if samples.shape[0] >= burn_in:
+                print("event_func is triggered")  # Note: It should be logging info in the future
+                return samples[burn_in:], {'acceptance_rate': num_accept / (samples.shape[0] - 1)}
+            else:
+                print("event_func is triggered before burn-in stage") # Note: It should be warning in the future
+                return samples, {'acceptance_rate': num_accept / (samples.shape[0] - 1)}
     return samples[burn_in:], {'acceptance_rate': num_accept / (samples.shape[0] - 1)}
 
 

@@ -51,12 +51,14 @@ class MultiGaussDenser(Distribution):
                 + torch.log(2 * torch.pi * self.std * self.std).sum()
             ) + torch.log(torch.Tensor([33.3]))
         else:
-            return torch.exp(
-                -0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
-            ) / (
-                torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
-                * torch.prod(self.std * self.std)
-            ) * 33.3
+            return (
+                torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1))
+                / (
+                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
+                    * torch.prod(self.std)
+                )
+                * 33.3
+            )
 
 
 # MultiGauss
@@ -95,7 +97,6 @@ print("Test mean:", results)
 # also works, [-1, 1, .5]
 
 
-
 # self.mul_factor = None, actually 1/33.3
 target_denser.mul_factor = None
 results = importance_sampling(10000, target_denser, proposal, lambda x: x)
@@ -113,9 +114,58 @@ print("Test mean:", results)
 print("")
 
 
-# torch.distributions.multivariate_normal.MultivariateNormal
-target2 = Wrapper(MultivariateNormal(torch.Tensor(test_mean), torch.eye(3)))
-proposal2 = Wrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
+# CustomDistribution1 is an unnormalized distribution
+# f(x) = exp(-x^2/2)*|cos(x)|
+class CustomDistribution1(Distribution):
+    def __init__(self):
+        super().__init__()
+        self.mul_factor = None
+
+    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
+        ret = torch.exp(-(x**2) / 2) * torch.abs(torch.cos(x))
+        ret = torch.sum(ret, dim=1)  # transpose row vector to column vector
+        if in_log:
+            return torch.log(ret)
+        else:
+            return ret
+
+
+target1 = CustomDistribution1()
+proposal1 = MultiGauss(mean=[0], std=[1])
+results = importance_sampling(10000, target1, proposal1, lambda x: x)
+print("Test mean:", results)
+# 0.0069, which is close to 0
+
+
+# CustomDistribution2 is an unnormalized distribution
+# f(x) = cos^2(1/x) (-1 <= x < 0 or 0 < x <= 1)
+# f(0) = 0, specifically
+class CustomDistribution2(Distribution):
+    def __init__(self):
+        super().__init__()
+        self.mul_factor = None
+
+    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
+        ret = torch.cos(1 / x) ** 2
+        ret[(x == 0) | (x < -1) | (x > 1)] = 0
+        ret = torch.sum(ret, dim=1)  # transpose row vector to column vector
+        if in_log:
+            return torch.log(ret)
+        else:
+            return ret
+
+target2 = CustomDistribution2()
+proposal2 = MultiGauss(mean=[0], std=[5])
 results = importance_sampling(10000, target2, proposal2, lambda x: x)
+print("Test mean:", results)
+# -0.0031, which is close to 0
+
+print("")
+
+
+# torch.distributions.multivariate_normal.MultivariateNormal
+target3 = Wrapper(MultivariateNormal(torch.Tensor(test_mean), torch.eye(3)))
+proposal3 = Wrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
+results = importance_sampling(10000, target3, proposal3, lambda x: x)
 print("Test mean:", results)
 # [-1, 1, .5]
