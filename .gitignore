@@ -8,3 +8,4 @@ dummy/
 *__pycache__/
 *.pyc
 *.png
+test/sampler
