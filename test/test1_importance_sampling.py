@@ -114,37 +114,58 @@ print("Test mean:", results)
 print("")
 
 
-class exponentDistribution(Distribution):
-    def __init__(self, mean, start):
+# CustomDistribution1 is an unnormalized distribution
+# f(x) = exp(-x^2/2)*|cos(x)|
+class CustomDistribution1(Distribution):
+    def __init__(self):
         super().__init__()
-        self.mean = torch.Tensor(mean)
-        self.start = torch.Tensor(start)
-        self.mul_factor = 1.0
+        self.mul_factor = None
 
     def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
-        mask = x < self.start
-        ret = self.mean * torch.exp(-self.mean * x)
-        ret[mask] = 0.
-        ret = torch.sum(ret, dim=1)
+        ret = torch.exp(-(x**2) / 2) * torch.abs(torch.cos(x))
+        ret = torch.sum(ret, dim=1)  # transpose row vector to column vector
         if in_log:
             return torch.log(ret)
         else:
             return ret
-        
 
-target_custom = exponentDistribution(mean=[0.3], start=[0])
-proposal_1d = MultiGauss(mean=[0], std=[10])
-results = importance_sampling(10000, target_custom, proposal_1d, lambda x: x)
+
+target1 = CustomDistribution1()
+proposal1 = MultiGauss(mean=[0], std=[1])
+results = importance_sampling(10000, target1, proposal1, lambda x: x)
 print("Test mean:", results)
-# 1/0.3 ≈ 3.3
+# 0.0069, which is close to 0
 
+
+# CustomDistribution2 is an unnormalized distribution
+# f(x) = cos^2(1/x) (-1 <= x < 0 or 0 < x <= 1)
+# f(0) = 0, specifically
+class CustomDistribution2(Distribution):
+    def __init__(self):
+        super().__init__()
+        self.mul_factor = None
+
+    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
+        ret = torch.cos(1 / x) ** 2
+        ret[(x == 0) | (x < -1) | (x > 1)] = 0
+        ret = torch.sum(ret, dim=1)  # transpose row vector to column vector
+        if in_log:
+            return torch.log(ret)
+        else:
+            return ret
+
+target2 = CustomDistribution2()
+proposal2 = MultiGauss(mean=[0], std=[5])
+results = importance_sampling(10000, target2, proposal2, lambda x: x)
+print("Test mean:", results)
+# -0.0031, which is close to 0
 
 print("")
 
 
 # torch.distributions.multivariate_normal.MultivariateNormal
-target2 = Wrapper(MultivariateNormal(torch.Tensor(test_mean), torch.eye(3)))
-proposal2 = Wrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
-results = importance_sampling(10000, target2, proposal2, lambda x: x)
+target3 = Wrapper(MultivariateNormal(torch.Tensor(test_mean), torch.eye(3)))
+proposal3 = Wrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
+results = importance_sampling(10000, target3, proposal3, lambda x: x)
 print("Test mean:", results)
 # [-1, 1, .5]
