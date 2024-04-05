@@ -99,7 +99,8 @@ class CustomizeDistribution(Distribution):
         self.in_dim = in_dim
         self.model = MLP(in_dim)
         self.mul_factor = None
-
+        self.gauss = MultiGauss(torch.zeros(in_dim), torch.ones(in_dim))
+        self.mix = 0.0
     def sample(self, num_samples: int) -> torch.Tensor:
         tmp, info = mh_sampling(num_samples, target=self,
                              transit=ConditionalMultiGauss(torch.ones(self.in_dim)), initial=torch.zeros((1, 2)),
@@ -113,9 +114,9 @@ class CustomizeDistribution(Distribution):
 
     def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
         if in_log:
-            return self.model(x).squeeze(1)
+            return (1 - self.mix) * self.model(x).squeeze(1) + self.mix * self.gauss.evaluate_density(x, in_log)
         else:
-            return torch.exp(self.model(x).squeeze(1))
+            return torch.exp(self.model(x).squeeze(1)) ** (1 - self.mix) * self.gauss.evaluate_density(x, in_log) ** self.mix
 
 
 def run_exp(instance):
@@ -166,53 +167,50 @@ def run_density_matching_example():
     plt.title('golden result')
     plt.savefig("./test/tmp_golden_result.png")
 
+    num_sample = 1000
     module = CustomizeDistribution(2)
-    optimizer = torch.optim.Adam(module.parameters(), lr=0.001)
-    max_iter, num_sample = 20, 10000
+    tmp = module.sample(num_sample)
+    plt.figure()
+    plt.scatter(tmp[:, 0], tmp[:, 1], s=1)
+    plt.title("initial samples")
+    plt.show()
+    optimizer = torch.optim.Adam(module.parameters(), lr=0.0001)
+    max_iter = 200
+    loss_list = []
     for i in range(max_iter):
-        if i % 2 == 0:
-            # show the final result
-            # plt.figure()
-            # wrk = module.sample(50000)
-            # plt.scatter(wrk[:, 0], wrk[:, 1], c=module(wrk, in_log = False).detach().cpu().numpy().reshape(-1), cmap='viridis')
-            # plt.colorbar()
-            # plt.title(f" i={i} Samples of model using MH")
-            # plt.figure()
-            # plt.scatter(grid_data[:, 0], grid_data[:, 1], c=module(grid_data, in_log=False).detach().cpu().numpy(), cmap='viridis')
-            # plt.title(f" i={i} Potential of model")
-            # plt.colorbar()
-            # plt.savefig("./test/tmp_final_result.png")
+        if i % 10 == 0:
 
-            plt.figure()
-            wrk = module.sample(50000)
-            wrk2 = wrk.detach().cpu().numpy()
-            hist, xedges, yedges = np.histogram2d(wrk2[:, 0], wrk2[:, 1], bins=50)
-            extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+            plt.figure(figsize=(12, 5))  # Adjust the figure size as needed
 
-            # Plot 2D histogram
-            plt.imshow(hist.T, extent=extent, origin='lower', cmap='viridis')
-            plt.colorbar(label='Frequency')
-            plt.title("2D Histogram of Samples")
-            plt.xlabel("X axis")
-            plt.ylabel("Y axis")
+            # First subplot
+            plt.subplot(1, 2, 1)
+            wrk = module.sample(num_sample)
+            plt.scatter(wrk[:, 0], wrk[:, 1], c=module(wrk, in_log=False).detach().cpu().numpy().reshape(-1),
+                        cmap='viridis')
+            plt.colorbar()
+            plt.title(f"i={i} Samples of model using MH")
 
-            plt.figure()
-            scatter = plt.scatter(grid_data[:, 0], grid_data[:, 1],
-                                     c=module(grid_data, in_log=False).detach().cpu().numpy(), cmap='viridis')
-            plt.title("Potential of model")
-            plt.xlabel("X axis")
-            plt.ylabel("Y axis")
-
-            # Add colorbar to the second subplot
-            cbar = plt.colorbar(scatter)
-            cbar.set_label('Potential')
+            # Second subplot
+            plt.subplot(1, 2, 2)
+            plt.scatter(grid_data[:, 0], grid_data[:, 1], c=module(grid_data, in_log=False).detach().cpu().numpy(),
+                        cmap='viridis')
+            plt.title(f"i={i} Potential of model")
+            plt.colorbar()
 
             plt.tight_layout()
             plt.show()
 
+        if i % 20 == 0:
+            module.mix = max(module.mix - 0.1, 0)
 
         optimizer.zero_grad()
         loss = score_estimator(num_sample, module, lambda x: (potential_func(x) + module(x, in_log=True)).mean())
+        loss_list.append(loss.item())
+        if torch.isnan(loss).any():
+            plt.figure()
+            plt.plot(loss_list)
+            plt.show()
+            break
         loss.backward()
         optimizer.step()
         print(f"iter {i}, loss: {loss.item()}")
@@ -237,10 +235,30 @@ if __name__ == '__main__':
     instance2 = MultiGauss2(mean, std)
     run_exp(instance2)
 
-    # this is what we are supposed to use the score_esimator in a general nn.Module.
+    # this is what we are supposed to use the score_estimator in a general nn.Module.
+    ## TODO: further testing is needed. Can this work or not?
     instance3 = CustomizeDistribution(2)
     run_exp(instance3)
+    run_density_matching_example()
 
-    run_mh_example()
-    # run_density_matching_example()
+    # bound = 50
+    # x = torch.linspace(-bound, bound, 500)
+    # y = torch.linspace(-bound, bound, 500)
+    # xx, yy = torch.meshgrid(x, y)
+    # grid_data = torch.cat((xx.reshape(-1, 1), yy.reshape(-1, 1)), dim=1)
+    #
+    # value = instance3(grid_data, in_log=False)
+    # plt.figure()
+    # plt.scatter(grid_data[:, 0], grid_data[:, 1], c=value.detach().cpu().numpy(), cmap='viridis')
+    # plt.title('initial model density')
+    # plt.colorbar()
+    # plt.show()
+    #
+    # wrks = instance3.sample(1000)
+    # plt.figure()
+    # plt.scatter(wrks[:, 0], wrks[:, 1], s=1)
+    # plt.title("initial samples")
+    # plt.show()
+
+
 
