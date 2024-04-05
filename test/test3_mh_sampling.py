@@ -46,10 +46,10 @@ class UnconditionalMultiGauss(Distribution):
             return torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)) / (
                     torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std * self.std))
 
-"""
+#This case is extended with event_func test case
 gauss1 = ConditionalMultiGauss(std = [1, 1])
 gauss2 = UnconditionalMultiGauss(mean=[-2,2], std=[1, 1])
-results, info = mh_sampling(50000, gauss2, gauss1, torch.zeros(3,2), burn_in=10000) # 3 different MC chains, each grown by MH independently
+results, info = mh_sampling(50000, gauss2, gauss1, torch.zeros(3,2), burn_in=10000,event_func=lambda sample:sample[-1][0][0]>2) # 3 different MC chains, each grown by MH independently
 
 for batch_index in range(results.shape[1]):
     plt.figure()
@@ -57,7 +57,7 @@ for batch_index in range(results.shape[1]):
 plt.show()
 
 print(f"info['acceptance_rate'] = {info['acceptance_rate']}")
-"""
+
 
 # TODO: zhengqi: I tested potential4, potential3 and potential6. Can you test the others? Also, I think potential6
 #  looks a bit weird. Can you check it? 3 and 4 look fine to me.

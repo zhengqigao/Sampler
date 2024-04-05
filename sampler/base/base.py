@@ -61,7 +61,7 @@ def mh_sampling(num_samples: int,
         transit (Distribution): the transition distribution.
         initial (torch.Tensor): the initial point to start the sampling process. The first dimension is the batch dimension B, and (num_samples, B, ...) will be returned. I don't understand!
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
-        event_func (object):
+        event_func (Callable[[Tuple[torch.Tensor, Any]], bool]): the function that determines whether sampling needs to end
     """
 
     if burn_in < 0:
@@ -87,7 +87,12 @@ def mh_sampling(num_samples: int,
         initial = new
         samples = torch.cat([samples, new.unsqueeze(0)], dim=0)
         if event_func(samples):
-            return samples[burn_in:], {'acceptance_rate': num_accept / (samples.shape[0] - 1)}
+            if samples.shape[0] >= burn_in:
+                print("event_func is triggered")  # Note: It should be logging info in the future
+                return samples[burn_in:], {'acceptance_rate': num_accept / (samples.shape[0] - 1)}
+            else:
+                print("event_func is triggered before burn-in stage") # Note: It should be warning in the future
+                return samples, {'acceptance_rate': num_accept / (samples.shape[0] - 1)}
     return samples[burn_in:], {'acceptance_rate': num_accept / (samples.shape[0] - 1)}
 
 
