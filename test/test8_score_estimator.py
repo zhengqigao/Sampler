@@ -8,7 +8,7 @@ import torch.nn as nn
 from sklearn.datasets import make_moons
 import matplotlib.pyplot as plt
 import numpy as np
-
+from test_common_helper import PotentialFunc
 
 class MultiGauss(Distribution):
     def __init__(self, mean, std):
@@ -34,7 +34,7 @@ class MultiGauss(Distribution):
                 -0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
             ) / (
                     torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
-                    * torch.prod(self.std)
+                    * torch.prod(self.std * self.std)
             )
 
 
@@ -71,7 +71,7 @@ class ConditionalMultiGauss(Condistribution):
                 2 * torch.pi * self.std * self.std).sum()).to(y.device)
         else:
             return torch.exp(-0.5 * torch.sum(((x - y) / self.std) ** 2, dim=2)).to(y.device) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std)).to(y.device)
+                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std * self.std)).to(y.device)
 
 
 class MLP(nn.Module):
@@ -101,9 +101,10 @@ class CustomizeDistribution(Distribution):
         self.mul_factor = None
 
     def sample(self, num_samples: int) -> torch.Tensor:
-        tmp, _ = mh_sampling(num_samples, target=self,
+        tmp, info = mh_sampling(num_samples, target=self,
                              transit=ConditionalMultiGauss(torch.ones(self.in_dim)), initial=torch.zeros((1, 2)),
-                             burn_in=100)
+                             burn_in=1000)
+        print(f"acceptance rate: {info['acceptance_rate']}")
         # Imagine if inside the implementation of mh_sampling, it requires target.sample() method, then we will have an infinite loop
         # self.sample -> mh_sampling -> target.sample -> mh_sampling ....
         # however, this will never happen. Becasue mh_sampling itself is a sampling function, and its goal is how to sample from the target
@@ -145,98 +146,6 @@ def run_exp(instance):
         print("dummy backward failed:", e)
 
 
-class PotentialFunc(object):
-    def __init__(self, name: str):
-        self.potential = getattr(self, name)
-
-    def __call__(self, z: torch.Tensor, cal_type=1) -> torch.Tensor:
-        if cal_type == 1:
-            if z.shape[1] != 2:
-                raise ValueError(f"Input shape {z.shape} is not supported")
-            else:
-                return self.potential(z)
-        else:
-            raise NotImplementedError(f"Cal type {cal_type} is not implemented")
-
-    def potential1(self, z: torch.Tensor) -> torch.Tensor:
-        z1, z2 = z[:, 0], z[:, 1]
-        t1 = 0.5 * ((torch.norm(z, dim=1) - 2) / 0.4) ** 2
-        wrk1 = torch.exp(-0.5 * ((z1 - 2) / 0.6) ** 2)
-        wrk2 = torch.exp(-0.5 * ((z1 + 2) / 0.6) ** 2)
-        t2 = torch.log(wrk1 + wrk2)
-        return t1 - t2
-
-    def potential2(self, z: torch.Tensor) -> torch.Tensor:
-        z1, z2 = z[:, 0], z[:, 1]
-        w1 = torch.sin(2 * np.pi * z1 / 4)
-        return 0.5 * ((z2 - w1) / 0.4) ** 2
-
-    def potential3(self, z: torch.Tensor) -> torch.Tensor:
-        z1, z2 = z[:, 0], z[:, 1]
-        w1 = torch.sin(2 * np.pi * z1 / 4)
-        w2 = 3 * torch.exp(-0.5 * ((z1 - 1) / 0.6) ** 2)
-
-        wrk1 = torch.exp(-0.5 * ((z2 - w1) / 0.35) ** 2)
-        wrk2 = torch.exp(-0.5 * ((z2 - w1 + w2) / 0.35) ** 2)
-        return -torch.log(wrk1 + wrk2)
-
-    def potential4(self, z: torch.Tensor) -> torch.Tensor:
-        z1, z2 = z[:, 0], z[:, 1]
-        w1 = torch.sin(2 * np.pi * z1 / 4)
-        w3 = 3 * torch.nn.functional.sigmoid((z1 - 1) / 0.3)
-
-        wrk1 = torch.exp(-0.5 * ((z2 - w1) / 0.4) ** 2)
-        wrk2 = torch.exp(-0.5 * ((z2 - w1 + w3) / 0.35) ** 2)
-        return -torch.log(wrk1 + wrk2)
-
-    def potential5(self, z: torch.Tensor) -> torch.Tensor:
-        p_z0 = torch.distributions.MultivariateNormal(
-            loc=torch.zeros(2, ).to(z.device),
-            covariance_matrix=torch.diag(torch.ones(2, ).to(z.device))
-        )
-        return -p_z0.log_prob(z)
-
-    def potential6(self, z: torch.Tensor) -> torch.Tensor:
-        # Customize your mixture of Gaussians logic here
-        gaussian1 = torch.distributions.MultivariateNormal(
-            loc=torch.tensor([-1.5, 0.0]).to(z.device),
-            covariance_matrix=torch.tensor([[1.0, 0.0], [0.0, 1.0]]).to(z.device)
-        )
-
-        gaussian2 = torch.distributions.MultivariateNormal(
-            loc=torch.tensor([1.5, 0.0]).to(z.device),
-            covariance_matrix=torch.tensor([[1.0, 0.0], [0.0, 1.0]]).to(z.device)
-        )
-
-        weight1 = 0.5  # Adjust the weights as needed
-        weight2 = 0.5
-
-        return -torch.log(weight1 * torch.exp(gaussian1.log_prob(z)) + weight2 * torch.exp(gaussian2.log_prob(z)))
-
-    def potential7(self, z: torch.Tensor) -> torch.Tensor:
-        # Customize your mixture of Gaussians logic here
-        gaussian1 = torch.distributions.MultivariateNormal(
-            loc=torch.tensor([-1.8, -1]).to(z.device),
-            covariance_matrix=torch.tensor([[1.0, 0.0], [0.0, 1.0]]).to(z.device)
-        )
-
-        gaussian2 = torch.distributions.MultivariateNormal(
-            loc=torch.tensor([1.8, -1]).to(z.device),
-            covariance_matrix=torch.tensor([[1.0, 0.0], [0.0, 1.0]]).to(z.device)
-        )
-
-        gaussian3 = torch.distributions.MultivariateNormal(
-            loc=torch.tensor([0.0, 1.2]).to(z.device),
-            covariance_matrix=torch.tensor([[1.0, 0.0], [0.0, 1.0]]).to(z.device)
-        )
-
-        weight1 = 1 / 3  # Adjust the weights as needed
-        weight2 = 1 / 3
-        weight3 = 1 / 3
-
-        return -torch.log(weight1 * torch.exp(gaussian1.log_prob(z)) +
-                          weight2 * torch.exp(gaussian2.log_prob(z)) +
-                          weight3 * torch.exp(gaussian3.log_prob(z)))
 
 
 def run_density_matching_example():
@@ -255,27 +164,65 @@ def run_density_matching_example():
     plt.figure()
     plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
     plt.title('golden result')
-    plt.savefig("./tmp_golden_result.png")
+    plt.savefig("./test/tmp_golden_result.png")
 
     module = CustomizeDistribution(2)
     optimizer = torch.optim.Adam(module.parameters(), lr=0.001)
-    max_iter, num_sample = 100, 50000
+    max_iter, num_sample = 20, 10000
     for i in range(max_iter):
+        if i % 2 == 0:
+            # show the final result
+            # plt.figure()
+            # wrk = module.sample(50000)
+            # plt.scatter(wrk[:, 0], wrk[:, 1], c=module(wrk, in_log = False).detach().cpu().numpy().reshape(-1), cmap='viridis')
+            # plt.colorbar()
+            # plt.title(f" i={i} Samples of model using MH")
+            # plt.figure()
+            # plt.scatter(grid_data[:, 0], grid_data[:, 1], c=module(grid_data, in_log=False).detach().cpu().numpy(), cmap='viridis')
+            # plt.title(f" i={i} Potential of model")
+            # plt.colorbar()
+            # plt.savefig("./test/tmp_final_result.png")
+
+            plt.figure()
+            wrk = module.sample(50000)
+            wrk2 = wrk.detach().cpu().numpy()
+            hist, xedges, yedges = np.histogram2d(wrk2[:, 0], wrk2[:, 1], bins=50)
+            extent = [xedges[0], xedges[-1], yedges[0], yedges[-1]]
+
+            # Plot 2D histogram
+            plt.imshow(hist.T, extent=extent, origin='lower', cmap='viridis')
+            plt.colorbar(label='Frequency')
+            plt.title("2D Histogram of Samples")
+            plt.xlabel("X axis")
+            plt.ylabel("Y axis")
+
+            plt.figure()
+            scatter = plt.scatter(grid_data[:, 0], grid_data[:, 1],
+                                     c=module(grid_data, in_log=False).detach().cpu().numpy(), cmap='viridis')
+            plt.title("Potential of model")
+            plt.xlabel("X axis")
+            plt.ylabel("Y axis")
+
+            # Add colorbar to the second subplot
+            cbar = plt.colorbar(scatter)
+            cbar.set_label('Potential')
+
+            plt.tight_layout()
+            plt.show()
+
+
         optimizer.zero_grad()
         loss = score_estimator(num_sample, module, lambda x: (potential_func(x) + module(x, in_log=True)).mean())
         loss.backward()
         optimizer.step()
         print(f"iter {i}, loss: {loss.item()}")
 
-    # show the final result
+def run_mh_example():
+    potential_func = PotentialFunc("potential6")
+    tmp, _ = mh_sampling(10000, target=lambda x, in_log: -potential_func(x, True), transit=ConditionalMultiGauss(torch.ones(2)), initial=torch.zeros((1, 2)), burn_in=1000)
     plt.figure()
-    wrk = module.sample(10000)
-    plt.scatter(wrk[:, 0], wrk[:, 1], c=module(wrk).detach().cpu().numpy().reshape(-1), cmap='viridis')
-    plt.title("final result learnt by the model using score_estimator")
-    plt.savefig("./tmp_final_result.png")
-
+    plt.scatter(tmp[:, 0, 0], tmp[:, 0, 1], s=1)
     plt.show()
-
 
 if __name__ == '__main__':
     mean, std = torch.Tensor([0.0, 1.0]), torch.Tensor([1.0, 2.0])
@@ -294,4 +241,6 @@ if __name__ == '__main__':
     instance3 = CustomizeDistribution(2)
     run_exp(instance3)
 
-    run_density_matching_example()
+    run_mh_example()
+    # run_density_matching_example()
+

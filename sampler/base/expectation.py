@@ -57,8 +57,8 @@ def annealed_importance_sampling(num_samples: int,
 
     .. note:: The annealing sequence should be strictly increasing, its element represents the beta variable used in
     the anneal_log_criterion, corresponding to the weight/portion used on the target.  The transition distributions must
-    leave the intermediate distributions invariant, i.e., :math:`p_j(x') = \int T(x', x) p_{j}(x) dx`. To guratantee
-    the invariances, the provided `transit` conditional distribution will be used to define a Metropolis-Hasting
+    leave the intermediate distributions invariant, i.e., :math:`p_j(x') = \int T(x', x) p_{j}(x) dx`. To guarantee
+    the invariance, the provided `transit` conditional distribution will be used to define a Metropolis-Hasting
     transition. See Eq(11.44)- (11.45) of [Bishop2006PRML]_ for more details. By default, we use the annealing
     criterion: :math:`p_j(x) = p^{\beta_j}_{0}(x) p^{(1-\beta_j)}_{N}(x)`. See [Neal2001ais]_.
 
@@ -71,7 +71,7 @@ def annealed_importance_sampling(num_samples: int,
         eval_func (Func): the function to be evaluated.
         beta (Union[Tuple[float], List[float]]): the annealing sequence.
         anneal_log_criterion (Optional[Callable]): the annealed criterion, default to :math: `\beta \log p_t + (1-\beta) \log p_b`.
-        burin_in (Optional[int]): the number of burn-in samples to be discarded in Markov Chain, default to 3.
+        burn_in (Optional[int]): the number of burn-in samples to be discarded in Markov Chain, default to 3.
     """
 
     if not isinstance(beta, (tuple, list)):

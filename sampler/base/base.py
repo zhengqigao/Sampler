@@ -82,6 +82,7 @@ def mh_sampling(num_samples: int,
         accept = torch.rand(ratio.shape) <= ratio
         num_accept += accept
         new[~accept] = initial[~accept]
+        initial = new
         samples = torch.cat([samples, new.unsqueeze(0)], dim=0)
     return samples[burn_in:], {'acceptance_rate': num_accept / (samples.shape[0] - 1)}
 
