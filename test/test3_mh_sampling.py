@@ -46,7 +46,7 @@ class UnconditionalMultiGauss(Distribution):
             return torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)) / (
                     torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std * self.std))
 
-
+"""
 gauss1 = ConditionalMultiGauss(std = [1, 1])
 gauss2 = UnconditionalMultiGauss(mean=[-2,2], std=[1, 1])
 results, info = mh_sampling(50000, gauss2, gauss1, torch.zeros(3,2), burn_in=10000) # 3 different MC chains, each grown by MH independently
@@ -57,13 +57,16 @@ for batch_index in range(results.shape[1]):
 plt.show()
 
 print(f"info['acceptance_rate'] = {info['acceptance_rate']}")
-
+"""
 
 # TODO: zhengqi: I tested potential4, potential3 and potential6. Can you test the others? Also, I think potential6
 #  looks a bit weird. Can you check it? 3 and 4 look fine to me.
+# Nanlin: I have tested Potential 1-7 and I think all cases are Great. BTW, how can you type yellow words,
+# I wanna learn~
 
 from test_common_helper import PotentialFunc
-potential_func = PotentialFunc("potential4")
+potential_name = "potential7"
+potential_func = PotentialFunc(potential_name)
 bound = 4
 x = torch.linspace(-bound, bound, 100)
 y = torch.linspace(-bound, bound, 100)
@@ -78,12 +81,13 @@ value = potential_func(grid_data)
 # However, in the potential_func defined in test_common_helper, it actually returns the `potential` not the `density`.
 plt.figure()
 plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
-plt.title('golden result')
+plt.title('golden result '+potential_name)
 
 # sample by mh_sampling
 tmp, _ = mh_sampling(50000, target=lambda x, in_log: -potential_func(x, True),
                      transit=ConditionalMultiGauss(torch.ones(2)), initial=torch.zeros((1, 2)), burn_in=5000)
 plt.figure()
+plt.title("test result "+potential_name)
 # only show samples within bound
 tmp = tmp[tmp[:, 0, 0] > -bound]
 tmp = tmp[tmp[:, 0, 0] < bound]
