@@ -40,8 +40,79 @@ def rejection_sampling(num_samples: int, target: Distribution, proposal: Distrib
     return accept_sample[:num_samples], {'rejection_rate': reject_num_sample / total_num_sample}
 
 
-def adaptive_rejection_sampling():
-    pass
+def adaptive_rejection_sampling(num_samples: int, target: Distribution, lower: float, upper: float,) -> Tuple[torch.Tensor, Any]:
+    r"""
+    Adaptive Rejection sampling to draw samples from a log-concave target distribution. See Section 11.1.3 of [Bishop2006PRML]_.
+
+    Args:
+        num_samples (int): the number of samples to be drawn.
+        target (Distribution): the target distribution.
+        lower (float): the lower point to start the grid, the derivate here should be positive.
+        upper (float): the upper point to end the grid, the derivate here should be negative.
+    """
+
+    class LinearEnvelop(Distribution):
+        def __init__(self, grid, derivate, eval_value):
+            super().__init__()
+            self.grid = torch.tensor(grid, dtype=torch.float32)
+            self.derivate = torch.tensor(derivate, dtype=torch.float32)
+            self.eval_value = torch.tensor(eval_value, dtype=torch.float32)
+            self.dim = self.grid.shape[1]
+            assert self.grid.shape[0] == 2
+
+        def sample(self, num_samples: int) -> torch.Tensor:
+            intersect = ((self.eval_value[1] - self.derivate[1] * self.grid[1]) - (self.eval_value[0] - self.derivate[0] * self.grid[0]))/(self.derivate[0] - self.derivate[1])
+            samples = torch.rand(num_samples, self.dim)
+            intersect_value = torch.exp(self.derivate[0] * intersect + self.eval_value[0] - self.derivate[0] * self.grid[0])
+            upper_points = torch.gt(samples, intersect_value)
+            lower_points = ~upper_points
+            samples[upper_points] = (torch.log(self.derivate[1] * (samples[upper_points] - torch.exp(self.derivate[0] * intersect + self.eval_value[0] - self.derivate[0] * self.grid[0])/self.derivate[0]))-(self.eval_value[0] - self.derivate[0] * self.grid[0])) / self.derivate[1] + intersect
+            samples[lower_points] = (torch.log(self.derivate[0] * samples[lower_points]) - (self.eval_value[0] - self.derivate[0] * self.grid[0]))/self.derivate[0]
+            return samples
+
+        def evaluate_density(self, x: torch.Tensor) -> torch.Tensor:
+            if x < (self.eval_value[1] - self.eval_value[0] + self.grid[0] * self.derivate[0] - self.grid[1] * self.derivate[1])/(self.derivate[0] - self.derivate[1]):
+                return self.derivate[0] * (x - self.grid[0]) + self.eval_value[0]
+            else:
+                return self.derivate[1] * (x - self.grid[1]) + self.eval_value[1]
+
+    if lower > upper:
+        raise ValueError(f"The value of lower point should be smaller than the upper point.")
+    if np.isinf(lower) or np.isinf(upper):
+        raise ValueError(f"The value of lower point or upper point is invalid.")
+
+    eval_points = torch.Tensor([[lower], [upper]])
+
+    eval_points.require_grad = True
+    eval_bound = target(eval_points, in_log=True)
+    log_grad_current = torch.autograd.grad(eval_bound.sum(), eval_points)[0]
+    eval_points.requires_grad = False
+
+    if np.sign(log_grad_current[0]) < 0:
+        raise ValueError(f"The derivate at lower point is negative.")
+    if np.sign(log_grad_current[1]) > 0:
+        raise ValueError(f"The derivate at upper point is positive.")
+    grid = [lower, upper]
+
+    proposal = LinearEnvelop(grid, log_grad_current, eval_bound)
+
+    # TODO: add abscissae of rejected points into the linear envolope distirbution, multivariate
+    total_num_sample, reject_num_sample, accept_sample = 0, 0, None
+    while (total_num_sample - reject_num_sample) < num_samples:
+        samples = LinearEnvelop.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
+        evals = target(samples, in_log=False)
+        bound = proposal(samples, in_log=False)
+        if torch.any(bound < evals):
+            raise ValueError(f"Wrong envelop distribution.")
+        u = torch.rand_like(bound) * bound
+        current_accept_samples = samples[evals > u]
+        if accept_sample is None:
+            accept_sample = current_accept_samples
+        else:
+            accept_sample = torch.cat([accept_sample, current_accept_samples], dim=0)
+        reject_num_sample += torch.sum(evals <= u).item()
+        total_num_sample += samples.shape[0]
+    return accept_sample[:num_samples], {'rejection_rate': reject_num_sample / total_num_sample}
 
 
 def mh_sampling(num_samples: int,
@@ -153,6 +224,7 @@ def langevin_monte_carlo(num_samples: int,
         adjusted (Optional[bool]): whether to adjust the acceptance ratio using the Metropolis-Hasting criterion, default to False.
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
     """
+    # TODO: missing initial in docstring above
 
     if isinstance(num_samples, int) != True or num_samples <= 0:
         raise ValueError(
