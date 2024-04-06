@@ -13,7 +13,8 @@ def importance_sampling(num_samples: int,
                         resampling: bool = False
                         ):
     r"""
-    Importance sampling (IS) estimator to calculate the expectation of a function :math:`f(x)` with respect to a target distribution :math:`p(x)` using a proposal distribution :math:`q(x)`. The estimator is given by:
+    Importance sampling (IS) estimator to calculate the expectation of a function :math:`f(x)` with respect to a target distribution :math:`p(x)` using a proposal distribution :math:`q(x)`.
+    Sampling-importance-sampling has been integrated and can be triggered to return samples.
 
     .. note:: IS works regardless of normalized or not. See Eq. (11.19) of [Bishop2006PRML]_ for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case.
 
@@ -21,14 +22,15 @@ def importance_sampling(num_samples: int,
 
         \mathbb{E}[f(x)] = \int f(x) p(x) dx \approx \frac{1}{N} \sum_{i=1}^{N} w(x_i) f(x_i)
 
-    where the weights are given by :math:`w(x) = \frac{p(x)}{q(x)}`. The provided ``eval_func`` can be a multi-dimensional function.
+    where the weights are given by :math:`w(x) = \frac{p(x)}{q(x)}`.
+    See Section 11.1.5 for details of Sampling-importance-sampling approach. The provided ``eval_func`` can be a multi-dimensional function.
 
     Args:
         num_samples (int): the number of samples to be drawn.
         target (Distribution): the target distribution.
         proposal (Distribution): the proposal distribution.
-        eval_func (Func): the function to be evaluated.
-        resampling (bool): the indicator of performing Sampling-Importance-Resampling(SIR).
+        eval_func (Func): the function to be evaluated. If it is set as None, IS estimator won't be performed
+        resampling (bool): the flag argument, set true to perform Sampling-Importance-Resampling(SIR) and return samples.
     """
     samples = proposal.sample(num_samples)
     weights = torch.exp(target(samples, in_log=True) - proposal(samples, in_log=True))

@@ -29,10 +29,10 @@ target = MultiGauss(mean=test_mean, std=[1, 1, 1])
 target.mul_factor = None
 
 proposal = MultiGauss(mean=[0, 0, 0], std=[1, 1, 1])
-expectation, test = importance_sampling(10000, target, proposal,eval_func=lambda x: x, resampling=True)
+expectation, test = importance_sampling(100000, target, proposal,eval_func=lambda x: x, resampling=True)
 print("Test mean:", expectation)
-print(torch.mean(test,dim=0))
-print(torch.std(test,dim=0))
+print(torch.mean(test, dim=0))
+print(torch.std(test, dim=0))
 
 
 # MultiGauss
@@ -40,5 +40,5 @@ print(torch.std(test,dim=0))
 target = MultiGauss(mean=test_mean, std=[1, 1, 1])
 proposal = MultiGauss(mean=[0, 0, 0], std=[1, 1, 1])
 proposal.mul_factor = 1.0
-results = importance_sampling(10000, target, proposal, lambda x: x)
+results = importance_sampling(100000, target, proposal, lambda x: x)
 # it works, [-1, 1, .5]
