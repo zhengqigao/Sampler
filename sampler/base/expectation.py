@@ -4,12 +4,14 @@ from typing import Union, Tuple, Callable, Any, Optional, List
 from .._common import Func, Distribution, Condistribution
 from .base import mh_sampling
 from .._utils import _get_params
+from torch.distributions.categorical import Categorical
 
 def importance_sampling(num_samples: int,
                         target: Distribution,
                         proposal: Distribution,
-                        eval_func: Func,
-                        ) -> float:
+                        eval_func: Func = None,
+                        resampling: bool = False
+                        ):
     r"""
     Importance sampling (IS) estimator to calculate the expectation of a function :math:`f(x)` with respect to a target distribution :math:`p(x)` using a proposal distribution :math:`q(x)`. The estimator is given by:
 
@@ -26,19 +28,31 @@ def importance_sampling(num_samples: int,
         target (Distribution): the target distribution.
         proposal (Distribution): the proposal distribution.
         eval_func (Func): the function to be evaluated.
-
-
+        resampling (bool): the indicator of performing Sampling-Importance-Resampling(SIR).
     """
     samples = proposal.sample(num_samples)
-    evals = eval_func(samples)
     weights = torch.exp(target(samples, in_log=True) - proposal(samples, in_log=True))
-    weights = weights.view(-1, *tuple(range(1, evals.ndim)))
 
-    if target.mul_factor is None or proposal.mul_factor is None:
-        return (weights * evals).mean(0) / weights.mean(0)
+    if resampling:
+        nor_weights = weights/torch.sum(weights)
+        discre_sampling = Categorical(weights)
+        index = discre_sampling.sample(nor_weights.shape)
+        resampling_list = torch.stack([samples[i] for i in index])
+
+    if eval_func is not None:
+        evals = eval_func(samples)
+        weights = weights.view(-1, *tuple(range(1, evals.ndim)))
+        if target.mul_factor is None or proposal.mul_factor is None:
+            expectation = (weights * evals).mean(0) / weights.mean(0)
+        else:
+            expectation = (weights * evals).mean(0)
+
+    if resampling and eval_func is not None:
+        return expectation, resampling_list
+    elif resampling:
+        return resampling_list
     else:
-        return (weights * evals).mean(0)
-
+        return expectation
 
 def annealed_importance_sampling(num_samples: int,
                                  target: Distribution,
