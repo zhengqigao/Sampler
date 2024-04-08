@@ -34,11 +34,12 @@ def importance_sampling(num_samples: int,
     samples = proposal.sample(num_samples)
     weights = torch.exp(target(samples, in_log=True) - proposal(samples, in_log=True))
 
+    resample, expectation = None, None
+
     if resampling:
-        nor_weights = weights/torch.sum(weights)
-        discre_sampling = Categorical(weights)
-        index = discre_sampling.sample(nor_weights.shape)
-        resampling_list = torch.stack([samples[i] for i in index])
+        normalized_weights = weights/torch.sum(weights)
+        index = Categorical(normalized_weights).sample(normalized_weights.shape)
+        resample = samples[index]
 
     if eval_func is not None:
         evals = eval_func(samples)
@@ -48,12 +49,7 @@ def importance_sampling(num_samples: int,
         else:
             expectation = (weights * evals).mean(0)
 
-    if resampling and eval_func is not None:
-        return expectation, resampling_list
-    elif resampling:
-        return resampling_list
-    else:
-        return expectation
+    return expectation, resample
 
 def annealed_importance_sampling(num_samples: int,
                                  target: Distribution,
