@@ -13,8 +13,7 @@ def importance_sampling(num_samples: int,
                         resampling: bool = False
                         ):
     r"""
-    Importance sampling (IS) estimator to calculate the expectation of a function :math:`f(x)` with respect to a target distribution :math:`p(x)` using a proposal distribution :math:`q(x)`.
-    Sampling-importance-sampling has been integrated and can be triggered to return samples.
+    Importance sampling (IS) estimator to calculate the expectation of a function :math:`f(x)` with respect to a target distribution :math:`p(x)` using a proposal distribution :math:`q(x)`. Sampling-importance-sampling has been integrated and can be triggered to return samples.
 
     .. note:: IS works regardless of normalized or not. See Eq. (11.19) of [Bishop2006PRML]_ for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case.
 
@@ -30,7 +29,7 @@ def importance_sampling(num_samples: int,
         target (Distribution): the target distribution.
         proposal (Distribution): the proposal distribution.
         eval_func (Func): the function to be evaluated. If it is set as None, IS estimator won't be performed
-        resampling (bool): the flag argument, set true to perform Sampling-Importance-Resampling(SIR) and return samples.
+        resampling (bool): the flag argument, set true to perform Sampling-Importance-Resampling (SIR) and return samples.
     """
     samples = proposal.sample(num_samples)
     weights = torch.exp(target(samples, in_log=True) - proposal(samples, in_log=True))

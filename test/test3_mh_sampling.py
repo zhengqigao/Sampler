@@ -65,7 +65,7 @@ print(f"info['acceptance_rate'] = {info['acceptance_rate']}")
 # I wanna learn~
 
 from test_common_helper import PotentialFunc
-potential_name = "potential6"
+potential_name = "potential3"
 potential_func = PotentialFunc(potential_name)
 bound = 4
 x = torch.linspace(-bound, bound, 100)

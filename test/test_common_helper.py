@@ -1,10 +1,30 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+import torch.nn as nn
+
+class Feedforward(nn.Module):
+    def __init__(self, hidden_dims, activation='leakyrelu'):
+        super(Feedforward, self).__init__()
+
+        self.hidden_layers = nn.ModuleList(
+            [nn.Linear(hidden_dims[i], hidden_dims[i + 1]) for i in range(len(hidden_dims) - 1)])
+
+        if activation == 'relu':
+            self.activation = nn.ReLU()
+        elif activation == 'leakyrelu':
+            self.activation = nn.LeakyReLU(0.2)
+        else:
+            raise ValueError(f"Invalid activation function: {activation}")
+
+    def forward(self, x):
+
+        for i in range(len(self.hidden_layers) - 1):
+            x = self.activation(self.hidden_layers[i](x))
+        x = self.hidden_layers[-1](x)
+        return x
 
 # these are copied from a paper:  https://arxiv.org/pdf/1505.05770.pdf
-
-
 # For precise description, say we denote: distribution_value = exp(density) = exp(-potential) In the
 # evalulate_density function defined in our Distribution class, we need to provide `distribution_value` when
 # in_log=False, and `density` when in_log=True. However, here the PotentialFunc actually returns the `potential` not the `density`.
