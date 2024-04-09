@@ -77,7 +77,7 @@ value = potential_func(grid_data)
 
 # scatter them to see the potential on a heatmap
 # For precise description, say we denote: distribution = exp(density) = exp(-potential)
-# In the evaluate_density function, we need to provide `distribution` when in_log=False, and `density` when in_log=True
+# In the evaluate_density function, we need to provide `distribution` when in_log=False, and `density` when in_log=True®
 # However, in the potential_func defined in test_common_helper, it actually returns the `potential` not the `density`.
 plt.figure()
 plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
