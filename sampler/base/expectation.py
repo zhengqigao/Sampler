@@ -7,44 +7,46 @@ from .._utils import _get_params
 from torch.distributions.categorical import Categorical
 
 def importance_sampling(num_samples: int,
-                        target: Distribution,
+                        target: Union[Distribution, Func],
                         proposal: Distribution,
-                        eval_func: Func = None,
-                        resampling: bool = False
+                        eval_func: Optional[Func] = None,
+                        resample_ratio: Optional[float] = 0.0,
                         ):
     r"""
     Importance sampling (IS) estimator to calculate the expectation of a function :math:`f(x)` with respect to a target distribution :math:`p(x)` using a proposal distribution :math:`q(x)`. Sampling-importance-Resampling (SIR) has been integrated and can be triggered to return samples.
 
-    .. note:: IS works regardless of normalized or not. See Eq. (11.19) of [Bishop2006PRML]_ for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case.
+    .. note:: IS works regardless of normalized or not. See Eq. (11.19) of [Bishop2006PRML]_ for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case. SIR can be used to draw samples from the target distribution utilizing the importance weights. The argument ``resample_ratio`` controls the size of resamples. Note that our resampling process is always done without replacement. Because resampling with replacement is not always possible (unless Eq. (24.2) is True in [kimhung]_).
 
     .. math::
 
         \mathbb{E}[f(x)] = \int f(x) p(x) dx \approx \frac{1}{N} \sum_{i=1}^{N} w(x_i) f(x_i)
 
-    where the weights are given by :math:`w(x) = \frac{p(x)}{q(x)}`.
-    See Section 11.1.5 for details of Sampling-importance-sampling approach. The provided ``eval_func`` can be a multi-dimensional function.
+    where the weights are given by :math:`w(x) = \frac{p(x)}{q(x)}`. The provided ``eval_func`` can be a multi-dimensional function. See Section 11.1.5 of [Bishop2006PRML]_ and [kimhung]_ on SIR.
 
     Args:
         num_samples (int): the number of samples to be drawn.
-        target (Distribution): the target distribution.
+        target (Union[Distribution, Func]): the target distribution. Since target doesn't need to have a sampling method, it can be a function.
         proposal (Distribution): the proposal distribution.
-        eval_func (Func): the function whose expectation to be evaluated, if it is not None.
-        resampling (bool): perform Sampling-Importance-Resampling (SIR) and return samples if set to True.
+        eval_func (Optional[Func]): the function whose expectation to be evaluated if it is not None.
+        resample_ratio (Optional[float]): perform Sampling-Importance-Resampling (SIR) and return samples if set to larger than 0.
     """
+    if not isinstance(resample_ratio, float) or resample_ratio < 0 or resample_ratio > 1:
+        raise ValueError(f"The resample_ratio must be a float in [0,1], but got {resample_ratio}.")
+
     samples = proposal.sample(num_samples)
     weights = torch.exp(target(samples, in_log=True) - proposal(samples, in_log=True))
 
     resample, expectation = None, None
 
-    if resampling:
+    if resample_ratio:
         normalized_weights = weights/torch.sum(weights)
-        index = Categorical(normalized_weights).sample(normalized_weights.shape)
+        index = Categorical(normalized_weights).sample((max(1,int(resample_ratio*num_samples)),))
         resample = samples[index]
 
     if eval_func is not None:
         evals = eval_func(samples)
         weights = weights.view(-1, *tuple(range(1, evals.ndim)))
-        if target.mul_factor is None or proposal.mul_factor is None:
+        if not hasattr(target, 'mul_factor') or (target.mul_factor is None or proposal.mul_factor is None):
             expectation = (weights * evals).mean(0) / weights.mean(0)
         else:
             expectation = (weights * evals).mean(0)

@@ -6,7 +6,7 @@ import torch.nn as nn
 
 # __all__ = ['Func', 'Distribution', 'Condistribution', '_BaseDistribution']
 
-Func = TypeVar('Func', bound=Callable[[Union[torch.Tensor]], Union[torch.Tensor]])
+Func = TypeVar('Func', bound=Callable[[Union[torch.Tensor]], Union[torch.Tensor, bool]])
 
 
 def _sample_checker(func, cls_name):

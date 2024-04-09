@@ -29,7 +29,7 @@ target = MultiGauss(mean=test_mean, std=[1, 1, 1])
 target.mul_factor = None
 
 proposal = MultiGauss(mean=[0, 0, 0], std=[1, 1, 1])
-expectation, test = importance_sampling(100000, target, proposal,eval_func=lambda x: x, resampling=True)
+expectation, test = importance_sampling(100000, target, proposal,eval_func=lambda x: x, resample_ratio=0.5)
 print("Test mean:", expectation)
 print(torch.mean(test, dim=0))
 print(torch.std(test, dim=0))

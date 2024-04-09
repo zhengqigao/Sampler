@@ -116,11 +116,11 @@ def adaptive_rejection_sampling(num_samples: int, target: Distribution, lower: f
 
 
 def mh_sampling(num_samples: int,
-                target: Union[Distribution, Callable],
+                target: Union[Distribution, Func],
                 transit: Condistribution,
                 initial: torch.Tensor,
                 burn_in: Optional[int] = 0,
-                event_func: Callable[[torch.Tensor], bool] = lambda _: False) -> Tuple[torch.Tensor, Any]:
+                event_func: Optional[Func] = lambda _: False) -> Tuple[torch.Tensor, Any]:
     r"""
     Metropolis-Hastings (MH) sampling to draw samples from a target distribution using a transition conditional distribution. See Section 11.2.2. of [Bishop2006PRML]_.
 
@@ -128,11 +128,11 @@ def mh_sampling(num_samples: int,
 
     Args:
         num_samples (int): the number of samples to be returned when event_func always return False during the sampling.
-        target (Union[Distribution, Callable]): the target distribution. It doesn't need to have a sampling function.
+        target (Union[Distribution, Func]): the target distribution. Since the target doesn't need to have a sampling method, it can be a function.
         transit (Distribution): the transition distribution. Both a density and a sampling function are needed.
         initial (torch.Tensor): the initial point to start the sampling process. The first dimension is the batch dimension B, and (num_samples, B, ...) will be returned.
         burn_in (Optional[int]): the number of samples to be discarded at the beginning of MCMC, default to 0.
-        event_func (Callable[[torch.Tensor], bool]): when it returns True, the MH sampling will terminate immediately; default to a function that always returns False.
+        event_func (Optional[Func]): when it returns True, the MH sampling will terminate immediately; default to a function that always returns False.
     """
 
     if not isinstance(burn_in, int) or burn_in < 0:
