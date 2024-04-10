@@ -1,3 +1,5 @@
+import sys
+sys.path.append('..')
 from sampler.base import *
 from sampler._common import Distribution
 from torch.distributions.multivariate_normal import MultivariateNormal
@@ -20,15 +22,15 @@ class MultiGauss(Distribution):
     def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
         if in_log:
             return -0.5 * (
-                torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
-                + torch.log(2 * torch.pi * self.std * self.std).sum()
+                    torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
+                    + torch.log(2 * torch.pi * self.std * self.std).sum()
             )
         else:
             return torch.exp(
                 -0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
             ) / (
-                torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
-                * torch.prod(self.std  * self.std)
+                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
+                    * torch.prod(self.std)
             )
 
 
@@ -47,24 +49,24 @@ class MultiGaussDenser(Distribution):
     def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
         if in_log:
             return -0.5 * (
-                torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
-                + torch.log(2 * torch.pi * self.std * self.std).sum()
+                    torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
+                    + torch.log(2 * torch.pi * self.std * self.std).sum()
             ) + torch.log(torch.Tensor([33.3]))
         else:
             return (
-                torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1))
-                / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
-                    * torch.prod(self.std)
-                )
-                * 33.3
+                    torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1))
+                    / (
+                            torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
+                            * torch.prod(self.std)
+                    )
+                    * 33.3
             )
 
 
 # MultiGauss
 # normal case
-target = MultiGauss(mean=test_mean, std=[1, 1, 1])
-proposal = MultiGauss(mean=[0, 0, 0], std=[1, 1, 1])
+target = MultiGauss(mean=test_mean, std=[2, 1, 0.5])
+proposal = MultiGauss(mean=[0, 0, 0], std=[2, 1, 0.5])
 proposal.mul_factor = 1.0
 results, _ = importance_sampling(10000, target, proposal, lambda x: x)
 print("Test mean:", results)
@@ -86,11 +88,10 @@ print("Test mean:", results)
 
 print("")
 
-
 # MultiGaussDenser,
 # whose evaluate_density() returns 33.3x larger value
 # self.mul_factor = 1/33.3 in fact
-target_denser = MultiGaussDenser(mean=test_mean, std=[1, 1, 1])
+target_denser = MultiGaussDenser(mean=test_mean, std=[1, 2, 0.5])
 target_denser.mul_factor = 1 / 33.3
 results, _ = importance_sampling(10000, target_denser, proposal, lambda x: x)
 print("Test mean:", results)
@@ -122,7 +123,7 @@ class CustomDistribution1(Distribution):
         self.mul_factor = None
 
     def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
-        ret = torch.exp(-(x**2) / 2) * torch.abs(torch.cos(x))
+        ret = torch.exp(-(x ** 2) / 2) * torch.abs(torch.cos(x))
         ret = torch.sum(ret, dim=1)  # transpose row vector to column vector
         if in_log:
             return torch.log(ret)
@@ -131,9 +132,11 @@ class CustomDistribution1(Distribution):
 
 
 target1 = CustomDistribution1()
-proposal1 = MultiGauss(mean=[0], std=[1])
+proposal1 = MultiGauss(mean=[0], std=[0.5])
 results, _ = importance_sampling(10000, target1, proposal1, lambda x: x)
 print("Test mean:", results)
+
+
 # 0.0069, which is close to 0
 
 
@@ -154,6 +157,7 @@ class CustomDistribution2(Distribution):
         else:
             return ret
 
+
 target2 = CustomDistribution2()
 proposal2 = MultiGauss(mean=[0], std=[5])
 results, _ = importance_sampling(10000, target2, proposal2, lambda x: x)
@@ -162,10 +166,53 @@ print("Test mean:", results)
 
 print("")
 
-
 # torch.distributions.multivariate_normal.MultivariateNormal
-target3 = Wrapper(MultivariateNormal(torch.Tensor(test_mean), torch.eye(3)))
+# zhengqi: a random covariance matrix
+cov = torch.randn(3, 3)
+cov = torch.mm(cov, cov.t()) + torch.eye(3) * 0.05
+target3 = Wrapper(MultivariateNormal(torch.Tensor(test_mean), cov))
 proposal3 = Wrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
 results, _ = importance_sampling(10000, target3, proposal3, lambda x: x)
 print("Test mean:", results)
+
+
 # [-1, 1, .5]
+
+
+## TODO: debug this test case
+class TensorizedMultiGauss(Distribution):
+    def __init__(self, mean, std, device=torch.device("cpu")):
+        super().__init__()
+        self.mean = torch.tensor(mean, dtype=torch.float32).to(device)
+        self.std = torch.tensor(std, dtype=torch.float32).to(device)
+        self.dim = self.mean.shape
+        self.device = device
+        self.mul_factor = 1.0
+
+    def sample(self, num_samples: int) -> torch.Tensor:
+        return (torch.randn((num_samples, *self.dim)).to(self.device) * self.std + self.mean)
+
+    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
+        if in_log:
+            return -0.5 * (
+                    torch.sum(((x - self.mean) / self.std) ** 2, dim=tuple(range(1, len(self.dim) + 1)))
+                    + torch.log(2 * torch.pi * self.std * self.std).sum()
+            )
+        else:
+            return torch.exp(
+                -0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=tuple(range(1, len(self.dim) + 1)))
+            ) / (
+                    torch.sqrt(torch.tensor(2 * torch.pi)) ** sum(self.dim)
+                    * torch.prod(self.std)
+            )
+
+
+test_mean = torch.randn(3, 2, 2)  # one sample in this case is of shape (3,2,2)
+# Please test the algorithm on GPU if available, otherwise use device = torch.device("cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+target = TensorizedMultiGauss(mean=test_mean, std=torch.abs(torch.rand(test_mean.shape)), device=device)
+proposal = TensorizedMultiGauss(mean=torch.zeros_like(test_mean), std=target.std, device=device)
+proposal.mul_factor = 1.0
+results, _ = importance_sampling(10000, target, proposal, lambda x: x)
+print("estimated by IS", results)
+print("true mean", test_mean)

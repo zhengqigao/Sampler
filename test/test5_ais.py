@@ -26,7 +26,7 @@ class ConditionalMultiGauss(Condistribution):
                 2 * torch.pi * self.std * self.std).sum())
         else:
             return torch.exp(-0.5 * torch.sum(((x - y) / self.std) ** 2, dim=2)) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std * self.std))
+                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
 
 
 class UnconditionalMultiGauss(Distribution):
@@ -46,7 +46,7 @@ class UnconditionalMultiGauss(Distribution):
                 2 * torch.pi * self.std * self.std).sum())
         else:
             return torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std * self.std))
+                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
 
 
 results = annealed_importance_sampling(num_samples=50000,

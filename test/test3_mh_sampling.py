@@ -26,7 +26,7 @@ class ConditionalMultiGauss(Condistribution):
             return -0.5 * (torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(2 * torch.pi * self.std * self.std).sum())
         else:
             return torch.exp(-0.5 * torch.sum(((x - y) / self.std) ** 2, dim=2)) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std * self.std))
+                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
 
 class UnconditionalMultiGauss(Distribution):
     def __init__(self, mean, std):
@@ -44,7 +44,7 @@ class UnconditionalMultiGauss(Distribution):
             return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(2 * torch.pi * self.std * self.std).sum())
         else:
             return torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std * self.std))
+                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
 
 #This case is extended with event_func test case
 gauss1 = ConditionalMultiGauss(std = [1, 1])
