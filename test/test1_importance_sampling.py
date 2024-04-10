@@ -179,7 +179,7 @@ print("Test mean:", results)
 # [-1, 1, .5]
 
 
-## TODO: debug this test case
+
 class TensorizedMultiGauss(Distribution):
     def __init__(self, mean, std, device=torch.device("cpu")):
         super().__init__()
@@ -207,12 +207,17 @@ class TensorizedMultiGauss(Distribution):
             )
 
 
-test_mean = torch.randn(3, 2, 2)  # one sample in this case is of shape (3,2,2)
-# Please test the algorithm on GPU if available, otherwise use device = torch.device("cpu")
+test_mean = torch.randn(3,2,2)  # one sample in this case is of shape (3,2,2)
+# Please test the algorithm on GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-target = TensorizedMultiGauss(mean=test_mean, std=torch.abs(torch.rand(test_mean.shape)), device=device)
-proposal = TensorizedMultiGauss(mean=torch.zeros_like(test_mean), std=target.std, device=device)
+target = TensorizedMultiGauss(mean=test_mean, std=torch.abs(0.8*torch.ones(test_mean.shape)), device=device)
+proposal = TensorizedMultiGauss(mean=0.5*test_mean, std=target.std, device=device)
 proposal.mul_factor = 1.0
-results, _ = importance_sampling(10000, target, proposal, lambda x: x)
+results, _ = importance_sampling(100000, target, proposal, lambda x: x)
+print("estimated by IS", results)
+print("true mean", test_mean)
+
+# test if it is possible to feed in only a function
+results, _ = importance_sampling(100000, target.evaluate_density, proposal, lambda x: x)
 print("estimated by IS", results)
 print("true mean", test_mean)

@@ -45,7 +45,7 @@ def importance_sampling(num_samples: int,
 
     if eval_func is not None:
         evals = eval_func(samples)
-        weights = weights.view(-1, *tuple(range(1, evals.ndim)))
+        weights = weights.view(-1, *[1] * (evals.ndim - 1))
         if not hasattr(target, 'mul_factor') or (target.mul_factor is None or proposal.mul_factor is None):
             expectation = (weights * evals).mean(0) / weights.mean(0)
         else:
