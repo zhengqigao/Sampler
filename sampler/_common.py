@@ -285,7 +285,7 @@ def _wrapfunc_ipt(model_list: List[InvProbTrans], func, *args, **kwargs):
 
     for model in model_list:
         # Capture the original forward method
-        if model not in original_methods:
+        if model not in original_methods: # this is necessary
             original_methods[model] = model.forward
 
         def tmp_sample(self, ori_forward):
