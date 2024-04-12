@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod, ABCMeta
 import math
 import torch.nn as nn
 from torch.distributions import Distribution as TorchDistribution
+import copy
 
 # __all__ = ['Func', 'Distribution', 'Condistribution', '_BaseDistribution']
 
@@ -263,44 +264,53 @@ class InvProbTrans(nn.Module):
         """
         raise NotImplementedError
 
-    def sample(self, num_samples: int) -> torch.Tensor:
-        r"""
-        Draw samples from the base distribution.
-
-        Args:
-            num_samples (int): the number of samples to be drawn.
-        """
-        if not hasattr(self, 'p_base') or not hasattr(self.p_base, 'sample'):
-            raise AttributeError(
-                f"The base distribution `p_base` and `p_base.sample()` is required for the InvProbTrans to generate samples.")
-
-        x = self.p_base.sample(num_samples)
-        return self.forward(x, 0)[0]
+    # def sample(self, num_samples: int) -> torch.Tensor:
+    #     r"""
+    #     Draw samples from the base distribution.
+    #
+    #     Args:
+    #         num_samples (int): the number of samples to be drawn.
+    #     """
+    #     if not hasattr(self, 'p_base') or not hasattr(self.p_base, 'sample'):
+    #         raise AttributeError(
+    #             f"The base distribution `p_base` and `p_base.sample()` is required for the InvProbTrans to generate samples.")
+    #
+    #     x = self.p_base.sample(num_samples)
+    #     return self.forward(x, 0)[0]
 
 
 def _wrapfunc_ipt(model_list: List[InvProbTrans], func, *args, **kwargs):
-    # temporarily replace the forward and sample functions
+    # Store original methods in a dictionary to ensure they are not overwritten
+    original_methods = {}
+
     for model in model_list:
+        # Capture the original forward method
+        if model not in original_methods:
+            original_methods[model] = model.forward
 
-        model.ori_forward = model.forward
-        model.sample = lambda num_samples: model.ori_forward(model.p_base.sample(num_samples), 0)[0]
+        def tmp_sample(self, ori_forward):
+            # This factory function returns a new function with the correct original forward method captured
+            def _sample(num_samples):
+                x = self.p_base.sample(num_samples)
+                return ori_forward(x, 0)[0]
+            return _sample
 
-        def tmp_forward(z: torch.Tensor):
-            print("tmp forward")
-            x, log_det = model.backward(z, 0)
-            return model.p_base.log_prob(z) - log_det
+        def tmp_forward(self, z: torch.Tensor):
+            x, log_det = self.backward(z, 0)
+            return self.p_base.log_prob(z) - log_det
 
-        model.forward = tmp_forward
+        # Bind the new sample method with the original forward captured
+        model.sample = tmp_sample(model, original_methods[model])
+        model.forward = tmp_forward.__get__(model, InvProbTrans)
 
-    results = func(*args, **kwargs)  # run the function
+    # Execute the function with modified model methods
+    results = func(*args, **kwargs)
 
-    # restore the original functions
+    # Restore the original forward methods
     for model in model_list:
-        del model.sample
-        model.forward = model.ori_forward
+        model.forward = original_methods[model]
 
     return results
-
 
 def _ipt_decorator(func):
     def wrapper(*args, **kwargs):
