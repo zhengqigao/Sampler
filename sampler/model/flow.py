@@ -5,8 +5,16 @@ from typing import List, Union, Tuple, Optional
 
 class FlowTransform(nn.Module):
     r"""
-    The building transformation building block used in flow models.
+    The probabilistic transformation building block used in flow models. It has a forward and a backward method.
+    The forward method transforms the input tensor x to z, and outputs the log probability of the transformation.
+    The backward method transforms z back to x, and outputs the log probability.
 
+    .. Example::
+        >>> flowtransform = FlowTransform(dim=2, keep_dim=[0], scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
+        >>> x = torch.rand(10, 2)
+        >>> x_, diff_log_det = flowtransform.backward(*flowtransform.forward(x, 0))
+        >>> diff = x - x_
+        >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
     """
 
     def __init__(self, dim: int, keep_dim: List[int], scale_net: Optional[nn.Module] = None,

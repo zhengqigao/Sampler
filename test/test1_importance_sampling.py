@@ -19,18 +19,10 @@ class MultiGauss(Distribution):
     def sample(self, num_samples: int) -> torch.Tensor:
         return torch.randn((num_samples, self.dim)) * self.std + self.mean
 
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
-        if in_log:
-            return -0.5 * (
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        return -0.5 * (
                     torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
                     + torch.log(2 * torch.pi * self.std * self.std).sum()
-            )
-        else:
-            return torch.exp(
-                -0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
-            ) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
-                    * torch.prod(self.std)
             )
 
 
@@ -46,21 +38,11 @@ class MultiGaussDenser(Distribution):
     def sample(self, num_samples: int) -> torch.Tensor:
         return torch.randn((num_samples, self.dim)) * self.std + self.mean
 
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
-        if in_log:
-            return -0.5 * (
-                    torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
-                    + torch.log(2 * torch.pi * self.std * self.std).sum()
-            ) + torch.log(torch.Tensor([33.3]))
-        else:
-            return (
-                    torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1))
-                    / (
-                            torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
-                            * torch.prod(self.std)
-                    )
-                    * 33.3
-            )
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        return -0.5 * (
+                torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
+                + torch.log(2 * torch.pi * self.std * self.std).sum()
+        ) + torch.log(torch.Tensor([33.3]))
 
 
 # MultiGauss
@@ -122,13 +104,11 @@ class CustomDistribution1(Distribution):
         super().__init__()
         self.mul_factor = None
 
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
         ret = torch.exp(-(x ** 2) / 2) * torch.abs(torch.cos(x))
         ret = torch.sum(ret, dim=1)  # transpose row vector to column vector
-        if in_log:
-            return torch.log(ret)
-        else:
-            return ret
+        return torch.log(ret)
+
 
 
 target1 = CustomDistribution1()
@@ -148,14 +128,11 @@ class CustomDistribution2(Distribution):
         super().__init__()
         self.mul_factor = None
 
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
         ret = torch.cos(1 / x) ** 2
         ret[(x == 0) | (x < -1) | (x > 1)] = 0
         ret = torch.sum(ret, dim=1)  # transpose row vector to column vector
-        if in_log:
-            return torch.log(ret)
-        else:
-            return ret
+        return torch.log(ret)
 
 
 target2 = CustomDistribution2()
@@ -192,19 +169,11 @@ class TensorizedMultiGauss(Distribution):
     def sample(self, num_samples: int) -> torch.Tensor:
         return (torch.randn((num_samples, *self.dim)).to(self.device) * self.std + self.mean)
 
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
-        if in_log:
-            return -0.5 * (
-                    torch.sum(((x - self.mean) / self.std) ** 2, dim=tuple(range(1, len(self.dim) + 1)))
-                    + torch.log(2 * torch.pi * self.std * self.std).sum()
-            )
-        else:
-            return torch.exp(
-                -0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=tuple(range(1, len(self.dim) + 1)))
-            ) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** sum(self.dim)
-                    * torch.prod(self.std)
-            )
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        return -0.5 * (
+                torch.sum(((x - self.mean) / self.std) ** 2, dim=tuple(range(1, len(self.dim) + 1)))
+                + torch.log(2 * torch.pi * self.std * self.std).sum()
+        )
 
 
 test_mean = torch.randn(3,2,2)  # one sample in this case is of shape (3,2,2)

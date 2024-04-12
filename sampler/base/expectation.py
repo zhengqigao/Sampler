@@ -34,7 +34,7 @@ def importance_sampling(num_samples: int,
         raise ValueError(f"The resample_ratio must be a float in [0,1], but got {resample_ratio}.")
 
     samples = proposal.sample(num_samples)
-    weights = torch.exp(target(samples, in_log=True) - proposal(samples, in_log=True))
+    weights = torch.exp(target(samples) - proposal(samples))
 
     resample, expectation = None, None
 
@@ -111,20 +111,19 @@ def annealed_importance_sampling(num_samples: int,
     for n in range(num_transit):
         if n == 0:
             current = base.sample(num_samples)
-            logpt, logpb = target(current, in_log=True), base(current, in_log=True)
+            logpt, logpb = target(current), base(current)
             weight = anneal_log_criterion(logpt, logpb, beta[n + 1]) - anneal_log_criterion(logpt, logpb, beta[n])
         else:
             current_transit = transit[n] if isinstance(transit, (tuple, list)) else transit
 
-            ## TODO: for the target argument in mh_sampling, inside MH sampling it might use in_log = True/False, but here here we restrict the annalead_log_criterion to be in log when using ais.
+
             new, _ = mh_sampling(1,
-                                 lambda x, in_log=True: anneal_log_criterion(target(x, in_log=True),
-                                                                             base(x, in_log=True), beta[n]),
+                                 lambda x: anneal_log_criterion(target(x), base(x), beta[n]),
                                  current_transit,
                                  current,
                                  burn_in)
 
-            logpt, logpb = target(new, in_log=True), base(new, in_log=True)
+            logpt, logpb = target(new), base(new)
             weight += anneal_log_criterion(logpt, logpb, beta[n + 1]) \
                       - anneal_log_criterion(logpt, logpb, beta[n])
             current = new
@@ -133,7 +132,7 @@ def annealed_importance_sampling(num_samples: int,
     weight = torch.exp(weight).view(-1, *tuple(range(1, evals.ndim)))
     return (weight * evals).mean(0) / weight.mean(0)
 
-## TODO: add the other part derivative
+
 class ScoreEstimator(torch.autograd.Function):
     r"""
     The REINFORCE algorithm, also known as the score function estimator, to estimate the gradient of the expectation of :math: `E_{p_{\theta}(x)}[f(x)]` with respect to the parameters of :math: `\theta`.
@@ -152,7 +151,7 @@ class ScoreEstimator(torch.autograd.Function):
         module = ctx.module
         samples, evals, *param = ctx.saved_tensors
         with torch.enable_grad():
-            obj = torch.mean(evals.detach() * module(samples, in_log=True).view(-1, *tuple(range(1, evals.ndim)))
+            obj = torch.mean(evals.detach() * module(samples).view(-1, *tuple(range(1, evals.ndim)))
                              + evals, dim=0)
             grad_input = torch.autograd.grad(obj, param, grad_output)
         return None, None, None, *grad_input

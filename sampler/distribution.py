@@ -12,11 +12,9 @@ class Wrapper(Distribution):
     def sample(self, num_samples: int) -> torch.Tensor:
         return self.distribution.sample((num_samples,))
 
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = False) -> torch.Tensor:
-        if in_log:
-            return self.distribution.log_prob(x)
-        else:
-            return torch.exp(self.distribution.log_prob(x))
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        return self.distribution.log_prob(x)
+
 
 
 

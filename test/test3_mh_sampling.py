@@ -17,16 +17,13 @@ class ConditionalMultiGauss(Condistribution):
         assert len(y.shape) == 2 and y.shape[1] == self.dim
         return torch.randn((num_samples, y.shape[0], y.shape[1])) * self.std + y
 
-    def evaluate_density(self, x: torch.Tensor, y: torch.Tensor, in_log: bool = True) -> torch.Tensor:
+    def log_prob(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         # x is of shape (N,d), y is of shape (M,d)
         # return shape (N,M)
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
-        if in_log:
-            return -0.5 * (torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(2 * torch.pi * self.std * self.std).sum())
-        else:
-            return torch.exp(-0.5 * torch.sum(((x - y) / self.std) ** 2, dim=2)) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
+        return -0.5 * (
+                    torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(2 * torch.pi * self.std * self.std).sum())
 
 class UnconditionalMultiGauss(Distribution):
     def __init__(self, mean, std):
@@ -39,12 +36,9 @@ class UnconditionalMultiGauss(Distribution):
     def sample(self, num_samples: int) -> torch.Tensor:
         return torch.randn((num_samples, self.dim)) * self.std + self.mean
 
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
-        if in_log:
-            return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(2 * torch.pi * self.std * self.std).sum())
-        else:
-            return torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(
+            2 * torch.pi * self.std * self.std).sum())
 
 #This case is extended with event_func test case
 gauss1 = ConditionalMultiGauss(std = [1, 1])
@@ -84,7 +78,7 @@ plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis
 plt.title('golden result '+potential_name)
 
 # sample by mh_sampling
-tmp, _ = mh_sampling(50000, target=lambda x, in_log: -potential_func(x, True),
+tmp, _ = mh_sampling(50000, target=lambda x: -potential_func(x),
                      transit=ConditionalMultiGauss(torch.ones(2)), initial=torch.zeros((1, 2)), burn_in=5000)
 plt.figure()
 plt.title("test result "+potential_name)

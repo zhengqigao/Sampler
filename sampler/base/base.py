@@ -4,7 +4,7 @@ import torch
 from typing import Union, Tuple, Callable, Any, Optional, List
 from .._common import Func, Distribution, Condistribution
 from ..distribution import MultivariateNormal
-
+import math
 
 def rejection_sampling(num_samples: int, target: Distribution, proposal: Distribution, k: float) -> Tuple[
     torch.Tensor, Any]:
@@ -15,18 +15,18 @@ def rejection_sampling(num_samples: int, target: Distribution, proposal: Distrib
         num_samples (int): the number of samples to be drawn.
         target (Distribution): the target distribution.
         proposal (Distribution): the proposal distribution.
-        k (float): a positive constant such that :math: `k q(x) \geq \tilde{p}(x)`.
+        k (float): a positive constant such that :math: `k q(x) \geq \tilde{p}(x)` holds for all `x`.
     """
 
     if k <= 0:
         raise ValueError(f"The scaling factor k should be positive, but got k = {k}.")
 
-    # TODO: perform the comparison in the log domain? Is it worthy to implement the squeezing function as in [Gilks1992ars]_?
+    # TODO: Is it worthy to implement the squeezing function as in [Gilks1992ars]_?
     total_num_sample, reject_num_sample, accept_sample = 0, 0, None
     while (total_num_sample - reject_num_sample) < num_samples:
         samples = proposal.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
-        evals = target(samples, in_log=False)
-        bound = k * proposal(samples, in_log=False)
+        evals = torch.exp(target(samples))
+        bound = k * torch.exp(proposal(samples))
         if torch.any(bound < evals):
             raise ValueError(f"The scaling factor k = {k} is not large enough.")
         u = torch.rand_like(bound) * bound
@@ -84,7 +84,7 @@ def adaptive_rejection_sampling(num_samples: int, target: Distribution, lower: f
     eval_points = torch.Tensor([[lower], [upper]])
 
     eval_points.require_grad = True
-    eval_bound = target(eval_points, in_log=True)
+    eval_bound = target(eval_points)
     log_grad_current = torch.autograd.grad(eval_bound.sum(), eval_points)[0]
     eval_points.requires_grad = False
 
@@ -149,8 +149,8 @@ def mh_sampling(num_samples: int,
 
     while samples.shape[0] < num_samples + burn_in:
         new = transit.sample(1, y=initial).view(initial.shape)
-        ratio = target(new, in_log=True) + transit(initial, new, in_log=True).diag() \
-                - target(initial, in_log=True) - transit(new, initial, in_log=True).diag()
+        ratio = target(new) + transit(initial, new).diag() \
+                - target(initial) - transit(new, initial).diag()
         ratio = torch.exp(ratio)  # min(1, ratio) is not necessary
         accept = torch.rand(ratio.shape) <= ratio
         num_accept += accept
@@ -245,7 +245,7 @@ def langevin_monte_carlo(num_samples: int,
     samples = torch.clone(current.unsqueeze(0))
 
     current.requires_grad = True
-    logp_current = target(current, in_log=True)
+    logp_current = target(current)
     # a trick to make the objective to be a scalar so that the gradient can be computed.
     log_grad_current = torch.autograd.grad(logp_current.sum(), current)[0]
     current.requires_grad = False
@@ -255,7 +255,7 @@ def langevin_monte_carlo(num_samples: int,
         new = (current + step_size * log_grad_current + (2 * step_size) ** 0.5 * noise).detach()
 
         new.requires_grad = True
-        logp_new = target(new, in_log=True)
+        logp_new = target(new)
         log_grad_new = torch.autograd.grad(logp_new.sum(), new)[0]
         new.requires_grad = False
 
@@ -324,7 +324,7 @@ def hamiltonian_monte_carlo(num_samples: int,
 
         # make a half step for momentum at the beginning
         current_q.requires_grad = True
-        logq_current = target(current_q, in_log=True)
+        logq_current = target(current_q)
         logq_grad_current = torch.autograd.grad(logq_current.sum(), current_q)[0]
         current_q.requires_grad = False
         current_p = current_p + 0.5 * step_size * logq_grad_current
@@ -332,14 +332,14 @@ def hamiltonian_monte_carlo(num_samples: int,
         for iter in range(num_leapfrog):
             # full step for position
             current_p.requires_grad = True
-            logp_current = kinetic(current_p, in_log=True)
+            logp_current = kinetic(current_p)
             logp_grad_current = torch.autograd.grad(logp_current.sum(), current_p)[0]
             current_p.requires_grad = False
             current_q = current_q - step_size * logp_grad_current
 
             # full step for momentum, except for the last iteration
             current_q.requires_grad = True
-            logq_current = target(current_q, in_log=True)
+            logq_current = target(current_q)
             logq_grad_current = torch.autograd.grad(logq_current.sum(), current_q)[0]
             current_q.requires_grad = False
             current_p = current_p + step_size * logq_grad_current * (1 if iter != num_leapfrog - 1 else 0.5)
@@ -348,8 +348,8 @@ def hamiltonian_monte_carlo(num_samples: int,
         current_p = -current_p
 
         # MH criterion to accept or reject the sample
-        logH_new = kinetic(current_p, in_log=True) + logq_current
-        logH_initial = kinetic(initial_p, in_log=True) + target(initial_q, in_log=True)
+        logH_new = kinetic(current_p) + logq_current
+        logH_initial = kinetic(initial_p) + target(initial_q)
         accept = torch.rand(logH_new.shape) <= torch.exp(-logH_new + logH_initial)
 
         initial_q[accept] = current_q[accept]

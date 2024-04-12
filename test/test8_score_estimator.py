@@ -23,19 +23,11 @@ class MultiGauss(Distribution):
         std_tensor = torch.ones_like(self.std.data).repeat(num_samples, 1)
         return torch.normal(mean_tensor, std_tensor).reshape(num_samples, self.dim) * self.std + self.mean
 
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
-        if in_log:
-            return -0.5 * (
-                    torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
-                    + torch.log(2 * torch.pi * self.std * self.std).sum()
-            )
-        else:
-            return torch.exp(
-                -0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
-            ) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim
-                    * torch.prod(self.std)
-            )
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        return -0.5 * (
+                torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
+                + torch.log(2 * torch.pi * self.std * self.std).sum()
+        )
 
 
 class MultiGauss2(MultiGauss):
@@ -61,17 +53,13 @@ class ConditionalMultiGauss(Condistribution):
         assert len(y.shape) == 2 and y.shape[1] == self.dim
         return (torch.randn((num_samples, y.shape[0], y.shape[1])) * self.std + y).to(y.device)
 
-    def evaluate_density(self, x: torch.Tensor, y: torch.Tensor, in_log: bool = True) -> torch.Tensor:
+    def log_prob(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         # x is of shape (N,d), y is of shape (M,d)
         # return shape (N,M)
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
-        if in_log:
-            return -0.5 * (torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(
-                2 * torch.pi * self.std * self.std).sum()).to(y.device)
-        else:
-            return torch.exp(-0.5 * torch.sum(((x - y) / self.std) ** 2, dim=2)).to(y.device) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std)).to(y.device)
+        return -0.5 * (torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(
+            2 * torch.pi * self.std * self.std).sum()).to(y.device)
 
 
 class MLP(nn.Module):
@@ -112,11 +100,8 @@ class CustomizeDistribution(Distribution):
         # so it won't use target.sample inside mh_sampling.
         return tmp[:, 0, :]
 
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
-        if in_log:
-            return (1 - self.mix) * self.model(x).squeeze(1) + self.mix * self.gauss.evaluate_density(x, in_log)
-        else:
-            return torch.exp(self.model(x).squeeze(1)) ** (1 - self.mix) * self.gauss.evaluate_density(x, in_log) ** self.mix
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        return (1 - self.mix) * self.model(x).squeeze(1) + self.mix * self.gauss.log_prob(x)
 
 
 def run_exp(instance):

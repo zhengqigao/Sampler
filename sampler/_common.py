@@ -94,9 +94,9 @@ class _Meta(ABCMeta):
         if 'sample' in dct and hasattr(bases[0], 'sample'):
             base_cls_name = bases[0].__name__
             dct['sample'] = _sample_checker(dct['sample'], base_cls_name)
-        if 'evaluate_density' in dct and hasattr(bases[0], 'evaluate_density'):
+        if 'log_prob' in dct and hasattr(bases[0], 'log_prob'):
             base_cls_name = bases[0].__name__
-            dct['evaluate_density'] = _density_checker(dct['evaluate_density'], base_cls_name)
+            dct['log_prob'] = _density_checker(dct['log_prob'], base_cls_name)
         return super().__new__(cls, name, bases, dct)
 
 
@@ -138,7 +138,7 @@ class _BaseDistribution(nn.Module, metaclass=_Meta):
     def sample(self, *args, **kwargs) -> torch.Tensor:
         raise NotImplementedError
 
-    def evaluate_density(self, *args, **kwargs) -> torch.Tensor:
+    def log_prob(self, *args, **kwargs) -> torch.Tensor:
         raise NotImplementedError
 
     def forward(self, *args, **kwargs) -> torch.Tensor:
@@ -147,10 +147,12 @@ class _BaseDistribution(nn.Module, metaclass=_Meta):
 
         """
 
-        result = self.evaluate_density(*args, **kwargs)
+        result = self.log_prob(*args, **kwargs)
+
         if self.mul_factor is not None:
-            result = result * self.mul_factor if not kwargs['in_log'] else result + math.log(self.mul_factor)
-        return result
+            return result + math.log(self.mul_factor)
+        else:
+            return result
 
 
 class Distribution(_BaseDistribution):
@@ -158,7 +160,7 @@ class Distribution(_BaseDistribution):
     Abstract class for probability density functions :math:`p(x)=c*\tilde{p}(x)`. When defining a distribution using this template, the users must implement the following methods:
 
     - ``sample``: draw samples from the PDF.
-    - ``evaluate_density``: evaluate the density function at given points.
+    - ``log_prob``: evaluate the density function at given points.
 
     """
 
@@ -175,13 +177,12 @@ class Distribution(_BaseDistribution):
 
         raise NotImplementedError
 
-    def evaluate_density(self, x: torch.Tensor, in_log: bool) -> torch.Tensor:
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
         r"""
-        Evaluate the density function :math:`\tilde{p}(x)` at given :math:`x`. When in_log is True, the logarithm of the density function :math:`log\tilde{p}(x)` should be returned. The returned values should be of shape (x.shape[0],).
+        Evaluate the density function :math:`log\tilde{p}(x)` at given :math:`x`. The returned values should be of shape (x.shape[0],).
 
         Args:
             x (torch.Tensor): the point(s) at which to evaluate the density function.
-            in_log (bool): the returned values are in natural logarithm scale if True.
         """
 
         raise NotImplementedError
@@ -192,7 +193,7 @@ class Condistribution(_BaseDistribution):
     Abstract class for probability density functions :math:`p(x|y)=c*\tilde{p}(x|y)`. When defining a distribution using this template, the users must implement the following methods:
 
     - ``sample``: draw samples from the PDF.
-    - ``evaluate_density``: evaluate the density function at given points.
+    - ``log_prob``: evaluate the density function at given points.
 
     """
 
@@ -212,14 +213,14 @@ class Condistribution(_BaseDistribution):
         raise NotImplementedError
 
 
-    def evaluate_density(self, x: torch.Tensor, y: torch.Tensor, in_log: bool) -> torch.Tensor:
+    def log_prob(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         r"""
-        Evaluate the density function :math:`\tilde{p}(x|y)` at given :math:`x`. When in_log is True, the logarithm of the density function :math:`log\tilde{p}(x|y)` should be returned. The returned values should be of shape (x.shape[0], y.shape[0]).
+        Evaluate the density function :math:`log\tilde{p}(x|y)` at given :math:`x`. The returned values should be of shape (x.shape[0], y.shape[0]).
 
         Args:
             x (torch.Tensor): the point(s) at which to evaluate the potential function.
             y (torch.Tensor): the parameters being conditioned on.
-            in_log (bool): the returned values are in natural logarithm scale if True.
         """
 
         raise NotImplementedError
+

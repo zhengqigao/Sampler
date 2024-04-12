@@ -15,12 +15,9 @@ class MultiGauss(Distribution):
     def sample(self, num_samples: int) -> torch.Tensor:
         return torch.randn((num_samples, self.dim)) * self.std + self.mean
 
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
-        if in_log:
-            return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(2 * torch.pi * self.std * self.std).sum())
-        else:
-            return torch.exp(-0.5 * torch.sum(((x - self.mean) / self.std) ** 2, dim=1)) / (
-                    torch.sqrt(torch.tensor(2 * torch.pi)) ** self.dim * torch.prod(self.std))
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(
+            2 * torch.pi * self.std * self.std).sum())
 
 
 target = MultiGauss(mean=test_mean, std=[1, 1, 1])
