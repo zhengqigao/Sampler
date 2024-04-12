@@ -187,6 +187,8 @@ print("estimated by IS", results)
 print("true mean", test_mean)
 
 # test if it is possible to feed in only a function
-results, _ = importance_sampling(100000, target.evaluate_density, proposal, lambda x: x)
+results, _ = importance_sampling(100000, target.log_prob, proposal, lambda x: x)
 print("estimated by IS", results)
 print("true mean", test_mean)
+
+

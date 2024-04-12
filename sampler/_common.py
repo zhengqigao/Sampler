@@ -1,8 +1,9 @@
-from typing import TypeVar, Callable, Union, Optional
+from typing import TypeVar, Callable, Union, Optional, Tuple, List
 import torch
 from abc import ABC, abstractmethod, ABCMeta
 import math
 import torch.nn as nn
+from torch.distributions import Distribution as TorchDistribution
 
 # __all__ = ['Func', 'Distribution', 'Condistribution', '_BaseDistribution']
 
@@ -157,10 +158,10 @@ class _BaseDistribution(nn.Module, metaclass=_Meta):
 
 class Distribution(_BaseDistribution):
     r"""
-    Abstract class for probability density functions :math:`p(x)=c*\tilde{p}(x)`. When defining a distribution using this template, the users must implement the following methods:
+    When defining a distribution using this template, the users must implement the following methods:
 
     - ``sample``: draw samples from the PDF.
-    - ``log_prob``: evaluate the density function at given points.
+    - ``log_prob``: evaluate the log density function at given points.
 
     """
 
@@ -169,7 +170,7 @@ class Distribution(_BaseDistribution):
 
     def sample(self, num_samples: int) -> torch.Tensor:
         r"""
-        Draw samples from the distribution :math: `p(\cdot)`. The samples should be of shape (num_samples, ...).
+        Draw samples from the distribution. The samples should be of shape (num_samples, ...).
 
         Args:
             num_samples (int): the number of samples to be drawn.
@@ -190,7 +191,7 @@ class Distribution(_BaseDistribution):
 
 class Condistribution(_BaseDistribution):
     r"""
-    Abstract class for probability density functions :math:`p(x|y)=c*\tilde{p}(x|y)`. When defining a distribution using this template, the users must implement the following methods:
+    When defining a distribution using this template, the users must implement the following methods:
 
     - ``sample``: draw samples from the PDF.
     - ``log_prob``: evaluate the density function at given points.
@@ -199,7 +200,6 @@ class Condistribution(_BaseDistribution):
 
     def __init__(self):
         super().__init__()
-
 
     def sample(self, num_samples, y: torch.Tensor) -> torch.Tensor:
         r"""
@@ -212,7 +212,6 @@ class Condistribution(_BaseDistribution):
 
         raise NotImplementedError
 
-
     def log_prob(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         r"""
         Evaluate the density function :math:`log\tilde{p}(x|y)` at given :math:`x`. The returned values should be of shape (x.shape[0], y.shape[0]).
@@ -224,3 +223,90 @@ class Condistribution(_BaseDistribution):
 
         raise NotImplementedError
 
+
+class InvProbTrans(nn.Module):
+    r"""
+    The base class for an invertible probabilistic transform. The forward and backward function must be implemented by
+    the users, and satisfy the following relationship: x, a = model.backward(model.forward(x, a)).
+
+    """
+
+    def __init__(self, p_base: Optional[Union[TorchDistribution, Distribution]] = None):
+        super().__init__()
+        self.p_base = p_base
+
+    def forward(self, x: torch.Tensor, log_prob: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[
+        torch.Tensor, torch.Tensor]:
+        r"""
+        The forward transformation of the invertible probabilistic transform.
+
+        Args:
+            x (torch.Tensor): the input tensor.
+            log_prob (Optional[Union[float, torch.Tensor]]): the log determinant of the Jacobian matrix before doing forward.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: the transformed tensor and the log determinant of the Jacobian matrix.
+        """
+        raise NotImplementedError
+
+    def backward(self, z: torch.Tensor, log_prob: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[
+        torch.Tensor, torch.Tensor]:
+        r"""
+        The backward transformation of the invertible probabilistic transform.
+
+        Args:
+            z (torch.Tensor): the input tensor.
+            log_prob (Optional[Union[float, torch.Tensor]]): the log determinant of the Jacobian matrix before doing backward.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: the transformed tensor and the log determinant of the Jacobian matrix.
+        """
+        raise NotImplementedError
+
+    def sample(self, num_samples: int) -> torch.Tensor:
+        r"""
+        Draw samples from the base distribution.
+
+        Args:
+            num_samples (int): the number of samples to be drawn.
+        """
+        if not hasattr(self, 'p_base') or not hasattr(self.p_base, 'sample'):
+            raise AttributeError(
+                f"The base distribution `p_base` and `p_base.sample()` is required for the InvProbTrans to generate samples.")
+
+        x = self.p_base.sample(num_samples)
+        return self.forward(x, 0)[0]
+
+
+def _wrapfunc_ipt(model_list: List[InvProbTrans], func, *args, **kwargs):
+    # temporarily replace the forward and sample functions
+    for model in model_list:
+
+        model.ori_forward = model.forward
+        model.sample = lambda num_samples: model.ori_forward(model.p_base.sample(num_samples), 0)[0]
+
+        def tmp_forward(z: torch.Tensor):
+            print("tmp forward")
+            x, log_det = model.backward(z, 0)
+            return model.p_base.log_prob(z) - log_det
+
+        model.forward = tmp_forward
+
+    results = func(*args, **kwargs)  # run the function
+
+    # restore the original functions
+    for model in model_list:
+        del model.sample
+        model.forward = model.ori_forward
+
+    return results
+
+
+def _ipt_decorator(func):
+    def wrapper(*args, **kwargs):
+        model_list = [arg for arg in args if isinstance(arg, InvProbTrans)] + \
+                     [value for value in kwargs.values() if isinstance(value, InvProbTrans)]
+
+        return func(*args, **kwargs) if len(model_list) == 0 else _wrapfunc_ipt(model_list, func, *args, **kwargs)
+
+    return wrapper

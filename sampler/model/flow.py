@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 from typing import List, Union, Tuple, Optional
+from .._common import InvProbTrans
 
-
-class FlowTransform(nn.Module):
+class FlowTransform(InvProbTrans):
     r"""
     The probabilistic transformation building block used in flow models. It has a forward and a backward method.
     The forward method transforms the input tensor x to z, and outputs the log probability of the transformation.
@@ -55,7 +55,7 @@ class FlowTransform(nn.Module):
         return x, log_det  # Our implementation guarantees: x, a = model.backward(*model.forward(x, log_det = a))
 
 
-class BaseNormalizingFlow(nn.Module):
+class BaseNormalizingFlow(InvProbTrans):
     def __init__(self, num_trans: int,
                  dim: int,
                  scale_net: nn.ModuleList,
@@ -93,4 +93,4 @@ class BaseNormalizingFlow(nn.Module):
         for i in range(len(self.transforms)):
             z, ld = self.transforms[-1 - i].backward(z)
             log_det += ld
-        return z, log_det  # Our implementation guarantees: x, a = model.backward(*model.forward(x, log_det = a))
+        return z, log_det
