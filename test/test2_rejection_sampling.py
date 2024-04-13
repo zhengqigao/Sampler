@@ -7,8 +7,8 @@ test_mean = [-1, 1, 0.5]
 class MultiGauss(Distribution):
     def __init__(self, mean, std):
         super().__init__()
-        self.mean = torch.tensor(mean, dtype=torch.float32)
-        self.std = torch.tensor(std, dtype=torch.float32)
+        self.mean = mean if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32)
+        self.std = std if isinstance(std, torch.Tensor) else torch.tensor(std, dtype=torch.float32)
         self.dim = len(mean)
         self.mul_factor = 1.0
 

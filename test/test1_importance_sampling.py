@@ -11,8 +11,8 @@ test_mean = [-1, 1, 0.5]
 class MultiGauss(Distribution):
     def __init__(self, mean, std):
         super().__init__()
-        self.mean = torch.tensor(mean, dtype=torch.float32)
-        self.std = torch.tensor(std, dtype=torch.float32)
+        self.mean = mean if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32)
+        self.std = std if isinstance(std, torch.Tensor) else torch.tensor(std, dtype=torch.float32)
         self.dim = len(self.mean)
         self.mul_factor = 1.0
 
@@ -30,8 +30,8 @@ class MultiGaussDenser(Distribution):
     # same as MultiGauss, but evaluate_density() returns 33.3x larger value
     def __init__(self, mean, std):
         super().__init__()
-        self.mean = torch.tensor(mean, dtype=torch.float32)
-        self.std = torch.tensor(std, dtype=torch.float32)
+        self.mean = mean if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32)
+        self.std = std if isinstance(std, torch.Tensor) else torch.tensor(std, dtype=torch.float32)
         self.dim = len(self.mean)
         self.mul_factor = 1 / 33.3
 
@@ -164,8 +164,8 @@ print("Test mean:", results)
 class TensorizedMultiGauss(Distribution):
     def __init__(self, mean, std, device=torch.device("cpu")):
         super().__init__()
-        self.mean = torch.tensor(mean, dtype=torch.float32).to(device)
-        self.std = torch.tensor(std, dtype=torch.float32).to(device)
+        self.mean = mean.to(device) if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32).to(device)
+        self.std = std.to(device) if isinstance(std, torch.Tensor) else torch.tensor(std, dtype=torch.float32).to(device)
         self.dim = self.mean.shape
         self.device = device
         self.mul_factor = 1.0
