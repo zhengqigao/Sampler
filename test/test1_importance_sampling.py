@@ -115,9 +115,10 @@ target1 = CustomDistribution1()
 proposal1 = MultiGauss(mean=[0], std=[0.5])
 results, _ = importance_sampling(10000, target1, proposal1, lambda x: x)
 print("Test mean:", results)
-
-
-# 0.0069, which is close to 0
+# output ≈ 0.0069, answer is 0
+results, _ = importance_sampling(10000, target1, proposal1, lambda x: x ** 2)
+print("Test mean:", results)
+# output ≈ 0.6500, answer is 1.1649
 
 
 # CustomDistribution2 is an unnormalized distribution
@@ -139,7 +140,10 @@ target2 = CustomDistribution2()
 proposal2 = MultiGauss(mean=[0], std=[5])
 results, _ = importance_sampling(10000, target2, proposal2, lambda x: x)
 print("Test mean:", results)
-# -0.0031, which is close to 0
+# output ≈ -0.0031, answer is 0
+results, _ = importance_sampling(10000, target2, proposal2, lambda x: x ** 2)
+print("Test mean:", results)
+# output ≈ 0.1900, answer is 0.1228
 
 print("")
 
