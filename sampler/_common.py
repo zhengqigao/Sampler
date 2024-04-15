@@ -1,4 +1,4 @@
-from typing import TypeVar, Callable, Union, Optional, Tuple, List
+from typing import TypeVar, Callable, Union, Optional, Tuple, List, Set
 import torch
 from abc import ABC, abstractmethod, ABCMeta
 import math
@@ -228,11 +228,11 @@ class Condistribution(_BaseDistribution):
 class InvProbTrans(nn.Module):
     r"""
     The base class for an invertible probabilistic transform. The forward and backward function must be implemented by
-    the users, and satisfy the following relationship: x, a = model.backward(model.forward(x, a)).
+    the users, and satisfy the following relationship: x, 0 = model.backward(model.forward(x, 0)).
 
     """
 
-    def __init__(self, p_base: Optional[Union[TorchDistribution, Distribution]] = None):
+    def __init__(self, p_base: Optional[Union[TorchDistribution, Distribution]] = None, *args, **kwargs):
         super().__init__()
         self.p_base = p_base
 
@@ -264,58 +264,94 @@ class InvProbTrans(nn.Module):
         """
         raise NotImplementedError
 
-    # def sample(self, num_samples: int) -> torch.Tensor:
-    #     r"""
-    #     Draw samples from the base distribution.
-    #
-    #     Args:
-    #         num_samples (int): the number of samples to be drawn.
-    #     """
-    #     if not hasattr(self, 'p_base') or not hasattr(self.p_base, 'sample'):
-    #         raise AttributeError(
-    #             f"The base distribution `p_base` and `p_base.sample()` is required for the InvProbTrans to generate samples.")
-    #
-    #     x = self.p_base.sample(num_samples)
-    #     return self.forward(x, 0)[0]
+    def sample(self, num_samples: int, p_given: Optional[Union[TorchDistribution, Distribution]] = None) -> Tuple[
+        torch.Tensor, torch.Tensor]:
+        r"""
+        Draw samples from a base distribution.
 
+        Args:
+            num_samples (int): the number of samples to be drawn.
+            p_given (Union[TorchDistribution, Distribution]): the distribution to be sampled from. If None, the base attribute of the instance will be used.
+        """
+        if p_given is None and self.p_base is None:
+            raise ValueError("A base distribution is needed to do sampling. Please pass a distribution to p_given "
+                             "or set the p_base attribute of the instance.")
 
-def _wrapfunc_ipt(model_list: List[InvProbTrans], func, *args, **kwargs):
-    # Store original methods in a dictionary to ensure they are not overwritten
-    original_methods = {}
+        p = p_given if p_given is not None else self.p_base
 
-    for model in model_list:
-        # Capture the original forward method
-        if model not in original_methods: # this is necessary
-            original_methods[model] = model.forward
+        if isinstance(p, Distribution):
+            samples = p.sample(num_samples)
+            return self.forward(samples, p(samples))
+        elif isinstance(p, TorchDistribution):
+            samples = p.sample(torch.Size([num_samples]))
+            return self.forward(samples, p.log_prob(samples))
+        else:
+            raise ValueError(f"The base distribution should be an instance of Distribution or TorchDistribution, "
+                             f"but got {type(p_given)}.")
 
-        def tmp_sample(self, ori_forward):
-            # This factory function returns a new function with the correct original forward method captured
-            def _sample(num_samples):
-                x = self.p_base.sample(num_samples)
-                return ori_forward(x, 0)[0]
-            return _sample
+    def modify(self):
+        self.ori_sample = self.sample
+        self.ori_forward = self.forward
 
-        def tmp_forward(self, z: torch.Tensor):
+        def tmp_sample(inst, num_samples: int):
+            return inst.ori_forward(inst.p_base.sample(num_samples), 0)[0]
+
+        def tmp_forward(inst, z: torch.Tensor):
             x, log_det = self.backward(z, 0)
-            return self.p_base.log_prob(z) - log_det
+            return inst.p_base.log_prob(x) - log_det
 
-        # Bind the new sample method with the original forward captured
-        model.sample = tmp_sample(model, original_methods[model])
-        model.forward = tmp_forward.__get__(model, InvProbTrans)
+        self.sample = tmp_sample.__get__(self)
+        self.forward = tmp_forward.__get__(self)
 
-    # Execute the function with modified model methods
+    def restore(self):
+        if hasattr(self, 'ori_sample') and hasattr(self, 'ori_forward'):
+            self.sample = self.ori_sample
+            self.forward = self.ori_forward
+            del self.ori_sample, self.ori_forward
+
+
+# def _wrapfunc_ipt(model_set: Set[InvProbTrans], func: Callable, *args, **kwargs):
+#     original_methods = {}
+#
+#     for model in model_set:
+#         # if model not in original_methods:  # The if statement is for the case when one model occurs multiple times in model_list
+#         original_methods[model] = (model.sample, model.forward)
+#
+#         def tmp_sample(self, ori_forward: Callable):
+#             return lambda num_samples: ori_forward(self.p_base.sample(num_samples), 0)[0]
+#
+#         def tmp_forward(self, z: torch.Tensor):
+#             x, log_det = self.backward(z, 0)
+#             return self.p_base.log_prob(x) - log_det
+#
+#         model.sample = tmp_sample(model, original_methods[model][1])
+#         model.forward = tmp_forward.__get__(model)
+#
+#     # Execute the function with modified model methods
+#     results = func(*args, **kwargs)
+#
+#     # Restore the original methods
+#     for model in model_set:
+#         model.sample, model.forward = original_methods[model]
+#
+#     return results
+
+
+def _wrapfunc_ipt(model_set: Set[InvProbTrans], func: Callable, *args, **kwargs):
+    for model in model_set:
+        model.modify()
+
     results = func(*args, **kwargs)
 
-    # Restore the original forward methods
-    for model in model_list:
-        model.forward = original_methods[model]
+    for model in model_set:
+        model.restore()
 
     return results
 
-def _ipt_decorator(func):
+def _ipt_decorator(func: Callable) -> Callable:
     def wrapper(*args, **kwargs):
-        model_list = [arg for arg in args if isinstance(arg, InvProbTrans)] + \
-                     [value for value in kwargs.values() if isinstance(value, InvProbTrans)]
+        model_list = set([arg for arg in args if isinstance(arg, InvProbTrans)] + \
+                         [value for value in kwargs.values() if isinstance(value, InvProbTrans)])
 
         return func(*args, **kwargs) if len(model_list) == 0 else _wrapfunc_ipt(model_list, func, *args, **kwargs)
 

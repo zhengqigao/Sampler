@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 from typing import List, Union, Tuple, Optional
-from .._common import InvProbTrans
+from .._common import InvProbTrans, Distribution
+from torch.distributions import Distribution as TorchDistribution
 
 class FlowTransform(InvProbTrans):
     r"""
@@ -17,9 +18,12 @@ class FlowTransform(InvProbTrans):
         >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
     """
 
-    def __init__(self, dim: int, keep_dim: List[int], scale_net: Optional[nn.Module] = None,
-                 shift_net: Optional[nn.Module] = None):
-        super(FlowTransform, self).__init__()
+    def __init__(self, dim: int,
+                 keep_dim: List[int],
+                 scale_net: Optional[nn.Module] = None,
+                 shift_net: Optional[nn.Module] = None,
+                 p_base: Optional[Union[TorchDistribution, Distribution]] = None):
+        super(FlowTransform, self).__init__(p_base=p_base)
 
         if not set(keep_dim).issubset(set(range(dim))):
             raise ValueError(f"keep_dim should be a subset of [0, {dim}), but got {keep_dim}.")
@@ -60,8 +64,9 @@ class BaseNormalizingFlow(InvProbTrans):
                  dim: int,
                  scale_net: nn.ModuleList,
                  shift_net: nn.ModuleList,
-                 keep_dim: Optional[List[List[int]]] = None):
-        super(BaseNormalizingFlow, self).__init__()
+                 keep_dim: Optional[List[List[int]]] = None,
+                 p_base: Optional[Union[TorchDistribution, Distribution]] = None):
+        super(BaseNormalizingFlow, self).__init__(p_base=p_base)
 
         self.num_trans = num_trans
         self.dim = dim
@@ -71,7 +76,7 @@ class BaseNormalizingFlow(InvProbTrans):
         # by default, keep_dim alternates between even and odd indices
         if keep_dim is None:
             self.keep_dim = [list(range(i % 2 == 0, dim, 2)) for i in range(num_trans)]
-        elif len(keep_dim) != num_trans: ## TODO: might need to add more checks, such as every element in keep_dim should be a subset of [0, dim)
+        elif len(keep_dim) != num_trans:
             raise ValueError(f"keep_dim should have length {self.num_trans}, but got {len(keep_dim)}.")
         else:
             self.keep_dim = keep_dim
