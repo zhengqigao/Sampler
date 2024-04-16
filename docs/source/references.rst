@@ -5,3 +5,4 @@ References
 .. [Gilks1992ars] Gilks, Walter R., and Pascal Wild. "Adaptive rejection sampling for Gibbs sampling." Journal of the Royal Statistical Society: Series C (Applied Statistics) 41.2 (1992): 337-348.
 .. [Neal2001ais] Neal, Radford M. "Annealed importance sampling." Statistics and computing 11.2 (2001): 125-139.
 .. [kimhung] Li, Kim-Hung. "The sampling/importance resampling algorithm" In Applied Bayesian Modeling and Causal Inference from Incomplete-Data Perspectives, 2004.
+.. [Dinh2017] Laurent Dinh, Jascha Sohl-Dickstein, Samy Bengio. "Density estimation using Real NVP". ICLR 2017.

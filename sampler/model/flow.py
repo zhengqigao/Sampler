@@ -4,16 +4,16 @@ from typing import List, Union, Tuple, Optional
 from .._common import InvProbTrans, Distribution
 from torch.distributions import Distribution as TorchDistribution
 
-class FlowTransform(InvProbTrans):
+
+class CoupleFlow(InvProbTrans):
     r"""
-    The probabilistic transformation building block used in flow models. It has a forward and a backward method.
-    The forward method transforms the input tensor x to z, and outputs the log probability of the transformation.
-    The backward method transforms z back to x, and outputs the log probability.
+    The Affine coupling flow. It keeps the dimensions unchanged specified by the argument `keep_dim`, and the other
+    dimensions are transformed by the scale and shift networks. See ..[Dinh2017] for more details.
 
     .. Example::
-        >>> flowtransform = FlowTransform(dim=2, keep_dim=[0], scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
+        >>> coupleflow = CoupleFlow(dim=2, keep_dim=[0], scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
         >>> x = torch.rand(10, 2)
-        >>> x_, diff_log_det = flowtransform.backward(*flowtransform.forward(x, 0))
+        >>> x_, diff_log_det = coupleflow.backward(*coupleflow.forward(x, 0))
         >>> diff = x - x_
         >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
     """
@@ -23,7 +23,7 @@ class FlowTransform(InvProbTrans):
                  scale_net: Optional[nn.Module] = None,
                  shift_net: Optional[nn.Module] = None,
                  p_base: Optional[Union[TorchDistribution, Distribution]] = None):
-        super(FlowTransform, self).__init__(p_base=p_base)
+        super(CoupleFlow, self).__init__(p_base=p_base)
 
         if not set(keep_dim).issubset(set(range(dim))):
             raise ValueError(f"keep_dim should be a subset of [0, {dim}), but got {keep_dim}.")
@@ -35,7 +35,9 @@ class FlowTransform(InvProbTrans):
         self.scale_net = scale_net
         self.shift_net = shift_net
 
-    def forward(self, x, log_det = 0):
+    def forward(self, x: torch.Tensor,
+                log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
+
         x_keep, x_trans = x[:, self.keep_dim], x[:, self.trans_dim]
         s = self.scale_net(x_keep) if self.scale_net is not None else torch.zeros_like(x_trans)
         t = self.shift_net(x_keep) if self.shift_net is not None else torch.zeros_like(x_trans)
@@ -47,7 +49,9 @@ class FlowTransform(InvProbTrans):
 
         return z, log_det
 
-    def backward(self, z, log_det = 0):
+    def backward(self, z: torch.Tensor,
+                 log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
+
         z_keep, z_trans = z[:, self.keep_dim], z[:, self.trans_dim]
         s = self.scale_net(z_keep) if self.scale_net is not None else torch.zeros_like(z_trans)
         t = self.shift_net(z_keep) if self.shift_net is not None else torch.zeros_like(z_trans)
@@ -59,14 +63,29 @@ class FlowTransform(InvProbTrans):
         return x, log_det  # Our implementation guarantees: x, a = model.backward(*model.forward(x, log_det = a))
 
 
-class BaseNormalizingFlow(InvProbTrans):
+class RealNVP(InvProbTrans):
+    r"""
+    The RealNVP model. It is a sequence of `num_trans` affine coupling flows. By default, we change the dimensions with
+    the odd indices in the first transformation, and the even indices in the second transformation, and keep this
+    alternating pattern. It also accepts customized `keep_dim` for each transformation. The `scale_net` and `shift_net`
+    are both a list of modules of the same length as `num_trans` to allow for customized architectures. See ..[Dinh2017]
+    for more details.
+
+    .. Example::
+        >>> realnvp = RealNVP(num_trans = 3, dim=2, scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
+        >>> x = torch.rand(10, 2)
+        >>> x_, diff_log_det = realnvp.backward(*realnvp.forward(x, 0))
+        >>> diff = x - x_
+        >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
+    """
+
     def __init__(self, num_trans: int,
                  dim: int,
-                 scale_net: nn.ModuleList,
-                 shift_net: nn.ModuleList,
+                 scale_net: Optional[Union[nn.Module, nn.ModuleList]] = None,
+                 shift_net: Optional[Union[nn.Module, nn.ModuleList]] = None,
                  keep_dim: Optional[List[List[int]]] = None,
                  p_base: Optional[Union[TorchDistribution, Distribution]] = None):
-        super(BaseNormalizingFlow, self).__init__(p_base=p_base)
+        super(RealNVP, self).__init__(p_base=p_base)
 
         self.num_trans = num_trans
         self.dim = dim
@@ -81,21 +100,25 @@ class BaseNormalizingFlow(InvProbTrans):
         else:
             self.keep_dim = keep_dim
 
-        self.transforms = nn.ModuleList([FlowTransform(dim=self.dim,
-                                                       keep_dim=self.keep_dim[i],
-                                                       scale_net=self.scale_net[i] if self.scale_net is not None and i < len(
-                                                           self.scale_net) else None,
-                                                       shift_net=self.shift_net[i] if self.shift_net is not None and i < len(
-                                                           self.shift_net) else None) for i in range(num_trans)])
+        self.transforms = nn.ModuleList([CoupleFlow(dim=self.dim,
+                                                    keep_dim=self.keep_dim[i],
+                                                    scale_net=self.scale_net[i] if isinstance(self.scale_net,
+                                                                                              nn.ModuleList) and i < len(
+                                                        self.scale_net) else self.scale_net,
+                                                    shift_net=self.shift_net[i] if isinstance(self.shift_net,
+                                                                                              nn.ModuleList) and i < len(
+                                                        self.shift_net) else None) for i in range(num_trans)])
 
-    def forward(self, x, log_det = 0):
-        for i in range(len(self.transforms)):
-            x, ld = self.transforms[i].forward(x)
+    def forward(self, x: torch.Tensor,
+                log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
+        for transform in self.transforms:
+            x, ld = transform.forward(x)
             log_det += ld
         return x, log_det
 
-    def backward(self, z, log_det = 0):
-        for i in range(len(self.transforms)):
-            z, ld = self.transforms[-1 - i].backward(z)
+    def backward(self, z: torch.Tensor,
+                 log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
+        for transform in reversed(self.transforms):
+            z, ld = transform.backward(z)
             log_det += ld
         return z, log_det

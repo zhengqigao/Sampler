@@ -43,9 +43,9 @@ print("Test mean:", results)
 
 
 
-## List of Algorithms
+## List of Algorithms and Models
 
-This section lists the algorithms that have been implemented and the algorithms that will be implemented in the future. This section will be updated regularly as new algorithms are added. We use :cat:, :dog:, and :rabbit: to represent classical, deep learning-based, and rare event samplers, respectively, noticing the first characters are c, d, and r. **We use :tea: to represent the algorithms that have been tested (Kaiwen).**
+This section lists the algorithms and models that have been implemented and that will be implemented in the future. This section will be updated regularly as new algorithms and models are added. We use :cat: and :dog: to represent classical and deep learning-related, respectively, noticing the first characters are c and d. **We use :tea: to represent the algorithms that have been tested.**
 
 
 The following algorithms have been implemented:
@@ -58,13 +58,13 @@ The following algorithms have been implemented:
 - [Langevin Monte Carlo](https://abdulfatir.com/blog/2020/Langevin-Monte-Carlo/) :cat:
 - [Hamiltonian Monte Carlo](https://arxiv.org/pdf/1206.1901.pdf) :cat:
 - [Score Estimator](http://stillbreeze.github.io/REINFORCE-vs-Reparameterization-trick/) :cat:
+- [Affine Coupling Flow](https://arxiv.org/abs/1605.08803), [RealNVP](https://arxiv.org/abs/1605.08803) :dog:
+- 
+A list of TODOs are shown below. **Please add your name after it in parentheses if you are working on it.** Move to the list above when finished development, and meanwhile please add a reference which your implementation is based on. Note that some algorithms below should be combined to the previous implemented algorithms, and some algorithms might be able to call previous implemented algorithms as subroutines. 
 
-A list of TODOs are shown below. **Please add your name after it in parenthesis if you are working on it (Zhengqi and Jiahe).** Move to the list above when finished development, and meanwhile please add a reference that your implementation is based on. Note that some algorithms below should be combined to the previous implemented algorithms, and some algorithms might be able to call previous implemented algorithms as subroutines. 
-
-- Sequential Importance Sampling, Sequential Monte Carlo (zhengqi)
+- Sequential Importance Sampling, Sequential Monte Carlo
 - Adaptive Rejection Sampling
 - The No-U-Turn Sampler
 - Blocked Gibbs Sampling (might be combined into Gibbs sampling)
 - Monte Carlo, and Quasi-Monte Carlo
-- 
 
