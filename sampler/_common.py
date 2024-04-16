@@ -224,12 +224,58 @@ class Condistribution(_BaseDistribution):
 
         raise NotImplementedError
 
-
-class InvProbTrans(nn.Module):
+class UniProbTrans(nn.Module):
     r"""
-    The base class for an invertible probabilistic transform. The forward and backward function must be implemented,
-     and satisfy the following relationship: x, 0 = model.backward(model.forward(x, 0)).
+    A Unidirectional Probabilistic Transform (UPT). Given an input tensor `x` (which can be sampled from `p_base`),
+    the output tensor `z` is obtained by applying a forward deterministic transformation, and the log determinant of
+    Jacobian is also returned. However, the backward transformation is not possible because forward is not invertible.
+    """
+    def __init__(self, p_base: Optional[Union[TorchDistribution, Distribution]] = None, *args, **kwargs):
+        super().__init__()
+        self.p_base = p_base
 
+    def forward(self, x: torch.Tensor, log_prob: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[
+        torch.Tensor, torch.Tensor]:
+        r"""
+        The un-invertible forward transformation.
+
+        Args:
+            x (torch.Tensor): the input tensor.
+            log_prob (Optional[Union[float, torch.Tensor]]): the log determinant of the Jacobian matrix before doing forward.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: the transformed tensor and the log determinant of the Jacobian matrix.
+        """
+        raise NotImplementedError
+
+    def sample(self, num_samples: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        r"""
+        Draw samples from a base distribution and perform the forward transform.
+
+        Args:
+            num_samples (int): the number of samples to be drawn.
+        """
+        if self.p_base is None:
+            raise ValueError("A base distribution is needed to do sampling. Please set the p_base attribute of the instance.")
+
+        if isinstance(self.p_base, Distribution):
+            samples = self.p_base.sample(num_samples)
+            return self.forward(samples, self.p_base(samples))
+        elif isinstance(self.p_base, TorchDistribution):
+            samples = self.p_base.sample(torch.Size([num_samples]))
+            return self.forward(samples, self.p_base.log_prob(samples))
+        else:
+            raise ValueError(f"The base distribution p_base should be an instance of Distribution or "
+                             f"torch.distributions.Distribution, but got {type(self.p_base)}.")
+
+
+
+class BiProbTrans(nn.Module):
+    r"""
+    The Bidirectional Probabilistic Transform (BPT). Given an input tensor `x` (which can be sampled from `p_base`),
+    the output tensor `z` is obtained by applying a forward deterministic transformation, and the log determinant of
+    Jacobian is also returned. The backward transformation (i.e., the inverse of the forward) is also available. They
+    satisfy the following relationship: x, a = model.backward(model.forward(x, a)).
 
     """
 
@@ -311,7 +357,7 @@ class InvProbTrans(nn.Module):
             del self._ori_sample, self._ori_forward
 
 
-def _ipt_decorator(func: Callable) -> Callable:
+def _bpt_decorator(func: Callable) -> Callable:
     def wrapper(*args, **kwargs):
         model_set = set([arg for arg in args if isinstance(arg, InvProbTrans)] + \
                         [value for value in kwargs.values() if isinstance(value, InvProbTrans)])
