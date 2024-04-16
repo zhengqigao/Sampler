@@ -144,15 +144,15 @@ def mh_sampling(num_samples: int,
 
     if initial.ndim == 1:  # tolerate only one chain provided, reshape to (1, D) when given (D,)
         initial = initial.view(1, -1)
-
-    samples, num_accept = torch.clone(initial).unsqueeze(0), torch.zeros(initial.shape[0])
+    device = initial.device
+    samples, num_accept = torch.clone(initial).unsqueeze(0).to(device), torch.zeros(initial.shape[0]).to(device)
 
     while samples.shape[0] < num_samples + burn_in:
         new = transit.sample(1, y=initial).view(initial.shape)
         ratio = target(new) + transit(initial, new).diag() \
                 - target(initial) - transit(new, initial).diag()
-        ratio = torch.exp(ratio)  # min(1, ratio) is not necessary
-        accept = torch.rand(ratio.shape) <= ratio
+        ratio = torch.exp(ratio).to(device) # min(1, ratio) is not necessary
+        accept = torch.rand(ratio.shape).to(device) <= ratio
         num_accept += accept
         new[~accept] = initial[~accept]
         initial = new
@@ -218,7 +218,8 @@ def langevin_monte_carlo(num_samples: int,
                          step_size: float,
                          initial: torch.Tensor,
                          adjusted: Optional[bool] = False,
-                         burn_in: Optional[int] = 0) -> torch.Tensor:
+                         burn_in: Optional[int] = 0,
+                         event_func: Optional[Func] = lambda _: False) -> torch.Tensor:
     r"""
     Langevin Monte Carlo (LMC) to draw samples from a target distribution.
 
@@ -228,7 +229,9 @@ def langevin_monte_carlo(num_samples: int,
         step_size (float): the step size to discretize the Langevin dynamics.
         adjusted (Optional[bool]): whether to adjust the acceptance ratio using the Metropolis-Hasting criterion, default to False.
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
+        event_func (Optional[Func]): when it returns True, the LMC will terminate immediately; default to a function that always returns False.
     """
+
     # TODO: missing initial in docstring above
 
     if isinstance(num_samples, int) != True or num_samples <= 0:
@@ -272,6 +275,17 @@ def langevin_monte_carlo(num_samples: int,
 
         current, logp_current, log_grad_current = new, logp_new, log_grad_new
         samples = torch.cat([samples, new.unsqueeze(0)], dim=0)
+        event_value = event_func(samples)
+        if (isinstance(event_value, bool) or # provide some flexibility allowing torch.Tensor([True])
+                (isinstance(event_value, torch.Tensor) and event_value.dtype == torch.bool and event_value.numel() == 1)):
+            if event_value:
+                if samples.shape[0] >= burn_in:
+                    return samples[burn_in:]
+                else:
+                    warnings.warn("event_func is triggered before burn_in stage")
+                    return samples
+        else:
+            raise ValueError(f"event_func should return a single boolean value, but got {type(event_value)}.")
 
     return samples[burn_in:].detach()
 

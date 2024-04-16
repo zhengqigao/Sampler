@@ -5,9 +5,7 @@ import torch.nn as nn
 import sys
 import os
 sys.path.append(os.path.abspath("../"))
-from sampler._common import Distribution
-
-
+from sampler._common import Distribution, Condistribution
 class Feedforward(nn.Module):
     def __init__(self, hidden_dims, activation='leakyrelu'):
         super(Feedforward, self).__init__()
@@ -128,7 +126,88 @@ class PotentialFunc(object):
                           weight3 * torch.exp(gaussian3.log_prob(z)))
 
 
+
 class MultiGauss(Distribution):
+    def __init__(self, mean, std):
+        super().__init__()
+        self.mean = mean if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32)
+        self.std = std if isinstance(std, torch.Tensor) else torch.tensor(std, dtype=torch.float32)
+        self.dim = len(self.mean)
+        self.mul_factor = 1.0
+
+    def sample(self, num_samples: int) -> torch.Tensor:
+        return torch.randn((num_samples, self.dim)) * self.std + self.mean
+
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        return -0.5 * (
+                    torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
+                    + torch.log(2 * torch.pi * self.std * self.std).sum()
+            )
+class TensorizedMultiGauss(Distribution):
+    def __init__(self, mean, std, device=torch.device("cpu")):
+        super().__init__()
+        self.mean = mean.to(device) if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32).to(device)
+        self.std = std.to(device) if isinstance(std, torch.Tensor) else torch.tensor(std, dtype=torch.float32).to(device)
+        self.dim = self.mean.shape
+        self.device = device
+        self.mul_factor = 1.0
+
+    def sample(self, num_samples: int) -> torch.Tensor:
+        return (torch.randn((num_samples, *self.dim)).to(self.device) * self.std + self.mean)
+
+    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
+        return -0.5 * (
+                torch.sum(((x - self.mean) / self.std) ** 2, dim=tuple(range(1, len(self.dim) + 1)))
+                + torch.log(2 * torch.pi * self.std * self.std).sum()
+        )
+
+class TensorizedConditionalMultiGauss(Condistribution):
+    def __init__(self, std, device=torch.device("cpu")):
+        super().__init__()
+        #self.mean = mean.to(device) if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32).to(device)
+        self.std = std.to(device) if isinstance(std, torch.Tensor) else torch.tensor(std, dtype=torch.float32).to(device)
+        #self.std = torch.tensor(std, dtype=torch.float32)
+        self.dim = len(std)
+        self.mul_factor = 1.0
+        self.device = device
+
+    def sample(self, num_samples: int, y) -> torch.Tensor:
+        # y has shape (m, d)
+        # return shape (num_samples, m, d) with y as the mean
+        assert len(y.shape) == 2 and y.shape[1] == self.dim
+        self.y = y.to(self.device) if isinstance(y, torch.Tensor) else torch.tensor(y, dtype=torch.float32).to(self.device)
+        return (torch.randn((num_samples, y.shape[0], y.shape[1])).to(self.device)) * self.std + y
+
+    def log_prob(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        # x is of shape (N,d), y is of shape (M,d)
+        # return shape (N,M)
+        x = x.unsqueeze(1).to(self.device)
+        y = y.unsqueeze(0).to(self.device)
+        return -0.5 * (
+                    torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(2 * torch.pi * self.std * self.std).sum())
+
+class ConditionalMultiGauss(Condistribution):
+    def __init__(self, std):
+        super().__init__()
+        self.std = torch.tensor(std, dtype=torch.float32)
+        self.dim = len(std)
+        self.mul_factor = 1.0
+
+    def sample(self, num_samples: int, y) -> torch.Tensor:
+        # y has shape (m, d)
+        # return shape (num_samples, m, d) with y as the mean
+        assert len(y.shape) == 2 and y.shape[1] == self.dim
+        return torch.randn((num_samples, y.shape[0], y.shape[1])) * self.std + y
+
+    def log_prob(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        # x is of shape (N,d), y is of shape (M,d)
+        # return shape (N,M)
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
+        return -0.5 * (
+                    torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(2 * torch.pi * self.std * self.std).sum())
+
+class UnconditionalMultiGauss(Distribution):
     def __init__(self, mean, std):
         super().__init__()
         self.mean = mean if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32)
