@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 from typing import List, Union, Tuple, Optional
-from .._common import InvProbTrans, Distribution
+from .._common import BiProbTrans, Distribution
 from torch.distributions import Distribution as TorchDistribution
 
 
-class CoupleFlow(InvProbTrans):
+class CoupleFlow(BiProbTrans):
     r"""
     The Affine coupling flow. It keeps the dimensions unchanged specified by the argument `keep_dim`, and the other
     dimensions are transformed by the scale and shift networks. See ..[Dinh2017] for more details.
@@ -63,7 +63,7 @@ class CoupleFlow(InvProbTrans):
         return x, log_det  # Our implementation guarantees: x, a = model.backward(*model.forward(x, log_det = a))
 
 
-class RealNVP(InvProbTrans):
+class RealNVP(BiProbTrans):
     r"""
     The RealNVP model. It is a sequence of `num_trans` affine coupling flows. By default, we change the dimensions with
     the odd indices in the first transformation, and the even indices in the second transformation, and keep this

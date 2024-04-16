@@ -1,16 +1,16 @@
 import numpy as np
 import torch
 from typing import Union, Tuple, Callable, Any, Optional, List
-from .._common import Func, Distribution, Condistribution, InvProbTrans
+from .._common import Func, Distribution, Condistribution, BiProbTrans
 from .base import mh_sampling
 from .._utils import _get_params
 from torch.distributions.categorical import Categorical
-from .._common import _ipt_decorator
+from .._common import _bpt_decorator
 
-@_ipt_decorator
+@_bpt_decorator
 def importance_sampling(num_samples: int,
-                        target: Union[Distribution, InvProbTrans, Func],
-                        proposal: Union[Distribution, InvProbTrans],
+                        target: Union[Distribution, BiProbTrans, Func],
+                        proposal: Union[Distribution, BiProbTrans],
                         eval_func: Optional[Func] = None,
                         resample_ratio: Optional[float] = 0.0,
                         ):

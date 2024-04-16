@@ -359,8 +359,8 @@ class BiProbTrans(nn.Module):
 
 def _bpt_decorator(func: Callable) -> Callable:
     def wrapper(*args, **kwargs):
-        model_set = set([arg for arg in args if isinstance(arg, InvProbTrans)] + \
-                        [value for value in kwargs.values() if isinstance(value, InvProbTrans)])
+        model_set = set([arg for arg in args if isinstance(arg, BiProbTrans)] + \
+                        [value for value in kwargs.values() if isinstance(value, BiProbTrans)])
 
         if len(model_set) == 0:
             results = func(*args, **kwargs)
