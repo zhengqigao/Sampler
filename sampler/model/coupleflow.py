@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from typing import List, Union, Tuple, Optional
 from .._common import BiProbTrans, Distribution
-from torch.distributions import Distribution as TorchDistribution
 
 
 class CoupleFlow(BiProbTrans):
@@ -22,7 +21,7 @@ class CoupleFlow(BiProbTrans):
                  keep_dim: List[int],
                  scale_net: Optional[nn.Module] = None,
                  shift_net: Optional[nn.Module] = None,
-                 p_base: Optional[Union[TorchDistribution, Distribution]] = None):
+                 p_base: Optional[Distribution] = None):
         super(CoupleFlow, self).__init__(p_base=p_base)
 
         if not set(keep_dim).issubset(set(range(dim))):
@@ -84,7 +83,7 @@ class RealNVP(BiProbTrans):
                  scale_net: Optional[Union[nn.Module, nn.ModuleList]] = None,
                  shift_net: Optional[Union[nn.Module, nn.ModuleList]] = None,
                  keep_dim: Optional[List[List[int]]] = None,
-                 p_base: Optional[Union[TorchDistribution, Distribution]] = None):
+                 p_base: Optional[Distribution] = None):
         super(RealNVP, self).__init__(p_base=p_base)
 
         self.num_trans = num_trans
