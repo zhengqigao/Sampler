@@ -3,8 +3,8 @@ import numpy as np
 import torch
 from typing import Union, Tuple, Callable, Any, Optional, List
 from .._common import Func, Distribution, Condistribution
-from ..distribution import MultivariateNormal
-import math
+from torch.distributions import MultivariateNormal
+
 
 def rejection_sampling(num_samples: int, target: Distribution, proposal: Distribution, k: float) -> Tuple[
     torch.Tensor, Any]:

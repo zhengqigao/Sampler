@@ -343,11 +343,23 @@ class BiProbTrans(nn.Module):
             setattr(self, '_ori_forward', self.forward)
 
             def tmp_sample(inst, num_samples: int):
-                return inst._ori_forward(inst.p_base.sample(num_samples), 0)[0]
+                if isinstance(inst.p_base, Distribution):
+                    return inst._ori_forward(inst.p_base.sample(num_samples), 0)[0]
+                elif isinstance(inst.p_base, TorchDistribution):
+                    return inst._ori_forward(inst.p_base.sample(torch.Size([num_samples])), 0)[0]
+                else:
+                    raise ValueError(f"The base distribution p_base should be an instance of Distribution or "
+                                        f"torch.distributions.Distribution, but got {type(inst.p_base)}.")
 
             def tmp_forward(inst, z: torch.Tensor):
                 x, log_det = self.backward(z, 0)
-                return inst.p_base.log_prob(x) - log_det
+                if isinstance(inst.p_base, Distribution):
+                    return x, inst.p_base(x) - log_det
+                elif isinstance(inst.p_base, TorchDistribution):
+                    return inst.p_base.log_prob(x) - log_det
+                else:
+                    raise ValueError(f"The base distribution p_base should be an instance of Distribution or "
+                                     f"torch.distributions.Distribution, but got {type(inst.p_base)}.")
 
             self.sample = tmp_sample.__get__(self)
             self.forward = tmp_forward.__get__(self)
