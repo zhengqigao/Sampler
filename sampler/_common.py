@@ -338,7 +338,7 @@ class BiProbTrans(nn.Module):
             def tmp_forward(inst, z: torch.Tensor):
                 if isinstance(inst.p_base, Distribution):
                     x, log_det = self.backward(z, 0)
-                    return x, inst.p_base(x) - log_det
+                    return inst.p_base(x) - log_det
                 else:
                     raise ValueError(f"The base distribution p_base should be an instance of Distribution,"
                                      f" but got {type(inst.p_base)}.")

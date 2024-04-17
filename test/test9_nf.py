@@ -138,7 +138,7 @@ def run_density_matching_example():
                          shift_net=nn.ModuleList(
                              [Feedforward([1, 2, 2, 2, 1], 'relu') for _ in
                               range(num_trans)]),
-                         p_base = MultivariateNormal(torch.zeros(2), torch.eye(2)))
+                         p_base = MultiGauss(mean=[0, 0], std=[1, 1]))
 
 
     optimizer = torch.optim.Adam(module.parameters(), lr=0.001)
