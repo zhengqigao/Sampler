@@ -127,22 +127,6 @@ class PotentialFunc(object):
 
 
 
-class MultiGauss(Distribution):
-    def __init__(self, mean, std):
-        super().__init__()
-        self.mean = mean if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32)
-        self.std = std if isinstance(std, torch.Tensor) else torch.tensor(std, dtype=torch.float32)
-        self.dim = len(self.mean)
-        self.mul_factor = 1.0
-
-    def sample(self, num_samples: int) -> torch.Tensor:
-        return torch.randn((num_samples, self.dim)) * self.std + self.mean
-
-    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
-        return -0.5 * (
-                    torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
-                    + torch.log(2 * torch.pi * self.std * self.std).sum()
-            )
 class TensorizedMultiGauss(Distribution):
     def __init__(self, mean, std, device=torch.device("cpu")):
         super().__init__()
@@ -223,6 +207,8 @@ class UnconditionalMultiGauss(Distribution):
                     torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
                     + torch.log(2 * torch.pi * self.std * self.std).sum()
             )
+
+MultiGauss = UnconditionalMultiGauss
 
 if __name__ == '__main__':
     func_list = ['potential1',

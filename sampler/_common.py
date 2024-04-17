@@ -224,12 +224,14 @@ class Condistribution(_BaseDistribution):
 
         raise NotImplementedError
 
+
 class UniProbTrans(nn.Module):
     r"""
     A Unidirectional Probabilistic Transform (UPT). Given an input tensor `x` (which can be sampled from `p_base`),
     the output tensor `z` is obtained by applying a forward deterministic transformation, and the log determinant of
     Jacobian is also returned. However, the backward transformation is not possible because forward is not invertible.
     """
+
     def __init__(self, p_base: Optional[Union[TorchDistribution, Distribution]] = None, *args, **kwargs):
         super().__init__()
         self.p_base = p_base
@@ -256,7 +258,8 @@ class UniProbTrans(nn.Module):
             num_samples (int): the number of samples to be drawn.
         """
         if self.p_base is None:
-            raise ValueError("A base distribution is needed to do sampling. Please set the p_base attribute of the instance.")
+            raise ValueError(
+                "A base distribution is needed to do sampling. Please set the p_base attribute of the instance.")
 
         if isinstance(self.p_base, Distribution):
             samples = self.p_base.sample(num_samples)
@@ -267,7 +270,6 @@ class UniProbTrans(nn.Module):
         else:
             raise ValueError(f"The base distribution p_base should be an instance of Distribution or "
                              f"torch.distributions.Distribution, but got {type(self.p_base)}.")
-
 
 
 class BiProbTrans(nn.Module):
@@ -320,7 +322,8 @@ class BiProbTrans(nn.Module):
             num_samples (int): the number of samples to be drawn.
         """
         if self.p_base is None:
-            raise ValueError("A base distribution is needed to do sampling. Please set the p_base attribute of the instance.")
+            raise ValueError(
+                "A base distribution is needed to do sampling. Please set the p_base attribute of the instance.")
 
         if isinstance(self.p_base, Distribution):
             samples = self.p_base.sample(num_samples)
