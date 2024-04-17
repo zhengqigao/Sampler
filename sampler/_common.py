@@ -232,7 +232,7 @@ class UniProbTrans(nn.Module):
     Jacobian is also returned. However, the backward transformation is not possible because forward is not invertible.
     """
 
-    def __init__(self, p_base: Optional[Union[TorchDistribution, Distribution]] = None, *args, **kwargs):
+    def __init__(self, p_base: Optional[Distribution] = None, *args, **kwargs):
         super().__init__()
         self.p_base = p_base
 
@@ -257,19 +257,12 @@ class UniProbTrans(nn.Module):
         Args:
             num_samples (int): the number of samples to be drawn.
         """
-        if self.p_base is None:
+        if self.p_base is None or not isinstance(self.p_base, Distribution):
             raise ValueError(
-                "A base distribution is needed to do sampling. Please set the p_base attribute of the instance.")
+                "A base distribution is needed to do sampling. Please set the p_base attribute with a Distribution instance.")
 
-        if isinstance(self.p_base, Distribution):
-            samples = self.p_base.sample(num_samples)
-            return self.forward(samples, self.p_base(samples))
-        elif isinstance(self.p_base, TorchDistribution):
-            samples = self.p_base.sample(torch.Size([num_samples]))
-            return self.forward(samples, self.p_base.log_prob(samples))
-        else:
-            raise ValueError(f"The base distribution p_base should be an instance of Distribution or "
-                             f"torch.distributions.Distribution, but got {type(self.p_base)}.")
+        samples = self.p_base.sample(num_samples)
+        return self.forward(samples, self.p_base(samples))
 
 
 class BiProbTrans(nn.Module):
@@ -281,7 +274,7 @@ class BiProbTrans(nn.Module):
 
     """
 
-    def __init__(self, p_base: Optional[Union[TorchDistribution, Distribution]] = None, *args, **kwargs):
+    def __init__(self, p_base: Optional[Distribution] = None, *args, **kwargs):
         super().__init__()
         self.p_base = p_base
         self._modify_state = False
@@ -321,19 +314,12 @@ class BiProbTrans(nn.Module):
         Args:
             num_samples (int): the number of samples to be drawn.
         """
-        if self.p_base is None:
-            raise ValueError(
-                "A base distribution is needed to do sampling. Please set the p_base attribute of the instance.")
+        if self.p_base is None or not isinstance(self.p_base, Distribution):
+            raise ValueError("A base distribution is needed to do sampling. "
+                             "Please set the p_base attribute with a Distribution instance.")
 
-        if isinstance(self.p_base, Distribution):
-            samples = self.p_base.sample(num_samples)
-            return self.forward(samples, self.p_base(samples))
-        elif isinstance(self.p_base, TorchDistribution):
-            samples = self.p_base.sample(torch.Size([num_samples]))
-            return self.forward(samples, self.p_base.log_prob(samples))
-        else:
-            raise ValueError(f"The base distribution p_base should be an instance of Distribution or "
-                             f"torch.distributions.Distribution, but got {type(self.p_base)}.")
+        samples = self.p_base.sample(num_samples)
+        return self.forward(samples, self.p_base(samples))
 
     def modify(self):
         if not self._modify_state:
@@ -345,21 +331,17 @@ class BiProbTrans(nn.Module):
             def tmp_sample(inst, num_samples: int):
                 if isinstance(inst.p_base, Distribution):
                     return inst._ori_forward(inst.p_base.sample(num_samples), 0)[0]
-                elif isinstance(inst.p_base, TorchDistribution):
-                    return inst._ori_forward(inst.p_base.sample(torch.Size([num_samples])), 0)[0]
                 else:
-                    raise ValueError(f"The base distribution p_base should be an instance of Distribution or "
-                                        f"torch.distributions.Distribution, but got {type(inst.p_base)}.")
+                    raise ValueError(f"The base distribution p_base should be an instance of Distribution,"
+                                     f" but got {type(inst.p_base)}.")
 
             def tmp_forward(inst, z: torch.Tensor):
-                x, log_det = self.backward(z, 0)
                 if isinstance(inst.p_base, Distribution):
+                    x, log_det = self.backward(z, 0)
                     return x, inst.p_base(x) - log_det
-                elif isinstance(inst.p_base, TorchDistribution):
-                    return inst.p_base.log_prob(x) - log_det
                 else:
-                    raise ValueError(f"The base distribution p_base should be an instance of Distribution or "
-                                     f"torch.distributions.Distribution, but got {type(inst.p_base)}.")
+                    raise ValueError(f"The base distribution p_base should be an instance of Distribution,"
+                                     f" but got {type(inst.p_base)}.")
 
             self.sample = tmp_sample.__get__(self)
             self.forward = tmp_forward.__get__(self)

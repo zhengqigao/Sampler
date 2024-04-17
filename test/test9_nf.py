@@ -100,7 +100,7 @@ def test_sample():
                  num_trans =2,
                  scale_net= None,
                  shift_net= None,
-                 p_base = MultivariateNormal(torch.zeros(2), torch.eye(2)))
+                 p_base = MultiGauss(mean=[0, 0], std=[1, 1]))
     # essentially nf will still be a Gaussian.
     samples, log_prob = nf.sample(10000)
     plt.figure()

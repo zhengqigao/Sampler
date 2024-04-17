@@ -7,6 +7,7 @@ from .._utils import _get_params
 from torch.distributions.categorical import Categorical
 from .._common import _bpt_decorator
 
+
 @_bpt_decorator
 def importance_sampling(num_samples: int,
                         target: Union[Distribution, BiProbTrans, Func],
@@ -41,8 +42,8 @@ def importance_sampling(num_samples: int,
     resample, expectation = None, None
 
     if resample_ratio:
-        normalized_weights = weights/torch.sum(weights)
-        index = Categorical(normalized_weights).sample((max(1,int(resample_ratio*num_samples)),))
+        normalized_weights = weights / torch.sum(weights)
+        index = Categorical(normalized_weights).sample((max(1, int(resample_ratio * num_samples)),))
         resample = samples[index]
 
     if eval_func is not None:
@@ -54,6 +55,7 @@ def importance_sampling(num_samples: int,
             expectation = (weights * evals).mean(0)
 
     return expectation, resample
+
 
 def annealed_importance_sampling(num_samples: int,
                                  target: Distribution,
@@ -118,7 +120,6 @@ def annealed_importance_sampling(num_samples: int,
         else:
             current_transit = transit[n] if isinstance(transit, (tuple, list)) else transit
 
-
             new, _ = mh_sampling(1,
                                  lambda x: anneal_log_criterion(target(x), base(x), beta[n]),
                                  current_transit,
@@ -160,4 +161,3 @@ class ScoreEstimator(torch.autograd.Function):
 
 
 score_estimator = lambda num_sample, model, func: ScoreEstimator.apply(num_sample, model, func, *_get_params(model))
-
