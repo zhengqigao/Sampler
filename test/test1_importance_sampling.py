@@ -169,6 +169,8 @@ except Exception as e:
     print(e)
     # outputs [nan]
 
+# TODO: test wrong-dimension log_prob (really needed?)
+
 print("")
 # =============================================================================
 # test if it is possible to feed in only a function
@@ -191,27 +193,39 @@ print(f"Test mean:{results}, true mean:{test_mean}")
 try:
     target = lambda x: torch.tensor(None, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
-    print(f"Test mean:{results}, true mean:{test_mean}")
+    print(f"Testing None target function. Test mean:{results}")
 except Exception as e:
     print(e)
+    # raised TypeError: must be real number, not NoneType
 
 # Fill NaN in x-like tensor
 try:
     target = lambda x: torch.tensor(torch.nan, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
-    print(f"Test mean:{results}, true mean:{test_mean}")
+    print(f"Testing NaN terget function. Test mean:{results}")
 except Exception as e:
     print(e)
+    # [nan, nan, nan]
 
 # Fill Infinity in x-like tensor
 try:
     target = lambda x: torch.tensor(torch.inf, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
-    print(f"Test mean:{results}, true mean:{test_mean}")
+    print(f"Testing Infinity target function. Test mean:{results}")
 except Exception as e:
     print(e)
+    # [nan, nan, nan]
 
-# TODO: test None/NaN/Inf/wrong-dimension function
+# Fill -Infinity in x-like tensor
+try:
+    target = lambda x: torch.tensor(-torch.inf, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
+    results, _ = importance_sampling(10000, target, proposal, lambda x: x)
+    print(f"Testing -Infinity target function. Test mean:{results}")
+except Exception as e:
+    print(e)
+    # [nan, nan, nan]
+
+# TODO: test wrong-dimension function
 
 print("")
 # =============================================================================
