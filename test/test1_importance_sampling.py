@@ -147,6 +147,7 @@ try:
 except Exception as e:
     print(e)
     # raised TypeError: must be real number, not NoneType
+    # TODO: kaiwen: this error message is confusing, as idk what must be real number, should we rewrite it?
 target = WeirdDstr(weirdness=torch.nan)
 try:
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
@@ -234,6 +235,7 @@ print("")
 
 # torch.distributions.multivariate_normal.MultivariateNormal
 # zhengqi: a random covariance matrix
+test_mean = [-1, 1, 0.5]
 cov = torch.randn(3, 3)
 cov = torch.mm(cov, cov.t()) + torch.eye(3) * 0.05
 target = Wrapper(MultivariateNormal(torch.Tensor(test_mean), cov))
@@ -242,7 +244,25 @@ results, _ = importance_sampling(10000, target, proposal, lambda x: x)
 print(f"Test mean:{results}, true mean:{test_mean}")
 # [-1, 1, .5]
 
-# TODO: test wrapping None/NaN/Inf/wrong-dimension tensor
+# TODO: kaiwen: these error messages are confusing, should we rewrite them?
+try:
+    target = Wrapper(MultivariateNormal(torch.Tensor(test_mean[:1]), cov[:1, :1]))
+    proposal = Wrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
+    results, _ = importance_sampling(10000, target, proposal, lambda x: x)
+    print(f"Test mean:{results}, true mean:{test_mean[:1]}")
+except Exception as e:
+    print(e)
+    # raised ValueError: The right-most size of value must match event_shape:
+    #                    torch.Size([10000, 3]) vs torch.Size([1]).
+try:
+    target = Wrapper(MultivariateNormal(torch.Tensor(test_mean), cov))
+    proposal = Wrapper(MultivariateNormal(torch.zeros(4), torch.eye(4)))
+    results, _ = importance_sampling(10000, target, proposal, lambda x: x)
+    print(f"Test mean:{results}, true mean:{test_mean[:1]}")
+except Exception as e:
+    print(e)
+    # raised ValueError: The right-most size of value must match event_shape:
+    #                    torch.Size([10000, 4]) vs torch.Size([3]).
 
 print("")
 # =============================================================================
