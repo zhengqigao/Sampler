@@ -88,9 +88,9 @@ print("")
 # =============================================================================
 # test support for custom defined distributions
 # =============================================================================
-
+test_mean = [-1, 1, 0.5]
 # MultiGaussDenser, returns 33.3x larger p.d.f. value
-target = MultiGaussDenser(mean=test_mean, std=[1, 2, 0.5])
+target = MultiGaussDenser(mean=test_mean, std=[1, 1, 1])
 target.mul_factor = 1 / 33.3  # correct
 results, _ = importance_sampling(10000, target, proposal, lambda x: x)
 print(f"Test mean:{results}, true mean:{test_mean}")
@@ -132,45 +132,70 @@ print(f"Test mean:{results}, true mean:{0.1228}")
 # output ≈ 0.1900, answer is 0.1228
 
 # Weird distributions
-target = MultivariateNormal(torch.zeros(3), torch.eye(3))
-# which is unsupported without Wrapper
 try:
+    target = MultivariateNormal(torch.zeros(3), torch.eye(3))
+    # which is unsupported without Wrapper
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
     print(f"Testing unsupported Distribution object. Test mean:{results}")
 except Exception as e:
     print(e)
     # rased TypeError: 'MultivariateNormal' object is not callable
-target = WeirdDstr(weirdness=None)
+
 try:
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
+    proposal = MultiGauss(mean=[0, 0, 0], std=[5, 5, 5])
+    # overwrite log_prob with x-like tensor filled with None
+    proposal.log_prob = lambda x: torch.tensor(None, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
-    print(f"Testing None log_prob. Test mean:{results}")
+    print(f"Testing None proposal.log_prob. Test mean:{results}")
 except Exception as e:
     print(e)
     # raised TypeError: must be real number, not NoneType
-    # TODO: kaiwen: this error message is confusing, as idk what must be real number, should we rewrite it?
-target = WeirdDstr(weirdness=torch.nan)
 try:
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
+    # overwrite log_prob with x-like tensor filled with None
+    target.log_prob = lambda x: torch.tensor(None, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
+    proposal = MultiGauss(mean=[0, 0, 0], std=[5, 5, 5])
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
-    print(f"Testing NaN log_prob. Test mean:{results}")
+    print(f"Testing None target.log_prob. Test mean:{results}")
 except Exception as e:
     print(e)
-    # outputs [nan]
-target = WeirdDstr(weirdness=torch.inf)
-try:
-    results, _ = importance_sampling(10000, target, proposal, lambda x: x)
-    print(f"Testing Infinity log_prob. Test mean:{results}")
-except Exception as e:
-    print(e)
-    # outputs [nan]
-target = WeirdDstr(weirdness=-torch.inf)
-try:
-    results, _ = importance_sampling(10000, target, proposal, lambda x: x)
-    print(f"Testing -Infinity log_prob. Test mean:{results}")
-except Exception as e:
-    print(e)
-    # outputs [nan]
+    # raised TypeError: must be real number, not NoneType
+    # TODO: kaiwen: above 2 error messages are confusing, as idk WHAT must be real number, should we rewrite?
 
-# TODO: test wrong-dimension log_prob (really needed?)
+try:
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
+    # overwrite log_prob with x-like tensor filled with NaN
+    target.log_prob = lambda x: torch.tensor(torch.nan, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
+    proposal = MultiGauss(mean=[0, 0, 0], std=[5, 5, 5])
+    results, _ = importance_sampling(10000, target, proposal, lambda x: x)
+    print(f"Testing NaN target.log_prob. Test mean:{results}")
+except Exception as e:
+    print(e)
+    # [nan,nan,nan]
+try:
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
+    # overwrite log_prob with x-like tensor filled with Inf
+    target.log_prob = lambda x: torch.tensor(torch.inf, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
+    proposal = MultiGauss(mean=[0, 0, 0], std=[5, 5, 5])
+    results, _ = importance_sampling(10000, target, proposal, lambda x: x)
+    print(f"Testing Inf target.log_prob. Test mean:{results}")
+except Exception as e:
+    print(e)
+    # [nan,nan,nan]
+try:
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
+    # overwrite log_prob with x-like tensor filled with -Inf
+    target.log_prob = lambda x: torch.tensor(-torch.inf, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
+    proposal = MultiGauss(mean=[0, 0, 0], std=[5, 5, 5])
+    results, _ = importance_sampling(10000, target, proposal, lambda x: x)
+    print(f"Testing -Inf target.log_prob. Test mean:{results}")
+    target.mul_factor = None
+    results, _ = importance_sampling(10000, target, proposal, lambda x: x)
+    print(f"Testing -Inf target.log_prob. Test mean:{results}")
+except Exception as e:
+    print(e)
+    # [0,0,0] and [nan,nan,nan]
 
 print("")
 # =============================================================================
@@ -181,7 +206,7 @@ test_mean = [-1, 1, 0.5]
 target = MultiGauss(mean=test_mean, std=[1, 1, 1])
 proposal = MultiGauss(mean=[0, 0, 0], std=[5, 5, 5])
 results, _ = importance_sampling(100000, target.log_prob, proposal, lambda x: x)
-print(f"estimated by IS:{results}, true mean:{test_mean}")
+print(f"Test mean:{results}, true mean:{test_mean}")
 
 # custom defined target function
 target = lambda x: -0.5 * (torch.sum(((x - torch.tensor(test_mean, dtype=torch.float32)) / torch.tensor([2, 1, 0.5], dtype=torch.float32)) ** 2, dim=1) + torch.log(2 * torch.pi * torch.tensor([2, 1, 0.5], dtype=torch.float32) ** 2).sum())
@@ -198,35 +223,53 @@ try:
 except Exception as e:
     print(e)
     # raised TypeError: must be real number, not NoneType
-
-# Fill NaN in x-like tensor
 try:
+    # Fill NaN in x-like tensor
     target = lambda x: torch.tensor(torch.nan, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
     print(f"Testing NaN terget function. Test mean:{results}")
 except Exception as e:
     print(e)
     # [nan, nan, nan]
-
-# Fill Infinity in x-like tensor
 try:
+    # Fill Inf in x-like tensor
     target = lambda x: torch.tensor(torch.inf, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
-    print(f"Testing Infinity target function. Test mean:{results}")
+    print(f"Testing Inf target function. Test mean:{results}")
 except Exception as e:
     print(e)
     # [nan, nan, nan]
-
-# Fill -Infinity in x-like tensor
 try:
+    # Fill -Inf in x-like tensor
     target = lambda x: torch.tensor(-torch.inf, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
-    print(f"Testing -Infinity target function. Test mean:{results}")
+    print(f"Testing -Inf target function. Test mean:{results}")
 except Exception as e:
     print(e)
     # [nan, nan, nan]
+    # kaiwen: I thought this should be [0,0,0]. What should be returned is to be discussed.
 
-# TODO: test wrong-dimension function
+# wrong-dimension target function
+try:
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
+    proposal = MultiGauss(mean=[0, 0, 0], std=[5, 5, 5])
+    # target function ignores the last sample
+    results, _ = importance_sampling(100000, lambda x: target.log_prob(x)[:-1], proposal, lambda x: x)
+    print(f"Test mean:{results}, true mean:{test_mean}")
+except Exception as e:
+    print(e)
+    # raiesd RuntimeError: The size of tensor a (99999) must match the size of tensor b (100000)
+    #                      at non-singleton dimension 0
+try:
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
+    proposal = MultiGauss(mean=[0, 0, 0], std=[5, 5, 5])
+    # target function ignores the last sample
+    results, _ = importance_sampling(100000, lambda x: target.log_prob(x)[:, :-1], proposal, lambda x: x)
+    print(f"Test mean:{results}, true mean:{test_mean}")
+except Exception as e:
+    print(e)
+    # raiesd IndexError: too many indices for tensor of dimension 1
+
 
 print("")
 # =============================================================================
@@ -279,4 +322,47 @@ results, _ = importance_sampling(100000, target, proposal, lambda x: x)
 print("estimated by IS", results)
 print("true mean", test_mean)
 
-# TODO: test None/NaN/Inf/wrong-dimension tensorized target/proposal
+# None tensor
+try:
+    target = TensorizedMultiGauss(mean=None, std=torch.abs(0.8 * torch.ones(test_mean.shape)), device=device)
+    results, _ = importance_sampling(100000, target, proposal, lambda x: x)
+    print(f"Testing None tensor. Test mean:{results}")
+except Exception as e:
+    print(e)
+    # raised TypeError: must be real number, not NoneType
+# NaN tensor
+try:
+    # fill an x-like tensor with NaN
+    target = lambda x: torch.tensor(torch.nan, dtype=torch.float32).to(device) * torch.ones(x.shape[0], dtype=torch.float32).to(device)
+    results, _ = importance_sampling(100000, target, proposal, lambda x: x)
+    print(f"Testing NaN tensor. Test mean:{results}")
+except Exception as e:
+    print(e)
+    # gets all-NaN tensor
+# Inf tensor
+try:
+    # fill an x-like tensor with Inf
+    target = lambda x: torch.tensor(torch.inf, dtype=torch.float32).to(device) * torch.ones(x.shape[0], dtype=torch.float32).to(device)
+    results, _ = importance_sampling(100000, target, proposal, lambda x: x)
+    print(f"Testing Inf tensor. Test mean:{results}")
+except Exception as e:
+    print(e)
+    # gets all-NaN tensor
+# -Inf tensor
+try:
+    # fill an x-like tensor with -Inf
+    target = lambda x: torch.tensor(-torch.inf, dtype=torch.float32).to(device) * torch.ones(x.shape[0], dtype=torch.float32).to(device)
+    results, _ = importance_sampling(100000, target, proposal, lambda x: x)
+    print(f"Testing -Inf tensor. Test mean:{results}")
+except Exception as e:
+    print(e)
+    # gets all-NaN tensor
+# another -Inf test case, with mul_factor = 1
+try:
+    target = TensorizedMultiGauss(mean=[[[-torch.inf] * 2] * 2] * 3, std=torch.abs(0.8 * torch.ones(test_mean.shape)), device=device)
+    target.mul_factor = 1.0
+    results, _ = importance_sampling(100000, target, proposal, lambda x: x)
+    print(f"Testing -Inf tensor(with mul_factor=1). Test mean:{results}")
+except Exception as e:
+    print(e)
+    # gets zero tensor
