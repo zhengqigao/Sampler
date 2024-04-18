@@ -2,12 +2,13 @@ import warnings
 import numpy as np
 import torch
 from typing import Union, Tuple, Callable, Any, Optional, List
-from .._common import Func, Distribution, Condistribution
+from .._common import _bpt_decorator, Func, Distribution, Condistribution, BiProbTrans
 from torch.distributions import MultivariateNormal
 
+@_bpt_decorator
 def rejection_sampling(num_samples: int,
-                       target: Union[Distribution, Func],
-                       proposal: Distribution,
+                       target: Union[Distribution, BiProbTrans, Func],
+                       proposal: Union[Distribution, BiProbTrans],
                        k: float
                        ) -> Tuple[torch.Tensor, Any]:
     r"""
