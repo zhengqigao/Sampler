@@ -50,6 +50,8 @@ def importance_sampling(num_samples: int,
         weights = weights.view(-1, *[1] * (evals.ndim - 1))
         if not hasattr(target, 'mul_factor') or (target.mul_factor is None or proposal.mul_factor is None):
             expectation = (weights * evals).mean(0) / weights.mean(0)
+            # feature: when weights happens to be all 0, divided by 0 will return NaN.
+            # TODO: discuss what should be returned in this case.
         else:
             expectation = (weights * evals).mean(0)
 
