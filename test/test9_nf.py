@@ -6,22 +6,24 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 
 sys.path.append(os.path.abspath("../"))
-
+import numpy as np
 from sampler.model import CoupleFlow, RealNVP
 from test_common_helper import Feedforward, MultiGauss, PotentialFunc
 from sampler._common import Distribution
 from sampler.base import importance_sampling
 from torch.distributions.multivariate_normal import MultivariateNormal
+from sklearn import datasets
+
 # test a single transform block
 
 def test_couple_flow():
     dim = 4
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     flowtransform = CoupleFlow(dim=dim,
-                                  keep_dim=[0, 2],
-                                  scale_net=Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu'),
-                                  shift_net=Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu'),
-                                  p_base= mg)
+                               keep_dim=[0, 2],
+                               scale_net=Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu'),
+                               shift_net=Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu'),
+                               p_base=mg)
 
     print(flowtransform.p_base)
     flowtransform.p_base = None
@@ -48,7 +50,6 @@ def test_couple_flow():
     flowtransform.p_base = mg
     results, _ = importance_sampling(10000, flowtransform, flowtransform, lambda x: x)
 
-
     # after run IS, test again if flowtransform is still working (backward, forward, sample)
     x = torch.rand(10, dim)
     x_, diff_log_det = flowtransform.backward(*flowtransform.forward(x, 0))
@@ -57,25 +58,25 @@ def test_couple_flow():
     print(f"diff_log_det = {torch.max(torch.abs(diff_log_det))}")
     samples, log_prob = flowtransform.sample(10)
 
-
     try:
         results, _ = importance_sampling(10000, flowtransform, flowtransform, lambda x: x)
     except Exception as e:
         print("Error raised as expected, w/ error: ", e)
-        flowtransform.restore() # restore because IS is interrupted in the middle, so we need to restore the model to its original status manually. This won't be needed in the real-world use cases. If not restored, then the sample and forward methods have been modified.
+        flowtransform.restore()  # restore because IS is interrupted in the middle, so we need to restore the model to its original status manually. This won't be needed in the real-world use cases. If not restored, then the sample and forward methods have been modified.
+
 
 dim = 4
 mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
 # # test a flow model
 num_trans = 4
 nf = RealNVP(dim=dim,
-                         num_trans=num_trans,
-                         scale_net=Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu'),
-                         shift_net=nn.ModuleList(
-                             [Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu') for _ in
-                              range(num_trans)]),
-                         keep_dim=[[0, 2], [1, 3], [0, 2], [1, 3]],
-                         p_base = mg)
+             num_trans=num_trans,
+             scale_net=Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu'),
+             shift_net=nn.ModuleList(
+                 [Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu') for _ in
+                  range(num_trans)]),
+             keep_dim=[[0, 2], [1, 3], [0, 2], [1, 3]],
+             p_base=mg)
 
 
 def test_backward_forward():
@@ -84,6 +85,7 @@ def test_backward_forward():
     diff = y - y_
     print(f"diff = {torch.max(torch.abs(diff))}")
     print(f"diff_log_det = {torch.max(torch.abs(diff_log_det))}")
+
 
 def test_compatiblity_with_IS():
     nf.p_base = mg
@@ -97,10 +99,10 @@ def test_compatiblity_with_IS():
 
 def test_sample():
     nf = RealNVP(dim=2,
-                 num_trans =2,
-                 scale_net= None,
-                 shift_net= None,
-                 p_base = MultiGauss(mean=[0, 0], std=[1, 1]))
+                 num_trans=2,
+                 scale_net=None,
+                 shift_net=None,
+                 p_base=MultiGauss(mean=[0, 0], std=[1, 1]))
     # essentially nf will still be a Gaussian.
     samples, log_prob = nf.sample(10000)
     plt.figure()
@@ -112,7 +114,11 @@ def test_sample():
     results, _ = importance_sampling(10000, target, nf, lambda x: x)
     print(results)
 
+
 def run_density_matching_example():
+    ## TODO: I tested potential3 and potential6, they work. Can you try testing other cases? Note that because of randomness,
+    # may need to run with different random seeds to obtain good results. Also, I haven't tested it on GPU.
+
     potential_func = PotentialFunc("potential6")
 
     # show poential_function
@@ -129,24 +135,22 @@ def run_density_matching_example():
     plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
     plt.title('golden result')
 
+    num_trans = 12
+    module = RealNVP(dim=2,
+                     num_trans=num_trans,
+                     scale_net=nn.ModuleList(
+                         [Feedforward([1, 128, 128, 128, 1], 'leakyrelu') for _ in
+                          range(num_trans)]),
+                     shift_net=nn.ModuleList(
+                         [Feedforward([1, 128, 128, 128, 1], 'leakyrelu') for _ in
+                          range(num_trans)]),
+                     p_base=MultiGauss(mean=[0, 0], std=[1, 1]))
 
-    module =  RealNVP(dim=2,
-                         num_trans=num_trans,
-                         scale_net=nn.ModuleList(
-                             [Feedforward([1, 2, 2, 2, 1], 'relu') for _ in
-                              range(num_trans)]),
-                         shift_net=nn.ModuleList(
-                             [Feedforward([1, 2, 2, 2, 1], 'relu') for _ in
-                              range(num_trans)]),
-                         p_base = MultiGauss(mean=[0, 0], std=[1, 1]))
-
-
-    optimizer = torch.optim.Adam(module.parameters(), lr=0.001)
-    max_iter = 200
+    optimizer = torch.optim.Adam(module.parameters(), lr=0.0001)
+    max_iter = 500
     loss_list = []
-    batch_size = 100
+    batch_size = 1000
     for i in range(max_iter):
-        optimizer.zero_grad()
         sample, log_prob = module.sample(batch_size)
         loss = torch.mean(log_prob + potential_func(sample))
         loss_list.append(loss.item())
@@ -155,23 +159,69 @@ def run_density_matching_example():
             plt.plot(loss_list)
             plt.show()
             break
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         print(f"iter {i}, loss: {loss.item()}")
 
     plt.figure()
-    samples, log_prob = module.sample(10000)
+    samples, log_prob = module.sample(50000)
     samples = samples.detach().cpu().numpy()
     log_prob = log_prob.detach().cpu().numpy()
-    plt.scatter(samples[:, 0], samples[:, 1], c=log_prob.reshape(-1),
+    plt.scatter(samples[:, 0], samples[:, 1], c=np.exp(log_prob).reshape(-1),
                 cmap='viridis')
+    plt.colorbar()
+    plt.title('learnt module samples')
     plt.xlim(-bound, bound)
     plt.ylim(-bound, bound)
+    # plt.figure()
+    # x, log_prob_tmp = module.backward(grid_data)
+    # plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-log_prob_tmp + module.p_base(x)).detach().numpy(),
+    #             cmap='viridis')
+    # plt.colorbar()
+    # plt.title('learned module distribution')
+    # plt.show()
+
+
+
+def run_generation_example():
+    num_trans = 12
+    module = RealNVP(dim=2,
+                     num_trans=num_trans,
+                     scale_net=nn.ModuleList(
+                         [Feedforward([1, 128, 128, 128, 1], 'leakyrelu') for _ in
+                          range(num_trans)]),
+                     shift_net=nn.ModuleList(
+                         [Feedforward([1, 128, 128, 128, 1], 'leakyrelu') for _ in
+                          range(num_trans)]),
+                     p_base=MultiGauss(mean=[0, 0], std=[1, 1]))
+    optimizer = torch.optim.Adam(module.parameters(), lr=0.0001)
+    num_steps = 1000
+    for i in range(num_steps):
+        z, _ = datasets.make_moons(n_samples=1000, noise=0.1)
+        z = torch.Tensor(z)
+        x, log_prob = module.backward(z)
+        loss = -torch.mean(module.p_base(x) - log_prob)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        print(f"iter {i}, loss: {loss.item()}")
+
+    # show the generated samples
+    samples, log_prob = module.sample(10000)
+    samples = samples.cpu().detach().numpy()
     plt.figure()
-    plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-module.backward(grid_data)[1]).detach().numpy(), cmap='viridis')
-    plt.title('module result')
+    plt.scatter(samples[:, 0], samples[:, 1],
+                cmap='viridis')
+    plt.title("generated samples")
+
+    plt.figure()
+    x, _ = datasets.make_moons(n_samples=1000, noise=0.1)
+    plt.scatter(x[:, 0], x[:, 1], cmap='viridis')
+    plt.title("real samples")
+
     plt.show()
 
 
-test_sample()
-run_density_matching_example()
+# run_density_matching_example()
+run_generation_example()

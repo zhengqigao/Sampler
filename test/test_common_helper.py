@@ -17,6 +17,8 @@ class Feedforward(nn.Module):
             self.activation = nn.ReLU()
         elif activation == 'leakyrelu':
             self.activation = nn.LeakyReLU(0.2)
+        elif activation == 'tanh':
+            self.activation = nn.Tanh()
         else:
             raise ValueError(f"Invalid activation function: {activation}")
 
@@ -124,6 +126,8 @@ class PotentialFunc(object):
         return -torch.log(weight1 * torch.exp(gaussian1.log_prob(z)) +
                           weight2 * torch.exp(gaussian2.log_prob(z)) +
                           weight3 * torch.exp(gaussian3.log_prob(z)))
+
+
 
 
 

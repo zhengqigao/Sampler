@@ -44,7 +44,7 @@ class CoupleFlow(BiProbTrans):
         z = torch.zeros_like(x)
         z[:, self.keep_dim] = x_keep
         z[:, self.trans_dim] = torch.exp(s) * x_trans + t
-        log_det += torch.log(torch.prod(torch.exp(s), dim=1))
+        log_det -= torch.log(torch.prod(torch.exp(s), dim=1))
 
         return z, log_det
 
@@ -58,7 +58,7 @@ class CoupleFlow(BiProbTrans):
         x = torch.zeros_like(z)
         x[:, self.keep_dim] = z_keep
         x[:, self.trans_dim] = (z_trans - t) * torch.exp(-s)
-        log_det -= torch.log(torch.prod(torch.exp(s), dim=1))
+        log_det += torch.log(torch.prod(torch.exp(s), dim=1))
         return x, log_det  # Our implementation guarantees: x, a = model.backward(*model.forward(x, log_det = a))
 
 
