@@ -5,9 +5,11 @@ from typing import Union, Tuple, Callable, Any, Optional, List
 from .._common import Func, Distribution, Condistribution
 from torch.distributions import MultivariateNormal
 
-
-def rejection_sampling(num_samples: int, target: Distribution, proposal: Distribution, k: float) -> Tuple[
-    torch.Tensor, Any]:
+def rejection_sampling(num_samples: int,
+                       target: Union[Distribution, Func],
+                       proposal: Distribution,
+                       k: float
+                       ) -> Tuple[torch.Tensor, Any]:
     r"""
     Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor :math:`k>0`. See Section 11.1.2 of [Bishop2006PRML]_.
 
