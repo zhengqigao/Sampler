@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 sys.path.append(os.path.abspath("../"))
 import numpy as np
-from sampler.model import CoupleFlow, RealNVP
+from sampler.model import CouplingFlow, RealNVP
 from test_common_helper import Feedforward, MultiGauss, PotentialFunc
 from sampler._common import Distribution
 from sampler.base import importance_sampling
@@ -19,7 +19,7 @@ from sklearn import datasets
 def test_couple_flow():
     dim = 4
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
-    flowtransform = CoupleFlow(dim=dim,
+    flowtransform = CouplingFlow(dim=dim,
                                keep_dim=[0, 2],
                                scale_net=Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu'),
                                shift_net=Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu'),

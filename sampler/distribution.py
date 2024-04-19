@@ -3,7 +3,7 @@ from ._common import Distribution
 from torch.distributions import Distribution as TorchDistribution
 import torch.distributions
 
-
+## TODO: Make this wrapper class still have access to all other TorchDistribution methods.
 class TDWrapper(Distribution):
     def __init__(self, distribution: TorchDistribution):
         super().__init__()

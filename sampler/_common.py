@@ -342,36 +342,31 @@ class BiProbTrans(nn.Module):
         return x, self.p_base(x) - log_prob
 
     def modify(self):
+        if not isinstance(self.p_base, Distribution):
+            raise ValueError("The p_base must be an instance of Distribution.")
+
         if not self._modify_state:
             self._modify_state = True
 
             setattr(self, '_ori_sample', self.sample)
             setattr(self, '_ori_forward', self.forward)
 
-            def tmp_sample(inst, num_samples: int):
-                if isinstance(inst.p_base, Distribution):
-                    return inst._ori_forward(inst.p_base.sample(num_samples), 0)[0]
-                else:
-                    raise ValueError(f"The base distribution p_base should be an instance of Distribution,"
-                                     f" but got {type(inst.p_base)}.")
+            self.sample = (lambda inst, num_samples:
+                           inst._ori_forward(inst.p_base.sample(num_samples), 0)[0]).__get__(self)
+            self.forward = (lambda inst, z: inst.log_prob(z)[1]).__get__(self)
+            setattr(self, 'mul_factor', 1.0 if self.p_base.mul_factor is not None else None)
 
-            def tmp_forward(inst, z: torch.Tensor):
-                if isinstance(inst.p_base, Distribution):
-                    x, log_det = self.backward(z, 0)
-                    return inst.p_base(x) - log_det
-                else:
-                    raise ValueError(f"The base distribution p_base should be an instance of Distribution,"
-                                     f" but got {type(inst.p_base)}.")
+            # When mul_factor is not None, the updated forward method already incorporates it (because inst.log_prob(
+            # z) will automatically include mul_factor), thus at this place, we effectively see mul_factor = 1. But
+            # when mul_factor is None, we should faithfully record it.
 
-            self.sample = tmp_sample.__get__(self)
-            self.forward = tmp_forward.__get__(self)
 
     def restore(self):
         if self._modify_state:
             self._modify_state = False
             self.sample = self._ori_sample
             self.forward = self._ori_forward
-            del self._ori_sample, self._ori_forward
+            del self._ori_sample, self._ori_forward, self.mul_factor
 
 
 def _bpt_decorator(func: Callable) -> Callable:
