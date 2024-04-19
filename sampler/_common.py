@@ -269,8 +269,8 @@ class BiProbTrans(nn.Module):
     r"""
     The Bidirectional Probabilistic Transform (BPT). Given an input tensor `x` (which can be sampled from `p_base`),
     the output tensor `z` is obtained by applying a forward deterministic transformation, and the log determinant of
-    Jacobian is also returned. The backward transformation (i.e., the inverse of the forward) is also available. They
-    satisfy the following relationship: x, a = model.backward(model.forward(x, a)).
+    Jacobian is also computed. The backward transformation (i.e., the inverse of the forward) is available. They
+    satisfy the following relationship: x, a = model.backward(model.forward(x, a)) for any constant a.
 
     """
 
@@ -286,10 +286,10 @@ class BiProbTrans(nn.Module):
 
         Args:
             x (torch.Tensor): the input tensor.
-            log_prob (Optional[Union[float, torch.Tensor]]): the log determinant of the Jacobian matrix before doing forward.
+            log_prob (Optional[Union[float, torch.Tensor]]): the log probability before forward.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: the transformed tensor and the log determinant of the Jacobian matrix.
+            Tuple[torch.Tensor, torch.Tensor]: the transformed tensor and the associated log probability.
         """
         raise NotImplementedError
 
@@ -300,10 +300,10 @@ class BiProbTrans(nn.Module):
 
         Args:
             z (torch.Tensor): the input tensor.
-            log_prob (Optional[Union[float, torch.Tensor]]): the log determinant of the Jacobian matrix before doing backward.
+            log_prob (Optional[Union[float, torch.Tensor]]): the log probability before backward.
 
         Returns:
-            Tuple[torch.Tensor, torch.Tensor]: the transformed tensor and the log determinant of the Jacobian matrix.
+            Tuple[torch.Tensor, torch.Tensor]: the transformed tensor and the log probability after backward.
         """
         raise NotImplementedError
 
@@ -313,13 +313,33 @@ class BiProbTrans(nn.Module):
 
         Args:
             num_samples (int): the number of samples to be drawn.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: A tuple of the forward transformed samples and the associated log probability.
         """
         if self.p_base is None or not isinstance(self.p_base, Distribution):
-            raise ValueError("A base distribution is needed to do sampling. "
+            raise ValueError("A base distribution is needed to call sample(). "
                              "Please set the p_base attribute with a Distribution instance.")
 
         samples = self.p_base.sample(num_samples)
         return self.forward(samples, self.p_base(samples))
+
+    def log_prob(self, z: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        r"""
+        Evaluate the log probability of the given samples.
+
+        Args:
+            z (torch.Tensor): the input tensor.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: A tuple of the backward transformed samples and the associated log probability.
+        """
+        if self.p_base is None or not isinstance(self.p_base, Distribution):
+            raise ValueError("A base distribution is needed to call log_prob(). "
+                             "Please set the p_base attribute with a Distribution instance.")
+
+        x, log_prob = self.backward(z)
+        return x, self.p_base(x) - log_prob
 
     def modify(self):
         if not self._modify_state:

@@ -152,7 +152,7 @@ def run_density_matching_example():
     batch_size = 1000
     for i in range(max_iter):
         sample, log_prob = module.sample(batch_size)
-        loss = torch.mean(log_prob + potential_func(sample))
+        loss = torch.mean(log_prob + potential_func(sample)) # KL[q||p] = E_q[log q - log p], log_prob = logq, potential_func(sample) = -logp
         loss_list.append(loss.item())
         if torch.isnan(loss).any() or i == max_iter - 1:
             plt.figure()
@@ -174,13 +174,12 @@ def run_density_matching_example():
     plt.title('learnt module samples')
     plt.xlim(-bound, bound)
     plt.ylim(-bound, bound)
-    # plt.figure()
-    # x, log_prob_tmp = module.backward(grid_data)
-    # plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-log_prob_tmp + module.p_base(x)).detach().numpy(),
-    #             cmap='viridis')
-    # plt.colorbar()
-    # plt.title('learned module distribution')
-    # plt.show()
+    plt.figure()
+    plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(module.log_prob(grid_data)[1]).detach().numpy(),
+                cmap='viridis')
+    plt.colorbar()
+    plt.title('learned module distribution')
+    plt.show()
 
 
 
@@ -200,8 +199,8 @@ def run_generation_example():
     for i in range(num_steps):
         z, _ = datasets.make_moons(n_samples=1000, noise=0.1)
         z = torch.Tensor(z)
-        x, log_prob = module.backward(z)
-        loss = -torch.mean(module.p_base(x) - log_prob)
+        x, log_prob = module.log_prob(z)
+        loss = -torch.mean(log_prob) # KL[p||q] = -logq, log_prob = logq
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -211,17 +210,16 @@ def run_generation_example():
     samples, log_prob = module.sample(10000)
     samples = samples.cpu().detach().numpy()
     plt.figure()
-    plt.scatter(samples[:, 0], samples[:, 1],
-                cmap='viridis')
+    plt.scatter(samples[:, 0], samples[:, 1])
     plt.title("generated samples")
 
     plt.figure()
     x, _ = datasets.make_moons(n_samples=1000, noise=0.1)
-    plt.scatter(x[:, 0], x[:, 1], cmap='viridis')
+    plt.scatter(x[:, 0], x[:, 1])
     plt.title("real samples")
 
     plt.show()
 
 
-# run_density_matching_example()
+run_density_matching_example()
 run_generation_example()
