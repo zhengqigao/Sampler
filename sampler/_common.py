@@ -354,11 +354,7 @@ class BiProbTrans(nn.Module):
             self.sample = (lambda inst, num_samples:
                            inst._ori_forward(inst.p_base.sample(num_samples), 0)[0]).__get__(self)
             self.forward = (lambda inst, z: inst.log_prob(z)[1]).__get__(self)
-            setattr(self, 'mul_factor', 1.0 if self.p_base.mul_factor is not None else None)
-
-            # When mul_factor is not None, the updated forward method already incorporates it (because inst.log_prob(
-            # z) will automatically include mul_factor), thus at this place, we effectively see mul_factor = 1. But
-            # when mul_factor is None, we should faithfully record it.
+            setattr(self, 'mul_factor', self.p_base.mul_factor)
 
 
     def restore(self):
