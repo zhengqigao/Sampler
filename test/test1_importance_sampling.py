@@ -1,7 +1,7 @@
 from sampler.base import *
 from sampler._common import Distribution
 from torch.distributions.multivariate_normal import MultivariateNormal
-from sampler.distribution import Wrapper
+from sampler.distribution import TDWrapper
 from test_common_helper import MultiGauss, TensorizedMultiGauss
 
 
@@ -84,6 +84,55 @@ results, _ = importance_sampling(10000, target, proposal, lambda x: x)
 print(f"Test mean:{results}, true mean:{test_mean}")
 # 1/33.3*[-1, 1, .5], rescaled since mul_factor is wrong
 
+# None div_factor
+target.div_factor = None
+results, _ = importance_sampling(100, target, proposal, lambda x: x)
+print(f"Test mean:{results}, true mean:{test_mean}")
+
+# Other weird mul_factor and div_factor
+try:
+    target.mul_factor = torch.nan
+    results, _ = importance_sampling(100, target, proposal, lambda x: x)
+    print(f"Test mean:{results}, true mean:{test_mean}")
+except Exception as e:
+    print(e)
+    # raised ValueError: The mul_factor must be a positive scalar, but got nan.
+try:
+    target.div_factor = torch.nan
+    results, _ = importance_sampling(100, target, proposal, lambda x: x)
+    print(f"Test mean:{results}, true mean:{test_mean}")
+except Exception as e:
+    print(e)
+    # raised ValueError: The div_factor must be a positive scalar, but got nan.
+try:
+    target.mul_factor = torch.inf
+    results, _ = importance_sampling(100, target, proposal, lambda x: x)
+    print(f"Test mean:{results}, true mean:{test_mean}")
+except Exception as e:
+    print(e)
+    # raised ValueError: The mul_factor must be a positive scalar, but got inf.
+try:
+    target.div_factor = torch.inf
+    results, _ = importance_sampling(100, target, proposal, lambda x: x)
+    print(f"Test mean:{results}, true mean:{test_mean}")
+except Exception as e:
+    print(e)
+    # raised ValueError: The div_factor must be a positive scalar, but got inf.
+try:
+    target.mul_factor = -torch.inf
+    results, _ = importance_sampling(100, target, proposal, lambda x: x)
+    print(f"Test mean:{results}, true mean:{test_mean}")
+except Exception as e:
+    print(e)
+    # raised ValueError: The mul_factor must be a positive scalar, but got -inf.
+try:
+    target.div_factor = -torch.inf
+    results, _ = importance_sampling(100, target, proposal, lambda x: x)
+    print(f"Test mean:{results}, true mean:{test_mean}")
+except Exception as e:
+    print(e)
+    # raised ValueError: The div_factor must be a positive scalar, but got -inf.
+
 print("")
 # =============================================================================
 # test support for custom defined distributions
@@ -134,13 +183,19 @@ print(f"Test mean:{results}, true mean:{0.1228}")
 # Weird distributions
 try:
     target = MultivariateNormal(torch.zeros(3), torch.eye(3))
-    # which is unsupported without Wrapper
+    # which is unsupported without TDWrapper
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
     print(f"Testing unsupported Distribution object. Test mean:{results}")
 except Exception as e:
     print(e)
     # rased TypeError: 'MultivariateNormal' object is not callable
-
+try:
+    target = Distribution()
+    results, _ = importance_sampling(10000, target, proposal, lambda x: x)
+    print(f"Testing unsupported Distribution object. Test mean:{results}")
+except Exception as e:
+    print(e)
+    # raised NotImplementedError (printed an empty line)
 try:
     target = MultiGauss(mean=test_mean, std=[1, 1, 1])
     proposal = MultiGauss(mean=[0, 0, 0], std=[5, 5, 5])
@@ -210,7 +265,7 @@ print(f"Test mean:{results}, true mean:{test_mean}")
 
 # custom defined target function
 target = lambda x: -0.5 * (torch.sum(((x - torch.tensor(test_mean, dtype=torch.float32)) / torch.tensor([2, 1, 0.5], dtype=torch.float32)) ** 2, dim=1) + torch.log(2 * torch.pi * torch.tensor([2, 1, 0.5], dtype=torch.float32) ** 2).sum())
-proposal = Wrapper(MultivariateNormal(torch.zeros(3), 2 * torch.eye(3)))
+proposal = TDWrapper(MultivariateNormal(torch.zeros(3), 2 * torch.eye(3)))
 results, _ = importance_sampling(10000, target, proposal, lambda x: x)
 print(f"Test mean:{results}, true mean:{test_mean}")
 # [-1, 1, .5]
@@ -273,7 +328,7 @@ except Exception as e:
 
 print("")
 # =============================================================================
-# wrapper
+# TDwrapper
 # =============================================================================
 
 # torch.distributions.multivariate_normal.MultivariateNormal
@@ -281,16 +336,16 @@ print("")
 test_mean = [-1, 1, 0.5]
 cov = torch.randn(3, 3)
 cov = torch.mm(cov, cov.t()) + torch.eye(3) * 0.05
-target = Wrapper(MultivariateNormal(torch.Tensor(test_mean), cov))
-proposal = Wrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
+target = TDWrapper(MultivariateNormal(torch.Tensor(test_mean), cov))
+proposal = TDWrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
 results, _ = importance_sampling(10000, target, proposal, lambda x: x)
 print(f"Test mean:{results}, true mean:{test_mean}")
 # [-1, 1, .5]
 
 # TODO: kaiwen: these error messages are confusing, should we rewrite them?
 try:
-    target = Wrapper(MultivariateNormal(torch.Tensor(test_mean[:1]), cov[:1, :1]))
-    proposal = Wrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
+    target = TDWrapper(MultivariateNormal(torch.Tensor(test_mean[:1]), cov[:1, :1]))
+    proposal = TDWrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
     print(f"Test mean:{results}, true mean:{test_mean[:1]}")
 except Exception as e:
@@ -298,8 +353,8 @@ except Exception as e:
     # raised ValueError: The right-most size of value must match event_shape:
     #                    torch.Size([10000, 3]) vs torch.Size([1]).
 try:
-    target = Wrapper(MultivariateNormal(torch.Tensor(test_mean), cov))
-    proposal = Wrapper(MultivariateNormal(torch.zeros(4), torch.eye(4)))
+    target = TDWrapper(MultivariateNormal(torch.Tensor(test_mean), cov))
+    proposal = TDWrapper(MultivariateNormal(torch.zeros(4), torch.eye(4)))
     results, _ = importance_sampling(10000, target, proposal, lambda x: x)
     print(f"Test mean:{results}, true mean:{test_mean[:1]}")
 except Exception as e:

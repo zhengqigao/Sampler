@@ -127,7 +127,11 @@ class PotentialFunc(object):
                           weight2 * torch.exp(gaussian2.log_prob(z)) +
                           weight3 * torch.exp(gaussian3.log_prob(z)))
 
-
+class DensityFunc(object):
+    def __init__(self, name: str):
+        self.name = name
+    def __call__(self, z: torch.Tensor) -> torch.Tensor:
+        return -PotentialFunc(self.name)(z)
 
 
 
