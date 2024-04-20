@@ -189,7 +189,13 @@ try:
 except Exception as e:
     print(e)
     # rased TypeError: 'MultivariateNormal' object is not callable
-
+try:
+    target = Distribution()
+    results, _ = importance_sampling(10000, target, proposal, lambda x: x)
+    print(f"Testing unsupported Distribution object. Test mean:{results}")
+except Exception as e:
+    print(e)
+    # raised NotImplementedError (printed an empty line)
 try:
     target = MultiGauss(mean=test_mean, std=[1, 1, 1])
     proposal = MultiGauss(mean=[0, 0, 0], std=[5, 5, 5])

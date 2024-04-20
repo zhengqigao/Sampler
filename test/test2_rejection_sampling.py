@@ -1,149 +1,252 @@
 from sampler.base import *
 from sampler._common import Distribution
-from test_common_helper import PotentialFunc
+from test_common_helper import MultiGauss, DensityFunc
+
+# try:
+#     target = MultiGauss(mean=test_mean, std=[1, 1, 1])
+#     target.mul_factor = None
+#     proposal = MultiGauss(mean=[0, 0, 0], std=[1, 1, 1])
+#     results, info = rejection_sampling(10000, target, proposal, k=1000)
+#     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+# except Exception as e:
+#     print(e)
+# # Not always successful.
+# # Because both target and proposal are Gaussian,
+# # thus proposal std should be greater than target std,
+# # otherwise k*proposal could never cover target.
 
 test_mean = [-1, 1, 0.5]
-
-
-class MultiGauss(Distribution):
-    def __init__(self, mean, std):
-        super().__init__()
-        self.mean = mean if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32)
-        self.std = std if isinstance(std, torch.Tensor) else torch.tensor(std, dtype=torch.float32)
-        self.dim = len(mean)
-        self.mul_factor = 1.0
-
-    def sample(self, num_samples: int) -> torch.Tensor:
-        return torch.randn((num_samples, self.dim)) * self.std + self.mean
-
-    def log_prob(self, x: torch.Tensor) -> torch.Tensor:
-        return -0.5 * (torch.sum(((x - self.mean) / self.std) ** 2, dim=1) + torch.log(
-            2 * torch.pi * self.std * self.std).sum())
-
-
 target = MultiGauss(mean=test_mean, std=[1, 1, 1])
-target.mul_factor = None
+proposal = MultiGauss(mean=[0, 0, 0], std=[1.2, 1.2, 1.2])
+results, info = rejection_sampling(10000, target, proposal, k=40)
+print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
 
+proposal = MultiGauss(mean=[0, 0, 0], std=[2, 2, 2])
+results, info = rejection_sampling(10000, target, proposal, k=155)
+print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+
+proposal = MultiGauss(mean=[0, 0, 0], std=[3, 3, 3])
+results, info = rejection_sampling(10000, target, proposal, k=900)
+print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+
+
+print("=====================================")
+
+# change mul_factor of target
+
+test_mean = [-1, 1, 0.5]
+target = MultiGauss(mean=test_mean, std=[1, 1, 1])
+proposal = MultiGauss(mean=[0, 0, 0], std=[1.2, 1.2, 1.2])
 try:
-    proposal = MultiGauss(mean=[0, 0, 0], std=[1, 1, 1])
-    results, info = rejection_sampling(10000, target, proposal, k=1000)
+    target.mul_factor = None
+    results, info = rejection_sampling(10000, target, proposal, k=40)
     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
 except Exception as e:
     print(e)
-# Not always successful.
-# Because both target and proposal are Gaussian,
-# thus proposal std should be greater than target std,
-# otherwise k*proposal could never cover target.
-
-# 3 specially chosen proposals with larger std:
+    # nothing changed
 try:
+    target.mul_factor = 0
+    results, info = rejection_sampling(10000, target, proposal, k=40)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # raised ValueError: The mul_factor must be a positive limited scalar, but got 0.
+try:
+    target.mul_factor = 33.3
+    results, info = rejection_sampling(10000, target, proposal, k=40)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # raised ValueError: The scaling factor k = 40 is not large enough.
+try:
+    target.mul_factor = 1 / 33.3
+    results, info = rejection_sampling(10000, target, proposal, k=40)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # runs slower, rejection rate rises from 0.975 to 0.999
+
+print("=====================================")
+
+# weird target objects
+# e.g. invalid target obj, target obj without p.d.f., target obj without mul_factor
+try:
+    target = MultivariateNormal(torch.tensor([0, 0], dtype=torch.float32), torch.eye(2))
+    proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    results, info = rejection_sampling(10000, target, proposal, k=100)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # raised: 'MultivariateNormal' object is not callable
+try:
+    target = Distribution()
+    proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    results, info = rejection_sampling(10000, target, proposal, k=100)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # raised NotImplementedError (printed an empty line)
+try:
+    target = MultiGauss(mean=[0, 0], std=[1, 1])
+    target.log_prob = None
+    proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    results, info = rejection_sampling(10000, target, proposal, k=100)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # raised: 'NoneType' object is not callable
+try:
+    target = None
+    proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    results, info = rejection_sampling(10000, target, proposal, k=100)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # raised: 'NoneType' object is not callable
+try:
+    target = MultiGauss(mean=[0, 0, 0], std=[1, 1, 1])
+    proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    results, info = rejection_sampling(10000, target, proposal, k=100)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # raised: The size of tensor a (2) must match the size of tensor b (3) at non-singleton dimension 1
+try:
+    target = MultiGauss(mean=[0, 0], std=[1, 1])
+    proposal = MultiGauss(mean=[0, 0, 0], std=[1.5, 1.5, 1.5])
+    results, info = rejection_sampling(10000, target, proposal, k=100)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # raised: The size of tensor a (3) must match the size of tensor b (2) at non-singleton dimension 1
+
+print("=====================================")
+
+# target functions
+try:
+    test_mean = [-1, 1, 0.5]
+    target = lambda x: -0.5 * (torch.sum(((x - torch.tensor(test_mean, dtype=torch.float32)) / torch.tensor([1, 1, 1], dtype=torch.float32)) ** 2, dim=1) + torch.log(2 * torch.pi * torch.tensor([1, 1, 1], dtype=torch.float32) ** 2).sum())
     proposal = MultiGauss(mean=[0, 0, 0], std=[1.2, 1.2, 1.2])
     results, info = rejection_sampling(10000, target, proposal, k=40)
     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
 except Exception as e:
     print(e)
+
+# custom target functions
 try:
-    proposal = MultiGauss(mean=[0, 0, 0], std=[2, 2, 2])
-    results, info = rejection_sampling(10000, target, proposal, k=155)
+    proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    results, info = rejection_sampling(10000, DensityFunc("potential1"), proposal, k=200)
     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
 except Exception as e:
     print(e)
 try:
-    proposal = MultiGauss(mean=[0, 0, 0], std=[3, 3, 3])
-    results, info = rejection_sampling(10000, target, proposal, k=900)
+    proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    results, info = rejection_sampling(10000, DensityFunc("potential6"), proposal, k=200)
     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
 except Exception as e:
     print(e)
-    
+try:
+    proposal = MultiGauss(mean=[0, 0], std=[2, 2])
+    results, info = rejection_sampling(10000, DensityFunc("potential7"), proposal, k=200)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+
+# weird target functions
+try:  # target function returning None
+    target = lambda x: torch.tensor(None, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
+    proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    results, info = rejection_sampling(10000, target, proposal, k=100)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # raised TypeError: must be real number, not NoneType
+try:  # target function returning NaN
+    target = lambda x: torch.tensor(torch.nan, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
+    proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    results, info = rejection_sampling(10000, target, proposal, k=100)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # [nan, nan]
+try:  # target function returning Inf
+    target = lambda x: torch.tensor(torch.inf, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
+    proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    results, info = rejection_sampling(10000, target, proposal, k=100)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # The scaling factor k = 100 is not large enough.
+    # in fact, the target p.d.f. is always Inf, thus no k would be large enough
+# try:
+#     print("This test case will run into dead loop, please stop it manually.", end="", flush=True)
+#     target = lambda x: torch.tensor(-torch.inf, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
+#     proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+#     results, info = rejection_sampling(10000, target, proposal, k=100)
+#     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+# except KeyboardInterrupt:
+#     print("KeyboardInterrupt")
+# except Exception as e:
+#     print(e)
+#     # target function returning -Inf, meaning target p.d.f. is always 0
+#     # resulting in dead loop, because RS continues to sample
+#     # until k samples are accepted, while no sample can be accepted
+#     # THIS IS FEATURE, NOT BUG
+
 print("=====================================")
 
-# exceptional cases for k
-# non-positive k rejected
+# weird cases for k
 try:
+    test_mean = [-1, 1, 0.5]
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
     proposal = MultiGauss(mean=[0, 0, 0], std=[1.2, 1.2, 1.2])
     results, info = rejection_sampling(10000, target, proposal, k=0)
     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
 except Exception as e:
     print(e)
+    # raised ValueError: The scaling factor k should be a positive finite scalar, but got k = 0.
 try:
+    test_mean = [-1, 1, 0.5]
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
     proposal = MultiGauss(mean=[0, 0, 0], std=[1.2, 1.2, 1.2])
     results, info = rejection_sampling(10000, target, proposal, k=-100)
     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
 except Exception as e:
     print(e)
-    
-# float k accepted
+    # raised ValueError: The scaling factor k should be a positive finite scalar, but got k = -100.
 try:
+    test_mean = [-1, 1, 0.5]
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
+    proposal = MultiGauss(mean=[0, 0, 0], std=[1.2, 1.2, 1.2])
+    results, info = rejection_sampling(10000, target, proposal, k=-torch.inf)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # raised ValueError: The scaling factor k should be a positive finite scalar, but got k = -inf.
+try:
+    test_mean = [-1, 1, 0.5]
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
     proposal = MultiGauss(mean=[0, 0, 0], std=[1.2, 1.2, 1.2])
     results, info = rejection_sampling(10000, target, proposal, k=40.5)
     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
 except Exception as e:
     print(e)
-
-# # k=inf seems dead loop
-# try:
-#     proposal = MultiGauss(mean=[0, 0, 0], std=[1.2, 1.2, 1.2])
-#     results, info = rejection_sampling(10000, target, proposal, k=torch.inf)
-#     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
-# except Exception as e:
-#     print(e)
-
-# k=nan accepted (why?)
-# Mean: tensor([nan, nan, nan])   Rejection rate: 0.0   Size: torch.Size([0, 3])
+    # float k is accepted
 try:
+    test_mean = [-1, 1, 0.5]
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
+    proposal = MultiGauss(mean=[0, 0, 0], std=[1.2, 1.2, 1.2])
+    results, info = rejection_sampling(10000, target, proposal, k=torch.inf)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except Exception as e:
+    print(e)
+    # raised ValueError: The scaling factor k should be a positive finite scalar, but got k = inf.
+try:
+    test_mean = [-1, 1, 0.5]
+    target = MultiGauss(mean=test_mean, std=[1, 1, 1])
     proposal = MultiGauss(mean=[0, 0, 0], std=[1.2, 1.2, 1.2])
     results, info = rejection_sampling(10000, target, proposal, k=torch.nan)
     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
 except Exception as e:
     print(e)
-
-print("=====================================")
-
-# Custom-defined target (2D only)
-class CustomTarget1(Distribution):
-    def __init__(self):
-        super().__init__()
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
-        return torch.exp(-PotentialFunc("potential1")(x))
-
-target1 = CustomTarget1()
-target1.mul_factor = None
-proposal1 = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
-try:
-    results, info = rejection_sampling(10000, target1, proposal1, k=200)
-    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
-except Exception as e:
-    print(e)
-
-# Another custom-defined target (2D only)
-class CustomTarget2(Distribution):
-    def __init__(self):
-        super().__init__()
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
-        return torch.exp(-PotentialFunc("potential6")(x))
-
-target2 = CustomTarget2()
-target2.mul_factor = None
-proposal2 = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
-try:
-    results, info = rejection_sampling(10000, target2, proposal2, k=200)
-    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
-except Exception as e:
-    print(e)
-
-# Another custom-defined target (2D only)
-class CustomTarget3(Distribution):
-    def __init__(self):
-        super().__init__()
-    def evaluate_density(self, x: torch.Tensor, in_log: bool = True) -> torch.Tensor:
-        return torch.exp(-PotentialFunc("potential7")(x))
-
-target3 = CustomTarget3()
-target3.mul_factor = None
-proposal3 = MultiGauss(mean=[0, 0], std=[2, 2])
-try:
-    results, info = rejection_sampling(10000, target3, proposal3, k=200)
-    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
-except Exception as e:
-    print(e)
-    
+    # raised ValueError: The scaling factor k should be a positive finite scalar, but got k = nan.
