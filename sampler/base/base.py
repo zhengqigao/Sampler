@@ -1,6 +1,7 @@
 import warnings
 import numpy as np
 import torch
+import math
 from typing import Union, Tuple, Callable, Any, Optional, List
 from .._common import _bpt_decorator, Func, Distribution, Condistribution, BiProbTrans
 from torch.distributions import MultivariateNormal
@@ -21,9 +22,9 @@ def rejection_sampling(num_samples: int,
         k (float): a positive constant such that :math: `k q(x) \geq \tilde{p}(x)` holds for all `x`.
     """
 
-    if k <= 0:
-        raise ValueError(f"The scaling factor k should be positive, but got k = {k}.")
-
+    if k <= 0 or not math.isfinite(k) or math.isnan(k):
+        raise ValueError(f"The scaling factor k should be a positive finite scalar, but got k = {k}.")
+    
     # TODO: Is it worthy to implement the squeezing function as in [Gilks1992ars]_?
     total_num_sample, reject_num_sample, accept_sample = 0, 0, None
     while (total_num_sample - reject_num_sample) < num_samples:
