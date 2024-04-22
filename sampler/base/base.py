@@ -5,6 +5,7 @@ import math
 from typing import Union, Tuple, Callable, Any, Optional, List
 from .._common import _bpt_decorator, Func, Distribution, Condistribution, BiProbTrans
 from torch.distributions import MultivariateNormal
+from sampler._utils import LinearEnvelop1D
 
 @_bpt_decorator
 def rejection_sampling(num_samples: int,
@@ -44,7 +45,11 @@ def rejection_sampling(num_samples: int,
     return accept_sample[:num_samples], {'rejection_rate': reject_num_sample / total_num_sample}
 
 
-def adaptive_rejection_sampling(num_samples: int, target: Distribution, lower: float, upper: float,) -> Tuple[torch.Tensor, Any]:
+@_bpt_decorator
+def adaptive_rejection_sampling(num_samples: int,
+                                target: Union[Distribution, BiProbTrans, Func],
+                                lower: float,
+                                upper: float,) -> Tuple[torch.Tensor, Any]:
     r"""
     Adaptive Rejection sampling to draw samples from a log-concave target distribution. See Section 11.1.3 of [Bishop2006PRML]_.
 
@@ -55,31 +60,6 @@ def adaptive_rejection_sampling(num_samples: int, target: Distribution, lower: f
         upper (float): the upper point to end the grid, the derivate here should be negative.
     """
 
-    class LinearEnvelop(Distribution):
-        def __init__(self, grid, derivate, eval_value):
-            super().__init__()
-            self.grid = torch.tensor(grid, dtype=torch.float32)
-            self.derivate = torch.tensor(derivate, dtype=torch.float32)
-            self.eval_value = torch.tensor(eval_value, dtype=torch.float32)
-            self.dim = self.grid.shape[1]
-            assert self.grid.shape[0] == 2
-
-        def sample(self, num_samples: int) -> torch.Tensor:
-            intersect = ((self.eval_value[1] - self.derivate[1] * self.grid[1]) - (self.eval_value[0] - self.derivate[0] * self.grid[0]))/(self.derivate[0] - self.derivate[1])
-            samples = torch.rand(num_samples, self.dim)
-            intersect_value = torch.exp(self.derivate[0] * intersect + self.eval_value[0] - self.derivate[0] * self.grid[0])
-            upper_points = torch.gt(samples, intersect_value)
-            lower_points = ~upper_points
-            samples[upper_points] = (torch.log(self.derivate[1] * (samples[upper_points] - torch.exp(self.derivate[0] * intersect + self.eval_value[0] - self.derivate[0] * self.grid[0])/self.derivate[0]))-(self.eval_value[0] - self.derivate[0] * self.grid[0])) / self.derivate[1] + intersect
-            samples[lower_points] = (torch.log(self.derivate[0] * samples[lower_points]) - (self.eval_value[0] - self.derivate[0] * self.grid[0]))/self.derivate[0]
-            return samples
-
-        def evaluate_density(self, x: torch.Tensor) -> torch.Tensor:
-            if x < (self.eval_value[1] - self.eval_value[0] + self.grid[0] * self.derivate[0] - self.grid[1] * self.derivate[1])/(self.derivate[0] - self.derivate[1]):
-                return self.derivate[0] * (x - self.grid[0]) + self.eval_value[0]
-            else:
-                return self.derivate[1] * (x - self.grid[1]) + self.eval_value[1]
-
     if lower > upper:
         raise ValueError(f"The value of lower point should be smaller than the upper point.")
     if np.isinf(lower) or np.isinf(upper):
@@ -89,21 +69,35 @@ def adaptive_rejection_sampling(num_samples: int, target: Distribution, lower: f
 
     eval_points.require_grad = True
     eval_bound = target(eval_points)
+    '''
     log_grad_current = torch.autograd.grad(eval_bound.sum(), eval_points)[0]
     eval_points.requires_grad = False
+    '''
+
+    derivate_step = 1e-6 * (upper - lower)
+    derivate_eval_points = torch.Tensor([[lower], [lower+derivate_step], [upper-derivate_step], [upper]])
+    derivate_eval_bound = target(derivate_eval_points)
+    derivate_lower = (derivate_eval_bound[1]-derivate_eval_bound[0])/derivate_step
+    derivate_upper = (derivate_eval_bound[3] - derivate_eval_bound[2])/derivate_step
+    if np.sign(derivate_lower) < 0:
+        raise ValueError(f"The derivate at lower point is negative.")
+    if np.sign(derivate_upper) > 0:
+        raise ValueError(f"The derivate at upper point is positive.")
+    log_grad_current = torch.cat((derivate_lower.reshape(1,1), derivate_upper.reshape(1,1)),dim=1).tolist()[0]
 
     if np.sign(log_grad_current[0]) < 0:
         raise ValueError(f"The derivate at lower point is negative.")
     if np.sign(log_grad_current[1]) > 0:
         raise ValueError(f"The derivate at upper point is positive.")
-    grid = [lower, upper]
+    grid = [[lower], [upper]]
 
-    proposal = LinearEnvelop(grid, log_grad_current, eval_bound)
+    proposal = LinearEnvelop1D(grid, log_grad_current, eval_bound)
 
     # TODO: add abscissae of rejected points into the linear envolope distirbution, multivariate
     total_num_sample, reject_num_sample, accept_sample = 0, 0, None
     while (total_num_sample - reject_num_sample) < num_samples:
-        samples = LinearEnvelop.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
+        print("accept_sample.shape[0]: {}".format((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples))
+        samples = LinearEnvelop1D.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
         evals = target(samples, in_log=False)
         bound = proposal(samples, in_log=False)
         if torch.any(bound < evals):

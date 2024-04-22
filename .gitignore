@@ -9,3 +9,8 @@ dummy/
 *.pyc
 *.png
 test/sampler
+sampler/.DS_Store
+sampler.egg-info/
+.DS_Store
+.idea/
+.gitignore
