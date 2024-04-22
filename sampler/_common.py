@@ -122,7 +122,7 @@ class _BaseDistribution(nn.Module, metaclass=_Meta):
         elif isinstance(value, (int, float)) and value > 0 and not math.isnan(value) and not math.isinf(value):
             self._mul_factor = float(value)
         else:
-            raise ValueError(f"The mul_factor must be a positive limited scalar, but got {value}.")
+            raise ValueError(f"The mul_factor must be a positive finite scalar, but got {value}.")
 
     @property
     def div_factor(self):
@@ -135,7 +135,7 @@ class _BaseDistribution(nn.Module, metaclass=_Meta):
         elif isinstance(value, (int, float)) and value > 0 and not math.isnan(value) and not math.isinf(value):
             self.mul_factor = 1.0 / float(value)
         else:
-            raise ValueError(f"The div_factor must be a positive limited scalar, but got {value}.")
+            raise ValueError(f"The div_factor must be a positive finite scalar, but got {value}.")
 
     def sample(self, *args, **kwargs) -> torch.Tensor:
         raise NotImplementedError
