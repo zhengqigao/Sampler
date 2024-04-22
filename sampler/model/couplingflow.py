@@ -4,13 +4,13 @@ from typing import List, Union, Tuple, Optional
 from .._common import BiProbTrans, Distribution
 
 
-class CoupleFlow(BiProbTrans):
+class CouplingFlow(BiProbTrans):
     r"""
     The Affine coupling flow. It keeps the dimensions unchanged specified by the argument `keep_dim`, and the other
     dimensions are transformed by the scale and shift networks. See ..[Dinh2017] for more details.
 
     .. Example::
-        >>> coupleflow = CoupleFlow(dim=2, keep_dim=[0], scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
+        >>> coupleflow = CouplingFlow(dim=2, keep_dim=[0], scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
         >>> x = torch.rand(10, 2)
         >>> x_, diff_log_det = coupleflow.backward(*coupleflow.forward(x, 0))
         >>> diff = x - x_
@@ -22,7 +22,7 @@ class CoupleFlow(BiProbTrans):
                  scale_net: Optional[nn.Module] = None,
                  shift_net: Optional[nn.Module] = None,
                  p_base: Optional[Distribution] = None):
-        super(CoupleFlow, self).__init__(p_base=p_base)
+        super(CouplingFlow, self).__init__(p_base=p_base)
 
         if not set(keep_dim).issubset(set(range(dim))):
             raise ValueError(f"keep_dim should be a subset of [0, {dim}), but got {keep_dim}.")
@@ -99,7 +99,7 @@ class RealNVP(BiProbTrans):
         else:
             self.keep_dim = keep_dim
 
-        self.transforms = nn.ModuleList([CoupleFlow(dim=self.dim,
+        self.transforms = nn.ModuleList([CouplingFlow(dim=self.dim,
                                                     keep_dim=self.keep_dim[i],
                                                     scale_net=self.scale_net[i] if isinstance(self.scale_net,
                                                                                               nn.ModuleList) and i < len(
