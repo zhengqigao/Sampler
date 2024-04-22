@@ -13,7 +13,7 @@ from sampler._common import Distribution
 from sampler.base import importance_sampling
 from torch.distributions.multivariate_normal import MultivariateNormal
 from sklearn import datasets
-
+from sampler.functional import KLDenLoss, KLGenLoss
 # test a single transform block
 
 def test_couple_flow():
@@ -150,9 +150,11 @@ def run_density_matching_example():
     max_iter = 500
     loss_list = []
     batch_size = 1000
+    criterion = KLDenLoss()
     for i in range(max_iter):
-        sample, log_prob = module.sample(batch_size)
-        loss = torch.mean(log_prob + potential_func(sample)) # KL[q||p] = E_q[log q - log p], log_prob = logq, potential_func(sample) = -logp
+        # sample, log_prob = module.sample(batch_size)
+        # loss = torch.mean(log_prob + potential_func(sample)) # KL[q||p] = E_q[log q - log p], log_prob = logq, potential_func(sample) = -logp
+        loss = criterion(module, batch_size, potential_func)
         loss_list.append(loss.item())
         if torch.isnan(loss).any() or i == max_iter - 1:
             plt.figure()
@@ -196,11 +198,13 @@ def run_generation_example():
                      p_base=MultiGauss(mean=[0, 0], std=[1, 1]))
     optimizer = torch.optim.Adam(module.parameters(), lr=0.0001)
     num_steps = 1000
+    criterion = KLGenLoss()
     for i in range(num_steps):
         z, _ = datasets.make_moons(n_samples=1000, noise=0.1)
         z = torch.Tensor(z)
-        x, log_prob = module.log_prob(z)
-        loss = -torch.mean(log_prob) # KL[p||q] = -logq, log_prob = logq
+        # x, log_prob = module.log_prob(z)
+        # loss = -torch.mean(log_prob) # KL[p||q] = -logq, log_prob = logq
+        loss = criterion(module, z)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
