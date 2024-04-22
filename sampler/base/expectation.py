@@ -6,7 +6,7 @@ from .base import mh_sampling
 from .._utils import _get_params
 from torch.distributions.categorical import Categorical
 from .._common import _bpt_decorator
-
+import warnings
 
 @_bpt_decorator
 def importance_sampling(num_samples: int,
@@ -43,7 +43,7 @@ def importance_sampling(num_samples: int,
 
     if resample_ratio:
         normalized_weights = weights / torch.sum(weights)
-        index = Categorical(normalized_weights).sample((max(1, int(resample_ratio * num_samples)),))
+        index = Categorical(normalized_weights).sample(torch.Size([max(1, int(resample_ratio * num_samples))]))
         resample = samples[index]
 
     if eval_func is not None:
@@ -51,9 +51,9 @@ def importance_sampling(num_samples: int,
         weights = weights.view(-1, *[1] * (evals.ndim - 1))
         if (not hasattr(target, 'mul_factor') or not hasattr(proposal, 'mul_factor')
                 or (target.mul_factor is None or proposal.mul_factor is None)):
+            if weights.mean() == 0:
+                warnings.warn(f"The importance weights are all zeros, normalizing the weights lead to NaN.")
             expectation = (weights * evals).mean(0) / weights.mean(0)
-            # feature: when weights happens to be all 0, divided by 0 will return NaN.
-            # TODO: discuss what should be returned in this case.
         else:
             expectation = (weights * evals).mean(0)
 
