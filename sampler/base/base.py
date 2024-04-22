@@ -97,7 +97,7 @@ def adaptive_rejection_sampling(num_samples: int,
     total_num_sample, reject_num_sample, accept_sample = 0, 0, None
     while (total_num_sample - reject_num_sample) < num_samples:
         # print("accept_sample.shape[0]: {}".format((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples))
-        samples = LinearEnvelop1D.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
+        samples = proposal.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
         evals = target(samples, in_log=False)
         bound = proposal(samples, in_log=False)
         if torch.any(bound < evals):

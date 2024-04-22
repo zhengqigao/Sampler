@@ -10,9 +10,9 @@ class CouplingFlow(BiProbTrans):
     dimensions are transformed by the scale and shift networks. See ..[Dinh2017] for more details.
 
     .. Example::
-        >>> coupleflow = CouplingFlow(dim=2, keep_dim=[0], scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
+        >>> couplingflow = CouplingFlow(dim=2, keep_dim=[0], scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
         >>> x = torch.rand(10, 2)
-        >>> x_, diff_log_det = coupleflow.backward(*coupleflow.forward(x, 0))
+        >>> x_, diff_log_det = couplingflow.backward(*couplingflow.forward(x, 0))
         >>> diff = x - x_
         >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
     """
