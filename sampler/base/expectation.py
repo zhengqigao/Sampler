@@ -1,12 +1,12 @@
 import numpy as np
 import torch
 from typing import Union, Tuple, Callable, Any, Optional, List
-from .._common import Func, Distribution, Condistribution, BiProbTrans
+from .._common import Func, Distribution, Condistribution, BiProbTrans, _bpt_decorator
 from .base import mh_sampling
 from .._utils import _get_params
 from torch.distributions.categorical import Categorical
-from .._common import _bpt_decorator
 import warnings
+
 
 @_bpt_decorator
 def importance_sampling(num_samples: int,
@@ -141,26 +141,53 @@ def annealed_importance_sampling(num_samples: int,
 
 class ScoreEstimator(torch.autograd.Function):
     r"""
-    The REINFORCE algorithm, also known as the score function estimator, to estimate the gradient of the expectation of :math: `E_{p_{\theta}(x)}[f(x)]` with respect to the parameters of :math: `\theta`.
+    The REINFORCE algorithm, also known as the score function estimator, to estimate the gradient of the expectation of :math: `E_{p_{\theta}(x)}[f(x)]` with respect to the parameters of :math: `\theta`. It is known to have large variance.
     """
 
     @staticmethod
-    def forward(ctx, num_sample: int, module: torch.nn.Module, func: Func, *param: Tuple[torch.Tensor]) -> torch.Tensor:
-        ctx.module = module
+    def forward(ctx, num_sample: int, module: Union[Distribution, BiProbTrans], func: Func,
+                reduction: Optional[str] = 'mean', *param: Tuple[torch.Tensor]) -> torch.Tensor:
+
+        if reduction not in ['none', 'mean', 'sum']:
+            raise ValueError(f"reduction should be 'mean', 'sum' or 'none', but got {reduction}.")
+
+        ctx.module, ctx.reduction = module, reduction
         samples = module.sample(num_sample)
         evals = func(samples)
         ctx.save_for_backward(samples, evals, *param)
-        return torch.mean(evals, dim=0)
+        if reduction == 'mean':
+            return torch.mean(evals, dim=0)
+        elif reduction == 'sum':
+            return torch.sum(evals, dim=0)
+        elif reduction == 'none':
+            return evals
 
     @staticmethod
     def backward(ctx, grad_output: torch.Tensor) -> Tuple[Optional[torch.Tensor], ...]:
-        module = ctx.module
+        module, reduction = ctx.module, ctx.reduction
+
+        if reduction not in ['none', 'mean', 'sum']:
+            raise ValueError(f"reduction should be 'mean', 'sum' or 'none', but got {reduction}.")
+        elif reduction == 'none':
+            raise RuntimeError(f"grad can be implicitly created only for scalar outputs.")
+
         samples, evals, *param = ctx.saved_tensors
+
+        if isinstance(module, BiProbTrans):
+            warnings.warn(f"Use Score Estimator (SE) with BiProbTrans (BPT) is deprecated, as reparameterization has been "
+                          f"implicitly used in BPT, more accurate gradient estimator can be directly calculated. SE "
+                          f"has large variance and is designed for a general Distribution class.")
+            module.modify()
+
         with torch.enable_grad():
-            obj = torch.mean(evals.detach() * module(samples).view(-1, *tuple(range(1, evals.ndim)))
-                             + evals, dim=0)
+            result = evals.detach() * module(samples).view(-1, *tuple(range(1, evals.ndim))) + evals
+            obj = torch.mean(result, dim=0) if reduction == 'mean' else torch.sum(result, dim=0)
             grad_input = torch.autograd.grad(obj, param, grad_output)
-        return None, None, None, *grad_input
+
+        if isinstance(module, BiProbTrans):
+            module.restore()
+
+        return None, None, None, None, *grad_input
 
 
-score_estimator = lambda num_sample, model, func: ScoreEstimator.apply(num_sample, model, func, *_get_params(model))
+score_estimator = lambda num_sample, model, func, reduction='mean': ScoreEstimator.apply(num_sample, model, func, reduction, *_get_params(model))

@@ -13,7 +13,7 @@ from sampler._common import Distribution
 from sampler.base import importance_sampling
 from torch.distributions.multivariate_normal import MultivariateNormal
 from sklearn import datasets
-from sampler.functional import KLDenLoss, KLGenLoss
+from sampler.functional import KLDenLoss, KLGenLoss, ScoreDenLoss
 # test a single transform block
 
 def test_couple_flow():
@@ -150,11 +150,12 @@ def run_density_matching_example():
     max_iter = 500
     loss_list = []
     batch_size = 1000
-    criterion = KLDenLoss()
+    criterion1 = KLDenLoss(log_p = lambda x: -potential_func(x))
+    criterion2 = ScoreDenLoss(log_p = lambda x: -potential_func(x))
+
     for i in range(max_iter):
-        # sample, log_prob = module.sample(batch_size)
-        # loss = torch.mean(log_prob + potential_func(sample)) # KL[q||p] = E_q[log q - log p], log_prob = logq, potential_func(sample) = -logp
-        loss = criterion(module, batch_size, potential_func)
+        loss = criterion1(module, batch_size)
+        loss_tmp = criterion2(module, batch_size)
         loss_list.append(loss.item())
         if torch.isnan(loss).any() or i == max_iter - 1:
             plt.figure()
@@ -162,9 +163,9 @@ def run_density_matching_example():
             plt.show()
             break
         optimizer.zero_grad()
-        loss.backward()
+        loss_tmp.backward()
         optimizer.step()
-        print(f"iter {i}, loss: {loss.item()}")
+        print(f"iter {i}, loss: {loss.item()}, loss_tmp: {loss_tmp.item()}")
 
     plt.figure()
     samples, log_prob = module.sample(50000)
