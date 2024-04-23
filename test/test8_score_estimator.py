@@ -4,6 +4,8 @@ sys.path.append("../")
 import torch
 from sampler.base import score_estimator, mh_sampling
 from sampler._common import Distribution, Condistribution
+from sampler.functional import ScoreDenLoss
+
 import torch.nn as nn
 from sklearn.datasets import make_moons
 import matplotlib.pyplot as plt
@@ -158,7 +160,9 @@ def run_density_matching_example():
     plt.figure()
     plt.scatter(tmp[:, 0], tmp[:, 1], s=1)
     plt.title("initial samples")
+    ## TODO: check why this model cannot work in density matching task. It seems that the initial samples are already too far, so it's impossible to learn.
     plt.show()
+    criterion = ScoreDenLoss(lambda x: -potential_func(x), reduction='mean')
     optimizer = torch.optim.Adam(module.parameters(), lr=0.0001)
     max_iter = 200
     loss_list = []
@@ -170,14 +174,14 @@ def run_density_matching_example():
             # First subplot
             plt.subplot(1, 2, 1)
             wrk = module.sample(num_sample)
-            plt.scatter(wrk[:, 0], wrk[:, 1], c=module(wrk, in_log=False).detach().cpu().numpy().reshape(-1),
+            plt.scatter(wrk[:, 0], wrk[:, 1], c=module(wrk).detach().cpu().numpy().reshape(-1),
                         cmap='viridis')
             plt.colorbar()
             plt.title(f"i={i} Samples of model using MH")
 
             # Second subplot
             plt.subplot(1, 2, 2)
-            plt.scatter(grid_data[:, 0], grid_data[:, 1], c=module(grid_data, in_log=False).detach().cpu().numpy(),
+            plt.scatter(grid_data[:, 0], grid_data[:, 1], c=module(grid_data).detach().cpu().numpy(),
                         cmap='viridis')
             plt.title(f"i={i} Potential of model")
             plt.colorbar()
@@ -189,7 +193,7 @@ def run_density_matching_example():
             module.mix = max(module.mix - 0.1, 0)
 
         optimizer.zero_grad()
-        loss = score_estimator(num_sample, module, lambda x: (potential_func(x) + module(x, in_log=True)).mean())
+        loss = criterion(module, num_sample)
         loss_list.append(loss.item())
         if torch.isnan(loss).any():
             plt.figure()

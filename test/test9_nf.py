@@ -163,7 +163,7 @@ def run_density_matching_example():
             plt.show()
             break
         optimizer.zero_grad()
-        loss_tmp.backward()
+        loss_tmp.backward() # loss.backward() should be used, loss_tmp.backward() uses score estimator, and usually has large variance.
         optimizer.step()
         print(f"iter {i}, loss: {loss.item()}, loss_tmp: {loss_tmp.item()}")
 
