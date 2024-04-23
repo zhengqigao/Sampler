@@ -22,7 +22,7 @@ class CouplingFlow(BiProbTrans):
                  scale_net: Optional[nn.Module] = None,
                  shift_net: Optional[nn.Module] = None,
                  p_base: Optional[Distribution] = None):
-        super(CouplingFlow, self).__init__(p_base=p_base)
+        super().__init__(p_base=p_base)
 
         if not set(keep_dim).issubset(set(range(dim))):
             raise ValueError(f"keep_dim should be a subset of [0, {dim}), but got {keep_dim}.")
@@ -84,7 +84,7 @@ class RealNVP(BiProbTrans):
                  shift_net: Optional[Union[nn.Module, nn.ModuleList]] = None,
                  keep_dim: Optional[List[List[int]]] = None,
                  p_base: Optional[Distribution] = None):
-        super(RealNVP, self).__init__(p_base=p_base)
+        super().__init__(p_base=p_base)
 
         self.num_trans = num_trans
         self.dim = dim
