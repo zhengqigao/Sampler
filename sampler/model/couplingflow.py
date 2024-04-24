@@ -44,7 +44,7 @@ class CouplingFlow(BiProbTrans):
         z = torch.zeros_like(x)
         z[:, self.keep_dim] = x_keep
         z[:, self.trans_dim] = torch.exp(s) * x_trans + t
-        log_det -= torch.log(torch.prod(torch.exp(s), dim=1))
+        log_det = log_det - torch.log(torch.prod(torch.exp(s), dim=1))
 
         return z, log_det
 
@@ -58,7 +58,7 @@ class CouplingFlow(BiProbTrans):
         x = torch.zeros_like(z)
         x[:, self.keep_dim] = z_keep
         x[:, self.trans_dim] = (z_trans - t) * torch.exp(-s)
-        log_det += torch.log(torch.prod(torch.exp(s), dim=1))
+        log_det = log_det + torch.log(torch.prod(torch.exp(s), dim=1))
         return x, log_det  # Our implementation guarantees: x, a = model.backward(*model.forward(x, log_det = a))
 
 
@@ -112,12 +112,12 @@ class RealNVP(BiProbTrans):
                 log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         for transform in self.transforms:
             x, ld = transform.forward(x)
-            log_det += ld
+            log_det = log_det + ld
         return x, log_det
 
     def backward(self, z: torch.Tensor,
                  log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         for transform in reversed(self.transforms):
             z, ld = transform.backward(z)
-            log_det += ld
+            log_det = log_det + ld
         return z, log_det
