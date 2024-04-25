@@ -8,17 +8,18 @@ from sampler.model.planarflow import PlanarFlow
 from test_common_helper import Feedforward, MultiGauss, PotentialFunc
 import matplotlib.pyplot as plt
 from sampler.functional import KLDenLoss
+import numpy as np
 
 def test_planar_flow():
     dim = 4
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
-    flowtransform = PlanarFlow(dim=dim, num_trans=10, p_base= mg)
+    flowtransform = PlanarFlow(dim=dim, num_trans=20, p_base= mg)
     print(flowtransform.p_base)
-    x = torch.rand(10, dim)
+    x = torch.rand(100, dim)
     x.requires_grad = True
     x_, log_prob = flowtransform.backward(*flowtransform.forward(x, 0))
-    print(f"diff = {torch.max(torch.abs(x - x_)):.3e}, log_prob = {log_prob.abs().max():.3e}")
-
+    print(f"diff = {torch.mean(torch.abs(x - x_)):.3e}, log_prob = {log_prob.abs().mean():.3e}")
+    print(x[0,])
 def run_density_matching_example():
 
     potential_func = PotentialFunc("potential6")
@@ -37,13 +38,13 @@ def run_density_matching_example():
     plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
     plt.title('golden result')
 
-    num_trans = 12
+    num_trans = 20
     dim = 2
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     module = PlanarFlow(dim=dim, num_trans=num_trans, p_base= mg)
 
-    optimizer = torch.optim.Adam(module.parameters(), lr=0.0001)
-    max_iter = 500
+    optimizer = torch.optim.Adam(module.parameters(), lr=0.0005)
+    max_iter = 1000
     loss_list = []
     batch_size = 1000
     criterion1 = KLDenLoss(log_p = lambda x: -potential_func(x))
