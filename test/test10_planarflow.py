@@ -38,13 +38,14 @@ def run_density_matching_example():
     plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
     plt.title('golden result')
 
-    num_trans = 20
+    num_trans = 32
     dim = 2
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     module = PlanarFlow(dim=dim, num_trans=num_trans, p_base= mg)
 
-    optimizer = torch.optim.Adam(module.parameters(), lr=0.0005)
-    max_iter = 1000
+    optimizer = torch.optim.RMSprop(module.parameters(), lr=0.01)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
+    max_iter = 10000
     loss_list = []
     batch_size = 1000
     criterion1 = KLDenLoss(log_p = lambda x: -potential_func(x))
@@ -59,8 +60,9 @@ def run_density_matching_example():
             plt.show()
             break
         optimizer.zero_grad()
-        loss.backward() #
+        loss.backward()
         optimizer.step()
+        scheduler.step()
         print(f"iter {i}, loss: {loss.item()}")
 
     plt.figure()
@@ -73,13 +75,13 @@ def run_density_matching_example():
     plt.title('learnt module samples')
     plt.xlim(-bound, bound)
     plt.ylim(-bound, bound)
-    plt.figure()
-    plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(module.log_prob(grid_data)[1]).detach().numpy(),
-                cmap='viridis')
-    plt.colorbar()
-    plt.title('learned module distribution')
+    # plt.figure()
+    # plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(module.log_prob(grid_data)[1]).detach().numpy(),
+    #             cmap='viridis')
+    # plt.colorbar()
+    # plt.title('learned module distribution')
     plt.show()
 
 
-test_planar_flow()
+# test_planar_flow()
 run_density_matching_example()
