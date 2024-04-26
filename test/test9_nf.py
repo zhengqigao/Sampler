@@ -135,7 +135,10 @@ def run_density_matching_example():
     plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
     plt.title('golden result')
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     num_trans = 12
+    ## TODO: to(device), module.sample might have error, because p_base is on cpu, while all parameters of module is on gpu.
     module = RealNVP(dim=2,
                      num_trans=num_trans,
                      scale_net=nn.ModuleList(
@@ -144,7 +147,7 @@ def run_density_matching_example():
                      shift_net=nn.ModuleList(
                          [Feedforward([1, 128, 128, 128, 1], 'leakyrelu') for _ in
                           range(num_trans)]),
-                     p_base=MultiGauss(mean=[0, 0], std=[1, 1]))
+                     p_base=MultiGauss(mean=[0, 0], std=[1, 1])).to(device)
 
     optimizer = torch.optim.Adam(module.parameters(), lr=0.0001)
     max_iter = 500
@@ -187,6 +190,7 @@ def run_density_matching_example():
 
 
 def run_generation_example():
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     num_trans = 12
     module = RealNVP(dim=2,
                      num_trans=num_trans,
@@ -196,13 +200,13 @@ def run_generation_example():
                      shift_net=nn.ModuleList(
                          [Feedforward([1, 128, 128, 128, 1], 'leakyrelu') for _ in
                           range(num_trans)]),
-                     p_base=MultiGauss(mean=[0, 0], std=[1, 1]))
+                     p_base=MultiGauss(mean=[0, 0], std=[1, 1])).to(device)
     optimizer = torch.optim.Adam(module.parameters(), lr=0.0001)
     num_steps = 1000
     criterion = KLGenLoss()
     for i in range(num_steps):
         z, _ = datasets.make_moons(n_samples=1000, noise=0.1)
-        z = torch.Tensor(z)
+        z = torch.Tensor(z).to(device)
         # x, log_prob = module.log_prob(z)
         # loss = -torch.mean(log_prob) # KL[p||q] = -logq, log_prob = logq
         loss = criterion(module, z)

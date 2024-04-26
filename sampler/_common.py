@@ -137,6 +137,7 @@ class _BaseDistribution(nn.Module, metaclass=_Meta):
         else:
             raise ValueError(f"The div_factor must be a positive finite scalar, but got {value}.")
 
+
     def sample(self, *args, **kwargs) -> torch.Tensor:
         raise NotImplementedError
 
@@ -155,6 +156,8 @@ class _BaseDistribution(nn.Module, metaclass=_Meta):
             return result + math.log(self.mul_factor)
         else:
             return result
+
+
 
 
 class Distribution(_BaseDistribution):
