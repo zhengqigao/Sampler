@@ -4,8 +4,8 @@ from sampler._common import Distribution, Condistribution
 import matplotlib.pyplot as plt
 from test_common_helper import UnconditionalMultiGauss
 
-### Simple case
-"""
+# Simple case
+
 samples = hamiltonian_monte_carlo(num_samples=10000,
                                target=UnconditionalMultiGauss([2, -2], [1, 1]),
                                step_size=0.1,
@@ -18,17 +18,18 @@ for i in range(samples.shape[1]):
     plt.figure()
     plt.scatter(samples[:,i, 0], samples[:, i, 1], s=1)
 plt.show()
-"""
 
-### cuda function test
+
+# Cuda function test
 from test_common_helper import TensorizedMultiGauss,TensorizedConditionalMultiGauss
 
 test_mean = torch.tensor([-2,2])
 test_std = torch.tensor([1,1])
 # Please test the algorithm on GPU if available
-#TODO: Nanlin: Can anyone help me with this case? It is not supported for the ARM device yet
+# TODO: Nanlin: Can anyone help me test this case? It is not supported for the ARM device yet
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-#device = torch.device("mps")  #Nanlin: this is for my arm GPU
+# device = torch.device("mps")  #Nanlin: this is for my arm GPU
 
 gauss2 = TensorizedMultiGauss(mean=test_mean, std=test_std, device=device)
 samples = hamiltonian_monte_carlo(num_samples=10000,
@@ -44,7 +45,7 @@ for i in range(samples.shape[1]):
     plt.scatter(samples[:,i, 0], samples[:, i, 1], s=1)
 plt.show()
 
-### Potential function test
+# Potential function test
 
 from test_common_helper import PotentialFunc
 potential_name = "potential6"
