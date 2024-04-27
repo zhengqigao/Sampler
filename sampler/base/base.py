@@ -6,7 +6,7 @@ from typing import Union, Tuple, Callable, Any, Optional, List
 from .._common import _bpt_decorator, Func, Distribution, Condistribution, BiProbTrans
 from torch.distributions import MultivariateNormal
 from sampler._utils import LinearEnvelop1D
-
+from sampler.distribution import TDWrapper
 @_bpt_decorator
 def rejection_sampling(num_samples: int,
                        target: Union[Distribution, BiProbTrans, Func],
@@ -288,12 +288,13 @@ def langevin_monte_carlo(num_samples: int,
     return samples[burn_in:].detach()
 
 
+@_bpt_decorator
 def hamiltonian_monte_carlo(num_samples: int,
-                            target: Distribution,
+                            target: Union[Distribution, BiProbTrans, Func],
                             step_size: float,
                             num_leapfrog: int,
                             initial: torch.Tensor,
-                            kinetic: Optional[Distribution] = None,
+                            kinetic: Optional[Union[Distribution, BiProbTrans]] = None,
                             burn_in: Optional[int] = 0) -> torch.Tensor:
     r"""
     Hamiltonian Monte Carlo (HMC) to draw samples from a target distribution.
@@ -312,9 +313,9 @@ def hamiltonian_monte_carlo(num_samples: int,
         initial.view(1, -1)
 
     dim = initial.shape[1]
-
+    device = initial.device
     if kinetic is None:
-        kinetic = MultivariateNormal(torch.zeros(dim), torch.eye(dim))
+        kinetic = TDWrapper(MultivariateNormal(torch.zeros(dim).to(device), torch.eye(dim).to(device)))
     elif not isinstance(kinetic, Distribution):
         raise ValueError(f"The kinetic distribution should be an instance of Distribution, but got {type(kinetic)}.")
     elif kinetic.sample(1).shape[1] != dim:
@@ -327,7 +328,7 @@ def hamiltonian_monte_carlo(num_samples: int,
     if not isinstance(num_leapfrog, int) or num_leapfrog <= 0:
         raise ValueError(
             f"The number of leapfrog steps should be a positive integer , but got num_leapfrog = {num_leapfrog}.")
-
+    step_size = torch.tensor(step_size).to(device)
     samples = torch.clone(initial.unsqueeze(0))
 
     while samples.shape[0] < num_samples + burn_in:
