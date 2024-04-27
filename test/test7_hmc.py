@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from test_common_helper import UnconditionalMultiGauss
 
 ### Simple case
+"""
 samples = hamiltonian_monte_carlo(num_samples=10000,
                                target=UnconditionalMultiGauss([2, -2], [1, 1]),
                                step_size=0.1,
@@ -17,14 +18,36 @@ for i in range(samples.shape[1]):
     plt.figure()
     plt.scatter(samples[:,i, 0], samples[:, i, 1], s=1)
 plt.show()
+"""
 
-print(samples.shape)
+### cuda function test
+from test_common_helper import TensorizedMultiGauss,TensorizedConditionalMultiGauss
 
+test_mean = torch.tensor([-2,2])
+test_std = torch.tensor([1,1])
+# Please test the algorithm on GPU if available
+#TODO: Nanlin: Can anyone help me with this case? It is not supported for the ARM device yet
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#device = torch.device("mps")  #Nanlin: this is for my arm GPU
+
+gauss2 = TensorizedMultiGauss(mean=test_mean, std=test_std, device=device)
+samples = hamiltonian_monte_carlo(num_samples=10000,
+                               target=gauss2,
+                               step_size=0.1,
+                               num_leapfrog=10,
+                               initial=torch.zeros(1,2).to(device),
+                               burn_in=0)
+
+samples = samples.cpu()
+for i in range(samples.shape[1]):
+    plt.figure()
+    plt.scatter(samples[:,i, 0], samples[:, i, 1], s=1)
+plt.show()
 
 ### Potential function test
 
 from test_common_helper import PotentialFunc
-potential_name = "potential7"
+potential_name = "potential6"
 potential_func = PotentialFunc(potential_name)
 bound = 4
 x = torch.linspace(-bound, bound, 100)
@@ -42,11 +65,7 @@ plt.figure()
 plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
 plt.title('golden result '+potential_name)
 
-# sample by LMC
-
-#tmp, _ = mh_sampling(50000, target=lambda x: -potential_func(x),
-#                     transit=ConditionalMultiGauss(torch.ones(2)), initial=torch.zeros((1, 2)), burn_in=5000)
-tmp=hamiltonian_monte_carlo(num_samples=10000,
+tmp = hamiltonian_monte_carlo(num_samples=10000,
                                target=lambda x: -potential_func(x),
                                step_size=0.1,
                                num_leapfrog=10,
