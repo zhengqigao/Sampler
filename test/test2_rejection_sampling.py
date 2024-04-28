@@ -178,20 +178,22 @@ except Exception as e:
     print(e)
     # The scaling factor k = 100 is not large enough.
     # in fact, the target p.d.f. is always Inf, thus no k would be large enough
-# try:
-#     print("This test case will run into dead loop, please stop it manually.", end="", flush=True)
-#     target = lambda x: torch.tensor(-torch.inf, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
-#     proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
-#     results, info = rejection_sampling(10000, target, proposal, k=100)
-#     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
-# except KeyboardInterrupt:
-#     print("KeyboardInterrupt")
-# except Exception as e:
-#     print(e)
-#     # target function returning -Inf, meaning target p.d.f. is always 0
-#     # resulting in dead loop, because RS continues to sample
-#     # until k samples are accepted, while no sample can be accepted
-#     # THIS IS FEATURE, NOT BUG
+try:
+    print("This test case will run into dead loop, please stop it manually.")
+    # target function returning -Inf, meaning target p.d.f. is always 0
+    # resulting in dead loop, because RS continues to sample
+    # until k samples are accepted, while no sample can be accepted
+    # THIS IS FEATURE, NOT BUG
+    target = lambda x: torch.tensor(-torch.inf, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
+    proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    results, info = rejection_sampling(10000, target, proposal, k=100, max_iter=100)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except KeyboardInterrupt:
+    print("KeyboardInterrupt")
+except Exception as e:
+    print(e)
+    # UserWarning: Rejection sampling reaches the maximum number of iterations: 100.
+    #   warnings.warn(f"Rejection sampling reaches the maximum number of iterations: {max_iter}.")
 
 print("=====================================")
 
