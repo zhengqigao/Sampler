@@ -206,6 +206,8 @@ try:
 except Exception as e:
     print(e)
     # raised TypeError: must be real number, not NoneType
+    # This message is originally raised by PyTorch when trying to put None into a tensor.
+    # As for WHAT must not be NoneType, the user should inspect the CALL STACK.
 try:
     target = MultiGauss(mean=test_mean, std=[1, 1, 1])
     # overwrite log_prob with x-like tensor filled with None
@@ -216,7 +218,8 @@ try:
 except Exception as e:
     print(e)
     # raised TypeError: must be real number, not NoneType
-    # TODO: kaiwen: above 2 error messages are confusing, as idk WHAT must be real number, should we rewrite?
+    # This message is originally raised by PyTorch when trying to put None into a tensor.
+    # As for WHAT must not be NoneType, the user should inspect the CALL STACK.
 
 try:
     target = MultiGauss(mean=test_mean, std=[1, 1, 1])
