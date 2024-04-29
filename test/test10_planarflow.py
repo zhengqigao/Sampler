@@ -93,7 +93,7 @@ def run_generation_example(plot_or_save = 'plot', device='cpu'):
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     module = PlanarFlow(dim=dim, num_trans=num_trans, p_base= mg).to(device)
     optimizer = torch.optim.Adam(module.parameters(), lr=0.01)
-    num_steps = 1000
+    num_steps = 1
     criterion = KLGenLoss()
     for i in range(num_steps):
         z, _ = datasets.make_moons(n_samples=1000, noise=0.1)
@@ -124,4 +124,4 @@ def run_generation_example(plot_or_save = 'plot', device='cpu'):
 
 # test_planar_flow()
 # run_density_matching_example()
-run_generation_example('save','cpu')
+run_generation_example('plot','cpu')
