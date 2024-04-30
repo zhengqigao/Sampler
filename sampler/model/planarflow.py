@@ -85,7 +85,7 @@ class AlphaSolver(torch.autograd.Function):
                 alpha_threshold: float, ) -> torch.Tensor:
 
         # solve alpha defined by the equation: c = alpha + a * tanh(alpha + b).
-        # alpha in [c-a, c+a] because tanh is in [-1, 1]
+        # alpha is in [c-a, c+a] because tanh is in [-1, 1]
         with torch.no_grad():
 
             if a.abs() <= 1e-15:
