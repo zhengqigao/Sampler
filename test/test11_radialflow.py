@@ -41,13 +41,13 @@ def run_density_matching_example():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    num_trans = 32
+    num_trans = 10
     dim = 2
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     module = RadialFlow(dim=dim, num_trans=num_trans, p_base= mg).to(device)
 
     optimizer = torch.optim.Adam(module.parameters(), lr=0.01)
-
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.5)
     max_iter = 2000
     loss_list = []
     batch_size = 1000
@@ -65,7 +65,7 @@ def run_density_matching_example():
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-
+        scheduler.step()
         print(f"iter {i}, loss: {loss.item()}")
 
     plt.figure()
@@ -131,6 +131,6 @@ def run_generation_example(plot_or_save = 'plot', device='cpu'):
 
 
 
-test_radial_flow()
-# run_density_matching_example()
+# test_radial_flow()
+run_density_matching_example()
 # run_generation_example('plot','cpu')

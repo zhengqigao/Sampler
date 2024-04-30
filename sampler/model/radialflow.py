@@ -60,12 +60,12 @@ class RadialFlow(BiProbTrans):
             diff = z - z0
             diff_abs = torch.norm(diff, dim=1)
 
-            a, b, c = 1, alpha + beta_i, - diff_abs
-            r = 1.0 / (2 * a) * (-b + torch.sqrt(b ** 2 - 4 * a * c))
+            a, b, c = 1, alpha + beta_i - diff_abs, - diff_abs * alpha
+            r = (-b + torch.sqrt(b ** 2 - 4 * a * c)) / 2 / a
 
             z_hat = diff / (r.unsqueeze(-1) * (1 + beta_i / (alpha + r.unsqueeze(-1))))
 
-            z = z0 + r.unsqueeze(-1) * z_hat + beta_i * r.unsqueeze(-1) * z_hat / (alpha + r.unsqueeze(-1))
+            z = z0 + r.unsqueeze(-1) * z_hat
 
             h, dh = 1 / (alpha + r), -1 / (alpha + r) ** 2
             log_prob = log_prob + (self.dim - 1) * torch.log(1 + beta_i * h) + torch.log(1 + beta_i * h + beta_i * dh * r)
