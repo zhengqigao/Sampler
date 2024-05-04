@@ -33,7 +33,7 @@ def importance_sampling(num_samples: int,
         eval_func (Optional[Func]): the function whose expectation to be evaluated if it is not None.
         resample_ratio (Optional[float]): perform Sampling-Importance-Resampling (SIR) and return samples if set to larger than 0.
     """
-    if not isinstance(resample_ratio, float) or resample_ratio < 0 or resample_ratio > 1:
+    if not isinstance(resample_ratio, (float, int)) or resample_ratio is torch.nan or resample_ratio < 0 or resample_ratio > 1:
         raise ValueError(f"The resample_ratio must be a float in [0,1], but got {resample_ratio}.")
 
     samples = proposal.sample(num_samples)
