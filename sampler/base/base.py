@@ -72,13 +72,13 @@ def adaptive_rejection_sampling(num_samples: int,
 
     eval_points = torch.Tensor([[lower], [upper]])
 
-    eval_points.require_grad = True
+    eval_points.requires_grad = True
     eval_bound = target(eval_points)
-    '''
+
     log_grad_current = torch.autograd.grad(eval_bound.sum(), eval_points)[0]
     eval_points.requires_grad = False
-    '''
 
+    '''
     derivate_step = 1e-3 * (upper - lower)
     derivate_eval_points = torch.Tensor([[lower], [lower+derivate_step], [upper-derivate_step], [upper]])
     derivate_eval_bound = target(derivate_eval_points)
@@ -91,6 +91,7 @@ def adaptive_rejection_sampling(num_samples: int,
         raise ValueError(f"The derivate at upper point is positive.")
     log_grad_current = torch.cat((derivate_lower.reshape(1,1), derivate_upper.reshape(1,1)),dim=1).tolist()[0]
     print("log_grad_current: {}".format(log_grad_current))
+    '''
 
     if np.sign(log_grad_current[0]) < 0:
         raise ValueError(f"The derivate at lower point is negative.")
