@@ -37,7 +37,17 @@ def importance_sampling(num_samples: int,
         raise ValueError(f"The resample_ratio must be a float in [0,1], but got {resample_ratio}.")
 
     samples = proposal.sample(num_samples)
-    weights = torch.exp(target(samples) - proposal(samples))
+    target_log_probs = target(samples)
+    if torch.isnan(target_log_probs).any().item():
+        warnings.warn("target log_prob returns NaN.")
+        # raise ValueError("target log_prob returns NaN.")
+        # kaiwen: warning doesn't work every time, exception always work.
+    proposal_log_probs = proposal(samples)
+    if torch.isnan(proposal_log_probs).any().item():
+        warnings.warn("proposal log_prob returns NaN.")
+        # raise ValueError("proposal log_prob returns NaN.")
+        # kaiwen: warning doesn't work every time, exception always work.
+    weights = torch.exp(target_log_probs - proposal_log_probs)
 
     resample, expectation = None, None
 
