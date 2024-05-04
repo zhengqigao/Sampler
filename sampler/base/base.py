@@ -5,7 +5,7 @@ import math
 from typing import Union, Tuple, Callable, Any, Optional, List
 from .._common import _bpt_decorator, Func, Distribution, Condistribution, BiProbTrans
 from torch.distributions import MultivariateNormal
-from sampler._utils import LinearEnvelop1D
+from sampler.distribution import LinearEnvelop1D
 from sampler.distribution import TDWrapper
 @_bpt_decorator
 def rejection_sampling(num_samples: int,
@@ -79,16 +79,18 @@ def adaptive_rejection_sampling(num_samples: int,
     eval_points.requires_grad = False
     '''
 
-    derivate_step = 1e-6 * (upper - lower)
+    derivate_step = 1e-3 * (upper - lower)
     derivate_eval_points = torch.Tensor([[lower], [lower+derivate_step], [upper-derivate_step], [upper]])
     derivate_eval_bound = target(derivate_eval_points)
     derivate_lower = (derivate_eval_bound[1]-derivate_eval_bound[0])/derivate_step
     derivate_upper = (derivate_eval_bound[3] - derivate_eval_bound[2])/derivate_step
+    #print("derivate_eval_bound: {}, derivate_lower: {}, derivate_upper: {}".format(derivate_eval_bound, derivate_lower,derivate_upper))
     if np.sign(derivate_lower) < 0:
         raise ValueError(f"The derivate at lower point is negative.")
     if np.sign(derivate_upper) > 0:
         raise ValueError(f"The derivate at upper point is positive.")
     log_grad_current = torch.cat((derivate_lower.reshape(1,1), derivate_upper.reshape(1,1)),dim=1).tolist()[0]
+    print("log_grad_current: {}".format(log_grad_current))
 
     if np.sign(log_grad_current[0]) < 0:
         raise ValueError(f"The derivate at lower point is negative.")
@@ -101,10 +103,9 @@ def adaptive_rejection_sampling(num_samples: int,
     # TODO: add abscissae of rejected points into the linear envolope distirbution, multivariate
     total_num_sample, reject_num_sample, accept_sample = 0, 0, None
     while (total_num_sample - reject_num_sample) < num_samples:
-        # print("accept_sample.shape[0]: {}".format((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples))
         samples = proposal.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
-        evals = target(samples, in_log=False)
-        bound = proposal(samples, in_log=False)
+        evals = torch.exp(target(samples))
+        bound = torch.exp(proposal(samples))
         if torch.any(bound < evals):
             raise ValueError(f"Wrong envelop distribution.")
         u = torch.rand_like(bound) * bound
@@ -115,6 +116,7 @@ def adaptive_rejection_sampling(num_samples: int,
             accept_sample = torch.cat([accept_sample, current_accept_samples], dim=0)
         reject_num_sample += torch.sum(evals <= u).item()
         total_num_sample += samples.shape[0]
+        #print("rejected: {}  total_num_sample: {}  rate: {}".format(reject_num_sample, total_num_sample, reject_num_sample / total_num_sample))
     return accept_sample[:num_samples], {'rejection_rate': reject_num_sample / total_num_sample}
 
 
