@@ -206,10 +206,12 @@ def gibbs_sampling(num_samples: int,
     for i in range(num_samples + burn_in):
         for j in range(dim):
             mask[j] = False
+            print(condis[j].sample(1, y=samples[i][mask].view(1,-1)).view(1, -1).shape)
+            print(initial[j].shape)
             if isinstance(condis, (tuple, list)):
-                initial[j] = condis[j].sample(1, y=samples[i][mask]).view(1, -1)
+                initial[j] = condis[j].sample(1, y=samples[i][mask].view(1,-1)).view(1, -1)
             elif isinstance(condis, Condistribution):
-                initial[j] = condis.sample(1, y=samples[i][mask]).view(1, -1)
+                initial[j] = condis.sample(1, y=samples[i][mask].view(1,-1)).view(1, -1)
             else:
                 raise ValueError(
                     f"The conditional distributions should be a tuple, list or a single instance of Condistribution, but got {type(condis)}.")

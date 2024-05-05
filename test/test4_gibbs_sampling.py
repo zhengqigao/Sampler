@@ -1,28 +1,25 @@
 import torch
 from sampler._common import Condistribution
-
-
-class ConditionalMultiGauss(Condistribution):
-    def __init__(self, std):
-        super().__init__()
-        self.std = torch.tensor(std, dtype=torch.float32)
-        self.dim = len(std)
-        self.mul_factor = 1.0
-
-    def sample(self, num_samples: int, y) -> torch.Tensor:
-        # y has shape (m, d)
-        # return shape (num_samples, m, d) with y as the mean
-        assert len(y.shape) == 2 and y.shape[1] == self.dim
-        return torch.randn((num_samples, y.shape[0], y.shape[1])) * self.std + y
-
-    def log_prob(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        # x is of shape (N,d), y is of shape (M,d)
-        # return shape (N,M)
-        x = x.unsqueeze(1)
-        y = y.unsqueeze(0)
-        return -0.5 * (
-                    torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(2 * torch.pi * self.std * self.std).sum())
-
+from test_common_helper import ConditionalMultiGauss, UnconditionalMultiGauss
+from sampler.base import *
+import matplotlib.pyplot as plt
 
 ## TODO: use an example of joint Gaussian, so that we know all conditional distributions are Gaussian. Test Gibbs sampling on this example.
+'''
+gauss1 = ConditionalMultiGauss(std=[1])
+gauss2 = ConditionalMultiGauss(std=[1])
+results, info = gibbs_sampling(num_samples=10000, condis=[gauss1, gauss2], initial=torch.zeros(1,2))
+print(f"Mean: {torch.mean(results, dim=0)}\tSize: {results.shape}")
+plt.figure()
+plt.scatter(results[:, 0], results[:, 1], s=1)
+plt.show()
+'''
 
+gauss1 = ConditionalMultiGauss(std=[1, 1])
+gauss2 = ConditionalMultiGauss(std=[1, 1])
+gauss3 = ConditionalMultiGauss(std=[1, 1])
+results, info = gibbs_sampling(num_samples=10000, condis=[gauss1, gauss2, gauss3], initial=torch.zeros(1,3))
+print(f"Mean: {torch.mean(results, dim=0)}\tSize: {results.shape}")
+plt.figure()
+plt.scatter(results[:, 0], results[:, 1], s=1)
+plt.show()
