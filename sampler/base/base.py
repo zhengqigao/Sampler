@@ -60,9 +60,9 @@ def adaptive_rejection_sampling(num_samples: int,
 
     Args:
         num_samples (int): the number of samples to be drawn.
-        target (Distribution): the target distribution.
-        lower (float): the lower point to start the grid, the derivate here should be positive.
-        upper (float): the upper point to end the grid, the derivate here should be negative.
+        target (Union[Distribution, BiProbTrans, Func]): the target 1-dimension distribution.
+        lower (float): the lower point to start the grid, the derivative here should be positive.
+        upper (float): the upper point to end the grid, the derivative here should be negative.
     """
 
     if lower > upper:
@@ -78,30 +78,15 @@ def adaptive_rejection_sampling(num_samples: int,
     log_grad_current = torch.autograd.grad(eval_bound.sum(), eval_points)[0]
     eval_points.requires_grad = False
 
-    '''
-    derivate_step = 1e-3 * (upper - lower)
-    derivate_eval_points = torch.Tensor([[lower], [lower+derivate_step], [upper-derivate_step], [upper]])
-    derivate_eval_bound = target(derivate_eval_points)
-    derivate_lower = (derivate_eval_bound[1]-derivate_eval_bound[0])/derivate_step
-    derivate_upper = (derivate_eval_bound[3] - derivate_eval_bound[2])/derivate_step
-    #print("derivate_eval_bound: {}, derivate_lower: {}, derivate_upper: {}".format(derivate_eval_bound, derivate_lower,derivate_upper))
-    if np.sign(derivate_lower) < 0:
-        raise ValueError(f"The derivate at lower point is negative.")
-    if np.sign(derivate_upper) > 0:
-        raise ValueError(f"The derivate at upper point is positive.")
-    log_grad_current = torch.cat((derivate_lower.reshape(1,1), derivate_upper.reshape(1,1)),dim=1).tolist()[0]
-    print("log_grad_current: {}".format(log_grad_current))
-    '''
-
     if np.sign(log_grad_current[0]) < 0:
-        raise ValueError(f"The derivate at lower point is negative.")
+        raise ValueError(f"The derivative at lower point is negative.")
     if np.sign(log_grad_current[1]) > 0:
-        raise ValueError(f"The derivate at upper point is positive.")
+        raise ValueError(f"The derivative at upper point is positive.")
     grid = [[lower], [upper]]
 
     proposal = LinearEnvelop1D(grid, log_grad_current, eval_bound)
 
-    # TODO: add abscissae of rejected points into the linear envolope distirbution, multivariate
+    # TODO: add abscissae of rejected points into the linear envolope distirbution
     total_num_sample, reject_num_sample, accept_sample = 0, 0, None
     while (total_num_sample - reject_num_sample) < num_samples:
         samples = proposal.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
@@ -117,7 +102,6 @@ def adaptive_rejection_sampling(num_samples: int,
             accept_sample = torch.cat([accept_sample, current_accept_samples], dim=0)
         reject_num_sample += torch.sum(evals <= u).item()
         total_num_sample += samples.shape[0]
-        #print("rejected: {}  total_num_sample: {}  rate: {}".format(reject_num_sample, total_num_sample, reject_num_sample / total_num_sample))
     return accept_sample[:num_samples], {'rejection_rate': reject_num_sample / total_num_sample}
 
 
