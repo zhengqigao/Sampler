@@ -33,11 +33,21 @@ def importance_sampling(num_samples: int,
         eval_func (Optional[Func]): the function whose expectation to be evaluated if it is not None.
         resample_ratio (Optional[float]): perform Sampling-Importance-Resampling (SIR) and return samples if set to larger than 0.
     """
-    if not isinstance(resample_ratio, float) or resample_ratio < 0 or resample_ratio > 1:
+    if not isinstance(resample_ratio, (float, int)) or resample_ratio is torch.nan or resample_ratio < 0 or resample_ratio > 1:
         raise ValueError(f"The resample_ratio must be a float in [0,1], but got {resample_ratio}.")
 
     samples = proposal.sample(num_samples)
-    weights = torch.exp(target(samples) - proposal(samples))
+    target_log_probs = target(samples)
+    if torch.isnan(target_log_probs).any().item():
+        warnings.warn("target log_prob returns NaN.")
+        # raise ValueError("target log_prob returns NaN.")
+        # kaiwen: warning doesn't work every time, exception always work.
+    proposal_log_probs = proposal(samples)
+    if torch.isnan(proposal_log_probs).any().item():
+        warnings.warn("proposal log_prob returns NaN.")
+        # raise ValueError("proposal log_prob returns NaN.")
+        # kaiwen: warning doesn't work every time, exception always work.
+    weights = torch.exp(target_log_probs - proposal_log_probs)
 
     resample, expectation = None, None
 
