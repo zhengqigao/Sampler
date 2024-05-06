@@ -92,9 +92,9 @@ def run_generation_example(plot_or_save = 'plot', device='cpu'):
     dim = 2
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     module = PlanarFlow(dim=dim, num_trans=num_trans, p_base= mg, alpha_threshold=1e-11, alpha_iter=20000).to(device)
-    optimizer = torch.optim.Adam(module.parameters(), lr=0.01)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
-    num_steps = 200
+    optimizer = torch.optim.Adam(module.parameters(), lr=0.05)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.5)
+    num_steps = 400
     criterion = KLGenLoss()
     loss_list = []
     for i in range(num_steps):

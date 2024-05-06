@@ -282,6 +282,31 @@ class BiProbTrans(nn.Module):
         self.p_base = p_base
         self._modify_state = False
 
+    # @property
+    # def use_trans(self,):
+    #     return self._use_trans
+    #
+    # @use_trans.setter
+    # def use_trans(self, value: Optional[int, float] = None):
+    #
+    #     if isinstance(value, (int, float)) and value >= 0:
+    #         self._use_trans = int(value)
+    #     elif value is None:
+    #         self._use_trans = None
+    #     else:
+    #         raise ValueError(f"The property `use_trans` must be a non-negative integer, but got {value}.")
+
+    # @property
+    # def num_trans(self):
+    #     return self._num_trans
+    #
+    # @num_trans.setter
+    # def num_trans(self, value: int):
+    #     if isinstance(value, int) and value > 0:
+    #         self._num_trans = value
+    #     else:
+    #         raise ValueError(f"The property `num_trans` must be a positive integer, but got {value}.")
+
     def forward(self, x: torch.Tensor, log_prob: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[
         torch.Tensor, torch.Tensor]:
         r"""

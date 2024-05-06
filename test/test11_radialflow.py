@@ -48,7 +48,7 @@ def run_density_matching_example():
 
     optimizer = torch.optim.Adam(module.parameters(), lr=0.01)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.5)
-    max_iter = 2000
+    max_iter = 4000
     loss_list = []
     batch_size = 1000
     criterion1 = KLDenLoss(log_p = lambda x: -potential_func(x))
@@ -67,6 +67,8 @@ def run_density_matching_example():
         optimizer.step()
         scheduler.step()
         print(f"iter {i}, loss: {loss.item()}")
+        # if i == int(max_iter // 2):
+        #     module.use_trans = module.num_trans
 
     plt.figure()
     samples, log_prob = module.sample(50000)
