@@ -84,12 +84,14 @@ class RealNVP(BiProbTrans):
                  shift_net: Optional[Union[nn.Module, nn.ModuleList]] = None,
                  keep_dim: Optional[List[List[int]]] = None,
                  p_base: Optional[Distribution] = None):
-        super().__init__(p_base=p_base)
+        super().__init__()
+
 
         self.num_trans = num_trans
         self.dim = dim
         self.scale_net = scale_net
         self.shift_net = shift_net
+        self.p_base = p_base
 
         # by default, keep_dim alternates between even and odd indices
         if keep_dim is None:

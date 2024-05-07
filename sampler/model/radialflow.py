@@ -14,16 +14,15 @@ class RadialFlow(BiProbTrans):
 
     def __init__(self, dim: int,
                  num_trans: int,
-                 use_trans: Optional[int] = None,
                  p_base: Optional[Distribution] = None):
 
-        super().__init__(p_base=p_base)
+        super().__init__()
         self.dim = dim
         self.num_trans = num_trans
-        self.use_trans = min(use_trans, num_trans) if use_trans is not None else num_trans
         self.z0 = nn.Parameter(torch.empty(num_trans, dim))
         self.alpha = nn.Parameter(torch.empty(num_trans))
         self.beta = nn.Parameter(torch.empty(num_trans))
+        self.p_base = p_base
 
     def reset_parameters(self) -> None:
         init.kaiming_uniform_(self.z0, a=math.sqrt(5))
@@ -41,7 +40,7 @@ class RadialFlow(BiProbTrans):
         torch.Tensor, torch.Tensor]:
 
         beta = self.reparametrize_beta()
-        for i in range(self.use_trans):
+        for i in range(self.num_trans):
             z0, alpha, beta_i = self.z0[i], self.alpha[i], beta[i]
             diff = x - z0
             r = torch.norm(diff, dim=1)
@@ -56,7 +55,7 @@ class RadialFlow(BiProbTrans):
     def backward(self, z: torch.Tensor, log_prob: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[
         torch.Tensor, torch.Tensor]:
         beta = self.reparametrize_beta()
-        for i in range(self.use_trans-1, -1,-1):
+        for i in range(self.num_trans-1, -1,-1):
             z0, alpha, beta_i = self.z0[i], self.alpha[i], beta[i]
             diff = z - z0
             diff_abs = torch.norm(diff, dim=1)

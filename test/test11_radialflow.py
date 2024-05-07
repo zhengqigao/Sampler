@@ -67,8 +67,7 @@ def run_density_matching_example():
         optimizer.step()
         scheduler.step()
         print(f"iter {i}, loss: {loss.item()}")
-        # if i == int(max_iter // 2):
-        #     module.use_trans = module.num_trans
+
 
     plt.figure()
     samples, log_prob = module.sample(50000)

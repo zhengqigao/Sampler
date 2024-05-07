@@ -18,12 +18,14 @@ class PlanarFlow(BiProbTrans):
                  alpha_iter: Optional[int] = 10000,
                  alpha_threshold: Optional[float] = 1e-9,
                  p_base: Optional[Distribution] = None):
-        super().__init__(p_base=p_base)
+        super().__init__()
         self.dim = dim
         self.num_trans = num_trans
         self.w = nn.Parameter(torch.empty(num_trans, dim))
         self.b = nn.Parameter(torch.empty(num_trans, 1))
         self.u = nn.Parameter(torch.empty(num_trans, dim))
+        self.p_base = p_base
+
         self.reset_parameters()
 
         self._alpha_iter = alpha_iter

@@ -88,7 +88,7 @@ def run_density_matching_example():
 
 def run_generation_example(plot_or_save = 'plot', device='cpu'):
     device = torch.device(device)
-    num_trans = 32
+    num_trans = 64
     dim = 2
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     module = PlanarFlow(dim=dim, num_trans=num_trans, p_base= mg, alpha_threshold=1e-11, alpha_iter=20000).to(device)
