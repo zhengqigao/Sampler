@@ -101,6 +101,7 @@ class _Meta(ABCMeta):
             dct['log_prob'] = _density_checker(dct['log_prob'], base_cls_name)
         return super().__new__(cls, name, bases, dct)
 
+## TODO: if a distirbution is put on cuda:1, then the sample and log_prob should return tensor also on cuda:1. But there is no checking for that now.
 
 class _BaseDistribution(nn.Module, metaclass=_Meta):
 
@@ -281,19 +282,6 @@ class BiProbTrans(nn.Module):
         self._modify_state = False
         self._num_trans = None
 
-    # @property
-    # def use_trans(self,):
-    #     return self._use_trans
-    #
-    # @use_trans.setter
-    # def use_trans(self, value: Optional[int, float] = None):
-    #
-    #     if isinstance(value, (int, float)) and value >= 0:
-    #         self._use_trans = int(value)
-    #     elif value is None:
-    #         self._use_trans = None
-    #     else:
-    #         raise ValueError(f"The property `use_trans` must be a non-negative integer, but got {value}.")
 
     @property
     def num_trans(self):
