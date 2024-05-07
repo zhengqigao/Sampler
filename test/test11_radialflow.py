@@ -41,13 +41,13 @@ def run_density_matching_example():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    num_trans = 10
+    num_trans = 30
     dim = 2
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     module = RadialFlow(dim=dim, num_trans=num_trans, p_base= mg).to(device)
 
     optimizer = torch.optim.Adam(module.parameters(), lr=0.01)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.5)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.5)
     max_iter = 4000
     loss_list = []
     batch_size = 1000
@@ -89,13 +89,13 @@ def run_density_matching_example():
 
 def run_generation_example(plot_or_save = 'plot', device='cpu'):
     device = torch.device(device)
-    num_trans = 32
+    num_trans = 100
     dim = 2
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     module = RadialFlow(dim=dim, num_trans=num_trans, p_base= mg).to(device)
     optimizer = torch.optim.Adam(module.parameters(), lr=0.01)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
-    num_steps = 200
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.5)
+    num_steps = 4000
     criterion = KLGenLoss()
     loss_list = []
     for i in range(num_steps):
@@ -114,6 +114,8 @@ def run_generation_example(plot_or_save = 'plot', device='cpu'):
     plt.figure()
     plt.scatter(samples[:, 0], samples[:, 1])
     plt.title("generated samples")
+    plt.xlim(-1.5,2.5)
+    plt.ylim(-1.5,1.5)
     if plot_or_save == 'save':
         plt.savefig('tmp_generated.png')
 
@@ -121,7 +123,8 @@ def run_generation_example(plot_or_save = 'plot', device='cpu'):
     x, _ = datasets.make_moons(n_samples=1000, noise=0.1)
     plt.scatter(x[:, 0], x[:, 1])
     plt.title("real samples")
-
+    plt.xlim(-1.5,2.5)
+    plt.ylim(-1.5,1.5)
     plt.figure()
     plt.plot(loss_list)
     plt.title('loss list')
@@ -133,5 +136,5 @@ def run_generation_example(plot_or_save = 'plot', device='cpu'):
 
 
 # test_radial_flow()
-run_density_matching_example()
-# run_generation_example('plot','cpu')
+# run_density_matching_example()
+run_generation_example('plot','cpu')

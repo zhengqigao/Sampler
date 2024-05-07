@@ -91,10 +91,10 @@ def run_generation_example(plot_or_save = 'plot', device='cpu'):
     num_trans = 64
     dim = 2
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
-    module = PlanarFlow(dim=dim, num_trans=num_trans, p_base= mg, alpha_threshold=1e-11, alpha_iter=20000).to(device)
+    module = PlanarFlow(dim=dim, num_trans=num_trans, p_base= mg, alpha_threshold=1e-8, alpha_iter=20000).to(device)
     optimizer = torch.optim.Adam(module.parameters(), lr=0.05)
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.5)
-    num_steps = 400
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=500, gamma=0.5)
+    num_steps = 2000
     criterion = KLGenLoss()
     loss_list = []
     for i in range(num_steps):
@@ -113,6 +113,9 @@ def run_generation_example(plot_or_save = 'plot', device='cpu'):
     plt.figure()
     plt.scatter(samples[:, 0], samples[:, 1])
     plt.title("generated samples")
+    plt.xlim(-1.5,2.5)
+    plt.ylim(-1.0,1.5)
+
     if plot_or_save == 'save':
         plt.savefig('tmp_generated.png')
 
@@ -120,6 +123,8 @@ def run_generation_example(plot_or_save = 'plot', device='cpu'):
     x, _ = datasets.make_moons(n_samples=1000, noise=0.1)
     plt.scatter(x[:, 0], x[:, 1])
     plt.title("real samples")
+    plt.xlim(-1.5,2.5)
+    plt.ylim(-1.0,1.5)
 
     plt.figure()
     plt.plot(loss_list)

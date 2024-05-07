@@ -24,11 +24,13 @@ class RadialFlow(BiProbTrans):
         self.beta = nn.Parameter(torch.empty(num_trans))
         self.p_base = p_base
 
+        self.reset_parameters()
+
     def reset_parameters(self) -> None:
         init.kaiming_uniform_(self.z0, a=math.sqrt(5))
         fan_in, _ = init._calculate_fan_in_and_fan_out(self.z0)
         bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-        init.uniform_(self.alpha, -bound, bound)
+        init.uniform_(self.alpha, 0, bound) # alpha should be positive
         init.uniform_(self.beta, -bound, bound)
 
 
@@ -41,7 +43,7 @@ class RadialFlow(BiProbTrans):
 
         beta = self.reparametrize_beta()
         for i in range(self.num_trans):
-            z0, alpha, beta_i = self.z0[i], self.alpha[i], beta[i]
+            z0, alpha, beta_i = self.z0[i], torch.abs(self.alpha[i]), beta[i]
             diff = x - z0
             r = torch.norm(diff, dim=1)
 
@@ -56,7 +58,7 @@ class RadialFlow(BiProbTrans):
         torch.Tensor, torch.Tensor]:
         beta = self.reparametrize_beta()
         for i in range(self.num_trans-1, -1,-1):
-            z0, alpha, beta_i = self.z0[i], self.alpha[i], beta[i]
+            z0, alpha, beta_i = self.z0[i], torch.abs(self.alpha[i]), beta[i]
             diff = z - z0
             diff_abs = torch.norm(diff, dim=1)
 
