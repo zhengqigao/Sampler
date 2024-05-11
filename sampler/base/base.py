@@ -210,9 +210,9 @@ def gibbs_sampling(num_samples: int,
     return samples[burn_in:], None
 
 
-
+@_bpt_decorator
 def langevin_monte_carlo(num_samples: int,
-                         target: Distribution,
+                         target: Union[Distribution, BiProbTrans, Func],
                          step_size: float,
                          initial: torch.Tensor,
                          adjusted: Optional[bool] = False,
@@ -225,12 +225,11 @@ def langevin_monte_carlo(num_samples: int,
         num_samples (int): the number of samples to be returned.
         target (Distribution): the target distribution.
         step_size (float): the step size to discretize the Langevin dynamics.
+        initial (torch.Tensor): the initial point to start the sampling process.
         adjusted (Optional[bool]): whether to adjust the acceptance ratio using the Metropolis-Hasting criterion, default to False.
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
         event_func (Optional[Func]): when it returns True, the LMC will terminate immediately; default to a function that always returns False.
     """
-
-    # TODO: missing initial in docstring above
 
     if isinstance(num_samples, int) != True or num_samples <= 0:
         raise ValueError(
@@ -244,6 +243,8 @@ def langevin_monte_carlo(num_samples: int,
         current = initial
 
     samples = torch.clone(current.unsqueeze(0))
+    device = initial.device
+    step_size = torch.tensor(step_size).to(device)
 
     current.requires_grad = True
     logp_current = target(current)
@@ -252,7 +253,7 @@ def langevin_monte_carlo(num_samples: int,
     current.requires_grad = False
 
     while samples.shape[0] < num_samples + burn_in:
-        noise = torch.randn_like(current)
+        noise = torch.randn_like(current).to(device)
         new = (current + step_size * log_grad_current + (2 * step_size) ** 0.5 * noise).detach()
 
         new.requires_grad = True
@@ -261,7 +262,7 @@ def langevin_monte_carlo(num_samples: int,
         new.requires_grad = False
 
         if adjusted:
-            accept = torch.rand(new.shape[0]) <= torch.exp((logp_new - logp_current) + (
+            accept = torch.rand(new.shape[0]).to(device) <= torch.exp((logp_new - logp_current) + (
                     - 0.5 * torch.sum((current - new - step_size * log_grad_new) ** 2,
                                       dim=tuple(range(1, current.ndim))) / (4 * step_size)
                     + 0.5 * torch.sum((new - current - step_size * log_grad_current) ** 2,
@@ -363,7 +364,7 @@ def hamiltonian_monte_carlo(num_samples: int,
         # MH criterion to accept or reject the sample
         logH_new = kinetic(current_p) + logq_current
         logH_initial = kinetic(initial_p) + target(initial_q)
-        accept = torch.rand(logH_new.shape) <= torch.exp(-logH_new + logH_initial)
+        accept = torch.rand(logH_new.shape).to(device) <= torch.exp(-logH_new + logH_initial)
 
         initial_q[accept] = current_q[accept]
         samples = torch.cat([samples, initial_q.unsqueeze(0)], dim=0)
