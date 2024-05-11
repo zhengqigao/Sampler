@@ -5,7 +5,7 @@ import sys
 sys.path.append('../')
 from sampler._common import BiProbTrans, Distribution
 from sampler.model.planarflow import PlanarFlow, AlphaSolver
-from test_common_helper import Feedforward, MultiGauss, PotentialFunc
+from test_common_helper import Feedforward, MultiGauss, PotentialFunc, TensorizedMultiGauss
 import matplotlib.pyplot as plt
 from sampler.functional import KLDenLoss, KLGenLoss
 import numpy as np
@@ -25,7 +25,7 @@ def run_density_matching_example():
 
     potential_func = PotentialFunc("potential6")
 
-    # show poential_function
+    # show potenial_function
     bound = 4
     x = torch.linspace(-bound, bound, 100)
     y = torch.linspace(-bound, bound, 100)
@@ -40,9 +40,12 @@ def run_density_matching_example():
     plt.title('golden result')
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("mps:0") # Nanlin:this is for my arm gpu
 
     num_trans = 32
     dim = 2
+    # mg = TensorizedMultiGauss(mean=[0] * dim, std=[1] * dim,device = device)
+    # If there is no device info for p_base, p_base device will be set as cpu
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     module = PlanarFlow(dim=dim, num_trans=num_trans, p_base= mg).to(device)
 
@@ -177,7 +180,7 @@ def test_alpha_solve():
 
 
 
-# test_planar_flow()
-# run_density_matching_example()
+# test_planar_flow()s
+run_density_matching_example()
 # test_alpha_solve()
-run_generation_example('plot','cpu')
+# run_generation_example('plot','cpu')s

@@ -282,6 +282,12 @@ class BiProbTrans(nn.Module):
         self._modify_state = False
         self._num_trans = None
 
+    @property
+    def device(self):
+        if next(self.parameters()) is not None:
+            return next(self.parameters()).device
+        else:
+            raise ValueError("Empty model")
 
     @property
     def num_trans(self):
@@ -335,6 +341,15 @@ class BiProbTrans(nn.Module):
         if not hasattr(self, 'p_base') or self.p_base is None or not isinstance(self.p_base, Distribution):
             raise ValueError("A base distribution is needed to call sample(). "
                              "Please set the p_base attribute with a Distribution instance.")
+        try:
+            p_base_device = self.p_base.device
+        except AttributeError as e:
+            p_base_device = None
+        if p_base_device is None:
+            if self.device != torch.device("cpu"):
+                raise ValueError(f"p_base is on device cpu, while parameters of neural networks are on {self.device}")
+        elif self.p_base.device != self.device:
+            raise ValueError(f"p_base is on {self.p_base.device}, while parameters of neural networks are on {self.device}")
 
         samples = self.p_base.sample(num_samples)
         return self.forward(samples, self.p_base(samples))
@@ -352,6 +367,9 @@ class BiProbTrans(nn.Module):
         if not hasattr(self, 'p_base') or self.p_base is None or not isinstance(self.p_base, Distribution):
             raise ValueError("A base distribution is needed to call log_prob(). "
                              "Please set the p_base attribute with a Distribution instance.")
+        if z.device != self.device:
+            ##TODO: Maybe loading z on the model device with a warning would be better (Nanlin)
+            raise ValueError(f"z is on {z.device}, while parameters of neural networks are on {self.device}")
 
         x, log_prob = self.backward(z)
         return x, self.p_base(x) - log_prob
