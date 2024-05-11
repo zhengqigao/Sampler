@@ -101,6 +101,7 @@ class _Meta(ABCMeta):
             dct['log_prob'] = _density_checker(dct['log_prob'], base_cls_name)
         return super().__new__(cls, name, bases, dct)
 
+## TODO: if a distirbution is put on cuda:1, then the sample and log_prob should return tensor also on cuda:1. But there is no checking for that now.
 
 class _BaseDistribution(nn.Module, metaclass=_Meta):
 
@@ -235,9 +236,8 @@ class UniProbTrans(nn.Module):
     Jacobian is also returned. However, the backward transformation is not possible because forward is not invertible.
     """
 
-    def __init__(self, p_base: Optional[Distribution] = None, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__()
-        self.p_base = p_base
 
     def forward(self, x: torch.Tensor, log_prob: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[
         torch.Tensor, torch.Tensor]:
@@ -260,7 +260,7 @@ class UniProbTrans(nn.Module):
         Args:
             num_samples (int): the number of samples to be drawn.
         """
-        if self.p_base is None or not isinstance(self.p_base, Distribution):
+        if not hasattr(self, 'p_base') or self.p_base is None or not isinstance(self.p_base, Distribution):
             raise ValueError(
                 "A base distribution is needed to do sampling. Please set the p_base attribute with a Distribution instance.")
 
@@ -277,10 +277,22 @@ class BiProbTrans(nn.Module):
 
     """
 
-    def __init__(self, p_base: Optional[Distribution] = None, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__()
-        self.p_base = p_base
         self._modify_state = False
+        self._num_trans = None
+
+
+    @property
+    def num_trans(self):
+        return self._num_trans
+
+    @num_trans.setter
+    def num_trans(self, value: int):
+        if isinstance(value, int) and value > 0:
+            self._num_trans = value
+        else:
+            raise ValueError(f"The property `num_trans` must be a positive integer, but got {value}.")
 
     def forward(self, x: torch.Tensor, log_prob: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[
         torch.Tensor, torch.Tensor]:
@@ -320,7 +332,7 @@ class BiProbTrans(nn.Module):
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: A tuple of the forward transformed samples and the associated log probability.
         """
-        if self.p_base is None or not isinstance(self.p_base, Distribution):
+        if not hasattr(self, 'p_base') or self.p_base is None or not isinstance(self.p_base, Distribution):
             raise ValueError("A base distribution is needed to call sample(). "
                              "Please set the p_base attribute with a Distribution instance.")
 
@@ -337,7 +349,7 @@ class BiProbTrans(nn.Module):
         Returns:
             Tuple[torch.Tensor, torch.Tensor]: A tuple of the backward transformed samples and the associated log probability.
         """
-        if self.p_base is None or not isinstance(self.p_base, Distribution):
+        if not hasattr(self, 'p_base') or self.p_base is None or not isinstance(self.p_base, Distribution):
             raise ValueError("A base distribution is needed to call log_prob(). "
                              "Please set the p_base attribute with a Distribution instance.")
 

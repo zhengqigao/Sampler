@@ -206,6 +206,8 @@ try:
 except Exception as e:
     print(e)
     # raised TypeError: must be real number, not NoneType
+    # This message is originally raised by PyTorch when trying to put None into a tensor.
+    # As for WHAT must not be NoneType, the user should inspect the CALL STACK.
 try:
     target = MultiGauss(mean=test_mean, std=[1, 1, 1])
     # overwrite log_prob with x-like tensor filled with None
@@ -216,7 +218,8 @@ try:
 except Exception as e:
     print(e)
     # raised TypeError: must be real number, not NoneType
-    # TODO: kaiwen: above 2 error messages are confusing, as idk WHAT must be real number, should we rewrite?
+    # This message is originally raised by PyTorch when trying to put None into a tensor.
+    # As for WHAT must not be NoneType, the user should inspect the CALL STACK.
 
 try:
     target = MultiGauss(mean=test_mean, std=[1, 1, 1])
@@ -227,6 +230,7 @@ try:
     print(f"Testing NaN target.log_prob. Test mean:{results}")
 except Exception as e:
     print(e)
+    # warning: target log_prob returns NaN.
     # [nan,nan,nan]
 try:
     target = MultiGauss(mean=test_mean, std=[1, 1, 1])
@@ -285,6 +289,7 @@ try:
     print(f"Testing NaN terget function. Test mean:{results}")
 except Exception as e:
     print(e)
+    # warning: target log_prob returns NaN.
     # [nan, nan, nan]
 try:
     # Fill Inf in x-like tensor
@@ -302,7 +307,7 @@ try:
 except Exception as e:
     print(e)
     # [nan, nan, nan]
-    # kaiwen: I thought this should be [0,0,0]. What should be returned is to be discussed.
+    # kaiwen: this behavior is different from obj with mul_factor (i.e., [0,0,0]). So a warning for this case is added.
 
 # wrong-dimension target function
 try:
@@ -342,7 +347,7 @@ results, _ = importance_sampling(10000, target, proposal, lambda x: x)
 print(f"Test mean:{results}, true mean:{test_mean}")
 # [-1, 1, .5]
 
-# TODO: kaiwen: these error messages are confusing, should we rewrite them?
+# kaiwen: not rewriting these error message
 try:
     target = TDWrapper(MultivariateNormal(torch.Tensor(test_mean[:1]), cov[:1, :1]))
     proposal = TDWrapper(MultivariateNormal(torch.zeros(3), torch.eye(3)))
@@ -370,6 +375,7 @@ print("")
 test_mean = torch.randn(3, 2, 2)  # one sample in this case is of shape (3,2,2)
 # Please test the algorithm on GPU if available
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cpu")
 target = TensorizedMultiGauss(mean=test_mean, std=torch.abs(0.8 * torch.ones(test_mean.shape)), device=device)
 proposal = TensorizedMultiGauss(mean=0.5 * test_mean, std=target.std, device=device)
 proposal.mul_factor = 1.0
@@ -393,6 +399,7 @@ try:
     print(f"Testing NaN tensor. Test mean:{results}")
 except Exception as e:
     print(e)
+    # warning: target log_prob returns NaN.
     # gets all-NaN tensor
 # Inf tensor
 try:

@@ -5,13 +5,14 @@ import math
 from typing import Union, Tuple, Callable, Any, Optional, List
 from .._common import _bpt_decorator, Func, Distribution, Condistribution, BiProbTrans
 from torch.distributions import MultivariateNormal
-from sampler._utils import LinearEnvelop1D
+from sampler.distribution import LinearEnvelop1D
 from sampler.distribution import TDWrapper
 @_bpt_decorator
 def rejection_sampling(num_samples: int,
                        target: Union[Distribution, BiProbTrans, Func],
                        proposal: Union[Distribution, BiProbTrans],
-                       k: float
+                       k: float,
+                       max_iter: Optional[int] = None
                        ) -> Tuple[torch.Tensor, Any]:
     r"""
     Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor :math:`k>0`. See Section 11.1.2 of [Bishop2006PRML]_.
@@ -28,7 +29,9 @@ def rejection_sampling(num_samples: int,
     
     # TODO: Is it worthy to implement the squeezing function as in [Gilks1992ars]_?
     total_num_sample, reject_num_sample, accept_sample = 0, 0, None
-    while (total_num_sample - reject_num_sample) < num_samples:
+    iter = 0
+    while (total_num_sample - reject_num_sample) < num_samples and (max_iter is None or iter < max_iter):
+        iter += 1
         samples = proposal.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
         evals = torch.exp(target(samples))
         bound = k * torch.exp(proposal(samples))
@@ -42,6 +45,8 @@ def rejection_sampling(num_samples: int,
             accept_sample = torch.cat([accept_sample, current_accept_samples], dim=0)
         reject_num_sample += torch.sum(evals <= u).item()
         total_num_sample += samples.shape[0]
+    if max_iter is not None and iter >= max_iter:
+        warnings.warn(f"Rejection sampling reaches the maximum number of iterations: {max_iter}.")
     return accept_sample[:num_samples], {'rejection_rate': reject_num_sample / total_num_sample}
 
 
@@ -55,9 +60,9 @@ def adaptive_rejection_sampling(num_samples: int,
 
     Args:
         num_samples (int): the number of samples to be drawn.
-        target (Distribution): the target distribution.
-        lower (float): the lower point to start the grid, the derivate here should be positive.
-        upper (float): the upper point to end the grid, the derivate here should be negative.
+        target (Union[Distribution, BiProbTrans, Func]): the target 1-dimension distribution.
+        lower (float): the lower point to start the grid, the derivative here should be positive.
+        upper (float): the upper point to end the grid, the derivative here should be negative.
     """
 
     if lower > upper:
@@ -67,39 +72,26 @@ def adaptive_rejection_sampling(num_samples: int,
 
     eval_points = torch.Tensor([[lower], [upper]])
 
-    eval_points.require_grad = True
+    eval_points.requires_grad = True
     eval_bound = target(eval_points)
-    '''
+
     log_grad_current = torch.autograd.grad(eval_bound.sum(), eval_points)[0]
     eval_points.requires_grad = False
-    '''
-
-    derivate_step = 1e-6 * (upper - lower)
-    derivate_eval_points = torch.Tensor([[lower], [lower+derivate_step], [upper-derivate_step], [upper]])
-    derivate_eval_bound = target(derivate_eval_points)
-    derivate_lower = (derivate_eval_bound[1]-derivate_eval_bound[0])/derivate_step
-    derivate_upper = (derivate_eval_bound[3] - derivate_eval_bound[2])/derivate_step
-    if np.sign(derivate_lower) < 0:
-        raise ValueError(f"The derivate at lower point is negative.")
-    if np.sign(derivate_upper) > 0:
-        raise ValueError(f"The derivate at upper point is positive.")
-    log_grad_current = torch.cat((derivate_lower.reshape(1,1), derivate_upper.reshape(1,1)),dim=1).tolist()[0]
 
     if np.sign(log_grad_current[0]) < 0:
-        raise ValueError(f"The derivate at lower point is negative.")
+        raise ValueError(f"The derivative at lower point is negative.")
     if np.sign(log_grad_current[1]) > 0:
-        raise ValueError(f"The derivate at upper point is positive.")
+        raise ValueError(f"The derivative at upper point is positive.")
     grid = [[lower], [upper]]
 
     proposal = LinearEnvelop1D(grid, log_grad_current, eval_bound)
 
-    # TODO: add abscissae of rejected points into the linear envolope distirbution, multivariate
+    # TODO: add abscissae of rejected points into the linear envolope distirbution
     total_num_sample, reject_num_sample, accept_sample = 0, 0, None
     while (total_num_sample - reject_num_sample) < num_samples:
-        # print("accept_sample.shape[0]: {}".format((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples))
         samples = proposal.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
-        evals = target(samples, in_log=False)
-        bound = proposal(samples, in_log=False)
+        evals = torch.exp(target(samples))
+        bound = torch.exp(proposal(samples))
         if torch.any(bound < evals):
             raise ValueError(f"Wrong envelop distribution.")
         u = torch.rand_like(bound) * bound
@@ -198,10 +190,12 @@ def gibbs_sampling(num_samples: int,
     for i in range(num_samples + burn_in):
         for j in range(dim):
             mask[j] = False
+            #print(condis[j].sample(1, y=samples[i][mask].view(1,-1)).view(1, -1).shape)
+            print(initial)
             if isinstance(condis, (tuple, list)):
-                initial[j] = condis[j].sample(1, y=samples[i][mask]).view(1, -1)
+                initial[0][j] = condis[j].sample(1, y=samples[i][mask].view(1,-1)).view(1, -1)
             elif isinstance(condis, Condistribution):
-                initial[j] = condis.sample(1, y=samples[i][mask]).view(1, -1)
+                initial[0][j] = condis.sample(1, y=samples[i][mask].view(1,-1)).view(1, -1)
             else:
                 raise ValueError(
                     f"The conditional distributions should be a tuple, list or a single instance of Condistribution, but got {type(condis)}.")

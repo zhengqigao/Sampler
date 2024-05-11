@@ -1,28 +1,34 @@
 import torch
 from sampler._common import Condistribution
-
-
-class ConditionalMultiGauss(Condistribution):
-    def __init__(self, std):
-        super().__init__()
-        self.std = torch.tensor(std, dtype=torch.float32)
-        self.dim = len(std)
-        self.mul_factor = 1.0
-
-    def sample(self, num_samples: int, y) -> torch.Tensor:
-        # y has shape (m, d)
-        # return shape (num_samples, m, d) with y as the mean
-        assert len(y.shape) == 2 and y.shape[1] == self.dim
-        return torch.randn((num_samples, y.shape[0], y.shape[1])) * self.std + y
-
-    def log_prob(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        # x is of shape (N,d), y is of shape (M,d)
-        # return shape (N,M)
-        x = x.unsqueeze(1)
-        y = y.unsqueeze(0)
-        return -0.5 * (
-                    torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(2 * torch.pi * self.std * self.std).sum())
+from test_common_helper import ConditionalMultiGauss, UnconditionalMultiGauss, MultiGauss, CorMultiGauss, CondGaussGauss
+from sampler.base import *
+import matplotlib.pyplot as plt
+from test_common_helper import CondGaussGamma, CondGammaGauss
 
 
 ## TODO: use an example of joint Gaussian, so that we know all conditional distributions are Gaussian. Test Gibbs sampling on this example.
 
+'''
+target = MultiGauss(mean=[2], std=[1])
+data = target.sample(100)
+w = 1
+alpha = 2
+beta = 2
+gauss1 = CondGaussGamma(data, w)
+gauss2 = CondGammaGauss(data, alpha, beta)
+results, info = gibbs_sampling(num_samples=50000, condis=[gauss1, gauss2], initial=torch.zeros(1,2), burn_in=100)
+print(f"Mean: {torch.mean(results, dim=0)}\tSize: {results.shape}")
+# The results should be the prediction of mean and 1/std
+plt.figure()
+plt.scatter(results[:, 0], results[:, 1], s=1)
+plt.show()
+'''
+
+target = CorMultiGauss(mean=[2,2], std=[1,1], rou=0.1)
+gauss1 = CondGaussGauss(std=[1])
+gauss2 = CondGaussGauss(std=[1])
+results, info = gibbs_sampling(num_samples=10000, condis=[gauss1, gauss2], initial=torch.zeros(1,2))
+print(f"Mean: {torch.mean(results, dim=0)}\tSize: {results.shape}")
+plt.figure()
+plt.scatter(results[:, 0], results[:, 1], s=1)
+plt.show()
