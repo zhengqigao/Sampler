@@ -190,12 +190,14 @@ def gibbs_sampling(num_samples: int,
     for i in range(num_samples + burn_in):
         for j in range(dim):
             mask[j] = False
-            #print(condis[j].sample(1, y=samples[i][mask].view(1,-1)).view(1, -1).shape)
-            print(initial)
+            new_mask = torch.concat([torch.ones(j, dtype=torch.bool),torch.zeros((dim-j), dtype=torch.bool)],dim=0)
+            old_mask = torch.concat([torch.zeros(j+1, dtype=torch.bool), torch.ones((dim-j-1), dtype=torch.bool)], dim=0)
+            y = torch.concat([initial[0][new_mask], samples[i][old_mask]], dim=0)
+            #print(initial)
             if isinstance(condis, (tuple, list)):
-                initial[0][j] = condis[j].sample(1, y=samples[i][mask].view(1,-1)).view(1, -1)
+                initial[0][j] = condis[j].sample(1, y=y.view(1, -1)).view(1, -1)
             elif isinstance(condis, Condistribution):
-                initial[0][j] = condis.sample(1, y=samples[i][mask].view(1,-1)).view(1, -1)
+                initial[0][j] = condis.sample(1, y=y.view(1, -1)).view(1, -1)
             else:
                 raise ValueError(
                     f"The conditional distributions should be a tuple, list or a single instance of Condistribution, but got {type(condis)}.")

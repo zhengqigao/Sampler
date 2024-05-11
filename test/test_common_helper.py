@@ -243,7 +243,7 @@ class CondGaussGamma(Condistribution):
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
         return -0.5 * (
-                torch.sum(((x - y) / std) ** 2, dim=2) + torch.log(2 * torch.pi * std * std).sum())
+                torch.sum(((x - y) / std) ** 2, dim=1) + torch.log(2 * torch.pi * std * std).sum())
 
 
 class CondGammaGauss(Condistribution):
@@ -283,13 +283,11 @@ class CondGammaGauss(Condistribution):
 
 
 class CorMultiGauss(Distribution):
-    def __init__(self, mean, cov):
+    def __init__(self, mean, std, rho):
         super().__init__()
         # 2-dimensional
         self.mean = mean if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32)
-        self.std = cov if isinstance(cov, torch.Tensor) else torch.tensor(cov, dtype=torch.float32)
-        rou = cov[0][1] / math.sqrt(cov[0][0]*cov[1][1])
-        self.rou = rou
+        self.rho = rho
         self.dim = len(self.mean)
         self.mul_factor = 1.0
 
@@ -307,9 +305,13 @@ class CorMultiGauss(Distribution):
 
 
 class CondGaussGauss(Condistribution):
-    def __init__(self, std):
+    def __init__(self, mean, std, mean_cond, std_cond, rho):
         super().__init__()
-        self.std = torch.tensor(std, dtype=torch.float32)
+        self.mean = mean if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32)
+        self.std = std if isinstance(std, torch.Tensor) else torch.tensor(std, dtype=torch.float32)
+        self.mean_cond = mean if isinstance(mean_cond, torch.Tensor) else torch.tensor(mean_cond, dtype=torch.float32)
+        self.std_cond = std if isinstance(std_cond, torch.Tensor) else torch.tensor(std_cond, dtype=torch.float32)
+        self.rho = rho
         self.dim = len(std)
         self.mul_factor = 1.0
 
@@ -317,15 +319,19 @@ class CondGaussGauss(Condistribution):
         # y has shape (m, d)
         # return shape (num_samples, m, d) with y as the mean
         assert len(y.shape) == 2 and y.shape[1] == self.dim
-        return torch.randn((num_samples, y.shape[0], y.shape[1])) * self.std + y
+        new_mean = self.mean + self.rho * self.std * (y - self.mean_cond) / self.std_cond
+        new_std = self.std * math.sqrt(1-self.rho**2)
+        return torch.randn((num_samples, y.shape[0], y.shape[1])) * new_std + new_mean
 
     def log_prob(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         # x is of shape (N,d), y is of shape (M,d)
         # return shape (N,M)
+        new_mean = self.mean + self.rho * self.std * (self.y - self.mean_cond) / self.std_cond
+        new_std = self.std * math.sqrt(1-self.rho**2)
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
         return -0.5 * (
-                torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(2 * torch.pi * self.std * self.std).sum())
+                torch.sum(((x - new_mean) / new_std) ** 2, dim=1) + torch.log(2 * torch.pi * new_std * new_std).sum())
 
 
 class UnconditionalMultiGauss(Distribution):
