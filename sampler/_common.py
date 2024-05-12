@@ -11,15 +11,57 @@ import copy
 Func = TypeVar('Func', bound=Callable[[Union[torch.Tensor]], Union[torch.Tensor, bool]])
 
 
-def _sample_checker(func, cls_name):
-    def _wrapp_conditional_sample(*args, **kwargs):
+def _wrap_conditional_density(func, self, *args, **kwargs):
+    x = kwargs['x'] if 'x' in kwargs.keys() else args[0]
+    y = kwargs['y'] if 'y' in kwargs.keys() else args[1]
+    num_density_expected = x.shape[0]
+    num_condis_expected = y.shape[0]
 
-        samples = func(*args, **kwargs)
-        num_samples_expected = kwargs['num_samples'] if 'num_samples' in kwargs.keys() else args[1]
+    if x.ndim == 1 or y.ndim == 1:
+        raise ValueError("The input x and y must be of shape (num_samples, ...), with at least two dims.")
+
+    density = func(self, *args, **kwargs)
+
+    if not isinstance(density, torch.Tensor):
+        raise ValueError("The returned density must be of type torch.Tensor.")
+    elif density.device != self.device:
+            raise ValueError(f"The device of the returned log_prob should be on {self.device}, but is on {density.device}.")
+    elif density.ndim >= 3 or density.shape[0] != num_density_expected or density.shape[1] != num_condis_expected:
+        raise ValueError(
+            f"The returned density must be of shape (x.shape[0], y.shape[0]), i.e., ({num_density_expected}, {num_condis_expected}), but got {tuple(density.shape)}.")
+    return density
+
+
+def _wrap_uncondtional_density(func, self, *args, **kwargs):
+    x = kwargs['x'] if 'x' in kwargs.keys() else args[0]
+    num_density_expected = x.shape[0]
+
+    if x.ndim == 1:
+        raise ValueError("The input x must be of shape (num_samples, ...), with at least two dims.")
+
+    density = func(self, *args, **kwargs)
+
+    if not isinstance(density, torch.Tensor):
+        raise ValueError("The returned density must be of type torch.Tensor.")
+    elif density.device != self.device:
+            raise ValueError(f"The device of the returned log_prob should be on {self.device}, but is on {density.device}.")
+    elif density.ndim >= 2 or density.shape[0] != num_density_expected:
+        raise ValueError(
+            f"The returned density must be of shape (x.shape[0],), i.e., ({num_density_expected},), but got {tuple(density.shape)}.")
+    return density
+
+
+def _wrapp_conditional_sample(func, self, *args, **kwargs):
+
+        samples = func(self, *args, **kwargs)
+
+        num_samples_expected = kwargs['num_samples'] if 'num_samples' in kwargs.keys() else args[0]
         num_condis_samples = (kwargs['y'] if 'y' in kwargs.keys() else args[1]).shape[0]
 
         if not isinstance(samples, torch.Tensor):
             raise ValueError("The returned samples must be of type torch.Tensor.")
+        elif samples.device != self.device:
+            raise ValueError(f"The device of the returned samples should be on {self.device}, but is on {samples.device}.")
         elif samples.ndim < 3:
             raise ValueError(
                 "The returned samples must be of shape (num_samples, y.shape[0], ...), with at least three dims.")
@@ -28,11 +70,16 @@ def _sample_checker(func, cls_name):
                 f"The shape of returned samples is ({samples.shape[0]}, {samples.shape[1]}, ...), but it should be (num_samples, y.shape[0], ...), i.e., ({num_samples_expected},{num_condis_samples}, ...).")
         return samples
 
-    def _wrapp_uncondtional_sample(*args, **kwargs):
-        samples = func(*args, **kwargs)
-        num_samples_expected = kwargs['num_samples'] if 'num_samples' in kwargs.keys() else args[1]
+def _wrapp_uncondtional_sample(func, self, *args, **kwargs):
+        samples = func(self, *args, **kwargs)
+        if samples.device != self.device:
+            raise ValueError(f"The device of the returned samples should be on {self.device}, but is on {samples.device}.")
+
+        num_samples_expected = kwargs['num_samples'] if 'num_samples' in kwargs.keys() else args[0]
         if not isinstance(samples, torch.Tensor):
             raise ValueError("The returned samples must be of type torch.Tensor.")
+        elif samples.device != self.device:
+            raise ValueError(f"The device of the returned samples should be on {self.device}, but is on {samples.device}.")
         elif samples.ndim < 2:
             raise ValueError("The returned samples must be of shape (num_samples, ...), with at least two dims.")
         elif samples.shape[0] != num_samples_expected:
@@ -40,73 +87,38 @@ def _sample_checker(func, cls_name):
                 f"The number of samples drawn is {samples.shape[0]}, but it should be {num_samples_expected}.")
         return samples
 
-    if cls_name == "Condistribution":
-        return _wrapp_conditional_sample
-    elif cls_name == "Distribution":
-        return _wrapp_uncondtional_sample
-    else:
-        return func
+def _sample_decorator(func):
+    def wrapper(self, *args, **kwargs):
+        base_class_name = type(self).__bases__[0].__name__
+        if base_class_name == 'Distribution':
+            return _wrapp_uncondtional_sample(func, self, *args, **kwargs)
+        elif base_class_name == 'Condistribution':
+            return _wrapp_conditional_sample(func, self, *args, **kwargs)
+
+    return wrapper
+
+def _log_prob_decorator(func):
+    def wrapper(self, *args, **kwargs):
+        base_class_name = type(self).__bases__[0].__name__
+        if base_class_name == 'Distribution':
+            return _wrap_uncondtional_density(func, self, *args, **kwargs)
+        elif base_class_name == 'Condistribution':
+            return _wrap_conditional_density(func, self, *args, **kwargs)
+
+    return wrapper
+
+def checker(func):
+    if func.__name__ == 'sample':
+        return _sample_decorator(func)
+    elif func.__name__ == 'log_prob':
+        return _log_prob_decorator(func)
 
 
-def _density_checker(func, cls_name):
-    def _wrap_conditional_density(*args, **kwargs):
-        x = kwargs['x'] if 'x' in kwargs.keys() else args[1]
-        y = kwargs['y'] if 'y' in kwargs.keys() else args[2]
-        num_density_expected = x.shape[0]
-        num_condis_expected = y.shape[0]
-
-        if x.ndim == 1 or y.ndim == 1:
-            raise ValueError("The input x and y must be of shape (num_samples, ...), with at least two dims.")
-
-        density = func(*args, **kwargs)
-
-        if not isinstance(density, torch.Tensor):
-            raise ValueError("The returned density must be of type torch.Tensor.")
-        elif density.ndim >= 3 or density.shape[0] != num_density_expected or density.shape[1] != num_condis_expected:
-            raise ValueError(
-                f"The returned density must be of shape (x.shape[0], y.shape[0]), i.e., ({num_density_expected}, {num_condis_expected}), but got {tuple(density.shape)}.")
-        return density
-
-    def _wrap_uncondtional_density(*args, **kwargs):
-        x = kwargs['x'] if 'x' in kwargs.keys() else args[1]
-        num_density_expected = x.shape[0]
-
-        if x.ndim == 1:
-            raise ValueError("The input x must be of shape (num_samples, ...), with at least two dims.")
-
-        density = func(*args, **kwargs)
-
-        if not isinstance(density, torch.Tensor):
-            raise ValueError("The returned density must be of type torch.Tensor.")
-        elif density.ndim >= 2 or density.shape[0] != num_density_expected:
-            raise ValueError(
-                f"The returned density must be of shape (x.shape[0],), i.e., ({num_density_expected},), but got {tuple(density.shape)}.")
-        return density
-
-    if cls_name == "Condistribution":
-        return _wrap_conditional_density
-    elif cls_name == "Distribution":
-        return _wrap_uncondtional_density
-    else:
-        return func
-
-
-class _Meta(ABCMeta):
-    def __new__(cls, name, bases, dct):
-        if 'sample' in dct and hasattr(bases[0], 'sample'):
-            base_cls_name = bases[0].__name__
-            dct['sample'] = _sample_checker(dct['sample'], base_cls_name)
-        if 'log_prob' in dct and hasattr(bases[0], 'log_prob'):
-            base_cls_name = bases[0].__name__
-            dct['log_prob'] = _density_checker(dct['log_prob'], base_cls_name)
-        return super().__new__(cls, name, bases, dct)
-
-## TODO: if a distirbution is put on cuda:1, then the sample and log_prob should return tensor also on cuda:1. But there is no checking for that now.
-
-class _BaseDistribution(nn.Module, metaclass=_Meta):
+class _BaseDistribution(nn.Module):
 
     def __init__(self):
         super().__init__()
+        self._device = torch.device("cpu")
 
     @property
     def mul_factor(self):
@@ -137,6 +149,18 @@ class _BaseDistribution(nn.Module, metaclass=_Meta):
             self.mul_factor = 1.0 / float(value)
         else:
             raise ValueError(f"The div_factor must be a positive finite scalar, but got {value}.")
+
+    @property
+    def device(self):
+        return self._device
+
+    @device.setter
+    def device(self, value: Union[torch.device, str]):
+        self.to(value)
+
+    def to(self, device: Union[torch.device, str]):
+        self._device = device if isinstance(device, torch.device) else torch.device(device)
+        return super().to(device)
 
 
     def sample(self, *args, **kwargs) -> torch.Tensor:
@@ -283,13 +307,6 @@ class BiProbTrans(nn.Module):
         self._num_trans = None
 
     @property
-    def device(self):
-        if next(self.parameters()) is not None:
-            return next(self.parameters()).device
-        else:
-            raise ValueError("Empty model")
-
-    @property
     def num_trans(self):
         return self._num_trans
 
@@ -341,15 +358,6 @@ class BiProbTrans(nn.Module):
         if not hasattr(self, 'p_base') or self.p_base is None or not isinstance(self.p_base, Distribution):
             raise ValueError("A base distribution is needed to call sample(). "
                              "Please set the p_base attribute with a Distribution instance.")
-        try:
-            p_base_device = self.p_base.device
-        except AttributeError as e:
-            p_base_device = None
-        if p_base_device is None:
-            if self.device != torch.device("cpu"):
-                raise ValueError(f"p_base is on device cpu, while parameters of neural networks are on {self.device}")
-        elif self.p_base.device != self.device:
-            raise ValueError(f"p_base is on {self.p_base.device}, while parameters of neural networks are on {self.device}")
 
         samples = self.p_base.sample(num_samples)
         return self.forward(samples, self.p_base(samples))
@@ -367,9 +375,6 @@ class BiProbTrans(nn.Module):
         if not hasattr(self, 'p_base') or self.p_base is None or not isinstance(self.p_base, Distribution):
             raise ValueError("A base distribution is needed to call log_prob(). "
                              "Please set the p_base attribute with a Distribution instance.")
-        if z.device != self.device:
-            ##TODO: Maybe loading z on the model device with a warning would be better (Nanlin)
-            raise ValueError(f"z is on {z.device}, while parameters of neural networks are on {self.device}")
 
         x, log_prob = self.backward(z)
         return x, self.p_base(x) - log_prob

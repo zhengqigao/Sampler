@@ -181,6 +181,6 @@ def test_alpha_solve():
 
 
 # test_planar_flow()s
-run_density_matching_example()
+# run_density_matching_example()
 # test_alpha_solve()
-# run_generation_example('plot','cpu')s
+run_generation_example('plot','cuda')

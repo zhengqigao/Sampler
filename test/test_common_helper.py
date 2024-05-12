@@ -347,7 +347,7 @@ class UnconditionalMultiGauss(Distribution):
 
     def log_prob(self, x: torch.Tensor) -> torch.Tensor:
         return -0.5 * (
-                torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
+                torch.sum(((x - self.mean.to(x.device)) / self.std.to(x.device)) ** 2, dim=1)
                 + torch.log(2 * torch.pi * self.std * self.std).sum()
         )
 
