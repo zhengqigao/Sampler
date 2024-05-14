@@ -123,3 +123,21 @@ class RealNVP(BiProbTrans):
             z, ld = transform.backward(z)
             log_det = log_det + ld
         return z, log_det
+
+class NICE(RealNVP):
+    r"""
+    The NICE model described in ..[dinh2015nice]. It is a special case of RealNVP where the scale networks are none.
+
+    .. Example::
+        >>> nice = NICE(num_trans = 3, dim=2, shift_net=nn.Linear(1, 1))
+        >>> x = torch.rand(10, 2)
+        >>> x_, diff_log_det = nice.backward(*nice.forward(x, 0))
+        >>> diff = x - x_
+        >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
+    """
+    def __init__(self, num_trans: int,
+                 dim: int,
+                 shift_net: Optional[Union[nn.Module, nn.ModuleList]] = None,
+                 keep_dim: Optional[List[List[int]]] = None,
+                 p_base: Optional[Distribution] = None):
+        super().__init__(num_trans, dim, None, shift_net, keep_dim, p_base)

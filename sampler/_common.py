@@ -25,7 +25,7 @@ def _wrap_conditional_density(func, self, *args, **kwargs):
     if not isinstance(density, torch.Tensor):
         raise ValueError("The returned density must be of type torch.Tensor.")
     elif density.device != self.device:
-            raise ValueError(f"The device of the returned log_prob should be on {self.device}, but is on {density.device}.")
+        raise ValueError(f"The device of the returned log_prob should be on {self.device}, but is on {density.device}.")
     elif density.ndim >= 3 or density.shape[0] != num_density_expected or density.shape[1] != num_condis_expected:
         raise ValueError(
             f"The returned density must be of shape (x.shape[0], y.shape[0]), i.e., ({num_density_expected}, {num_condis_expected}), but got {tuple(density.shape)}.")
@@ -44,7 +44,7 @@ def _wrap_uncondtional_density(func, self, *args, **kwargs):
     if not isinstance(density, torch.Tensor):
         raise ValueError("The returned density must be of type torch.Tensor.")
     elif density.device != self.device:
-            raise ValueError(f"The device of the returned log_prob should be on {self.device}, but is on {density.device}.")
+        raise ValueError(f"The device of the returned log_prob should be on {self.device}, but is on {density.device}.")
     elif density.ndim >= 2 or density.shape[0] != num_density_expected:
         raise ValueError(
             f"The returned density must be of shape (x.shape[0],), i.e., ({num_density_expected},), but got {tuple(density.shape)}.")
@@ -52,40 +52,41 @@ def _wrap_uncondtional_density(func, self, *args, **kwargs):
 
 
 def _wrapp_conditional_sample(func, self, *args, **kwargs):
+    samples = func(self, *args, **kwargs)
 
-        samples = func(self, *args, **kwargs)
+    num_samples_expected = kwargs['num_samples'] if 'num_samples' in kwargs.keys() else args[0]
+    num_condis_samples = (kwargs['y'] if 'y' in kwargs.keys() else args[1]).shape[0]
 
-        num_samples_expected = kwargs['num_samples'] if 'num_samples' in kwargs.keys() else args[0]
-        num_condis_samples = (kwargs['y'] if 'y' in kwargs.keys() else args[1]).shape[0]
+    if not isinstance(samples, torch.Tensor):
+        raise ValueError("The returned samples must be of type torch.Tensor.")
+    elif samples.device != self.device:
+        raise ValueError(f"The device of the returned samples should be on {self.device}, but is on {samples.device}.")
+    elif samples.ndim < 3:
+        raise ValueError(
+            "The returned samples must be of shape (num_samples, y.shape[0], ...), with at least three dims.")
+    elif samples.shape[0] != num_samples_expected or samples.shape[1] != num_condis_samples:
+        raise ValueError(
+            f"The shape of returned samples is ({samples.shape[0]}, {samples.shape[1]}, ...), but it should be (num_samples, y.shape[0], ...), i.e., ({num_samples_expected},{num_condis_samples}, ...).")
+    return samples
 
-        if not isinstance(samples, torch.Tensor):
-            raise ValueError("The returned samples must be of type torch.Tensor.")
-        elif samples.device != self.device:
-            raise ValueError(f"The device of the returned samples should be on {self.device}, but is on {samples.device}.")
-        elif samples.ndim < 3:
-            raise ValueError(
-                "The returned samples must be of shape (num_samples, y.shape[0], ...), with at least three dims.")
-        elif samples.shape[0] != num_samples_expected or samples.shape[1] != num_condis_samples:
-            raise ValueError(
-                f"The shape of returned samples is ({samples.shape[0]}, {samples.shape[1]}, ...), but it should be (num_samples, y.shape[0], ...), i.e., ({num_samples_expected},{num_condis_samples}, ...).")
-        return samples
 
 def _wrapp_uncondtional_sample(func, self, *args, **kwargs):
-        samples = func(self, *args, **kwargs)
-        if samples.device != self.device:
-            raise ValueError(f"The device of the returned samples should be on {self.device}, but is on {samples.device}.")
+    samples = func(self, *args, **kwargs)
+    if samples.device != self.device:
+        raise ValueError(f"The device of the returned samples should be on {self.device}, but is on {samples.device}.")
 
-        num_samples_expected = kwargs['num_samples'] if 'num_samples' in kwargs.keys() else args[0]
-        if not isinstance(samples, torch.Tensor):
-            raise ValueError("The returned samples must be of type torch.Tensor.")
-        elif samples.device != self.device:
-            raise ValueError(f"The device of the returned samples should be on {self.device}, but is on {samples.device}.")
-        elif samples.ndim < 2:
-            raise ValueError("The returned samples must be of shape (num_samples, ...), with at least two dims.")
-        elif samples.shape[0] != num_samples_expected:
-            raise ValueError(
-                f"The number of samples drawn is {samples.shape[0]}, but it should be {num_samples_expected}.")
-        return samples
+    num_samples_expected = kwargs['num_samples'] if 'num_samples' in kwargs.keys() else args[0]
+    if not isinstance(samples, torch.Tensor):
+        raise ValueError("The returned samples must be of type torch.Tensor.")
+    elif samples.device != self.device:
+        raise ValueError(f"The device of the returned samples should be on {self.device}, but is on {samples.device}.")
+    elif samples.ndim < 2:
+        raise ValueError("The returned samples must be of shape (num_samples, ...), with at least two dims.")
+    elif samples.shape[0] != num_samples_expected:
+        raise ValueError(
+            f"The number of samples drawn is {samples.shape[0]}, but it should be {num_samples_expected}.")
+    return samples
+
 
 def _sample_decorator(func):
     def wrapper(self, *args, **kwargs):
@@ -97,6 +98,7 @@ def _sample_decorator(func):
 
     return wrapper
 
+
 def _log_prob_decorator(func):
     def wrapper(self, *args, **kwargs):
         base_class_name = type(self).__bases__[0].__name__
@@ -106,6 +108,7 @@ def _log_prob_decorator(func):
             return _wrap_conditional_density(func, self, *args, **kwargs)
 
     return wrapper
+
 
 def checker(func):
     if func.__name__ == 'sample':
@@ -162,7 +165,6 @@ class _BaseDistribution(nn.Module):
         self._device = device if isinstance(device, torch.device) else torch.device(device)
         return super().to(device)
 
-
     def sample(self, *args, **kwargs) -> torch.Tensor:
         raise NotImplementedError
 
@@ -181,8 +183,6 @@ class _BaseDistribution(nn.Module):
             return result + math.log(self.mul_factor)
         else:
             return result
-
-
 
 
 class Distribution(_BaseDistribution):
@@ -393,7 +393,6 @@ class BiProbTrans(nn.Module):
                            inst._ori_forward(inst.p_base.sample(num_samples), 0)[0]).__get__(self)
             self.forward = (lambda inst, z: inst.log_prob(z)[1]).__get__(self)
             setattr(self, 'mul_factor', self.p_base.mul_factor)
-
 
     def restore(self):
         if self._modify_state:

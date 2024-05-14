@@ -8,3 +8,4 @@ References
 .. [Dinh2017] Laurent Dinh, Jascha Sohl-Dickstein, Samy Bengio. "Density estimation using Real NVP". ICLR 2017.
 .. [Rezende2015] Rezende, Danilo Jimenez, and Shakir Mohamed. "Variational inference with normalizing flows." ICML 2015.
 .. [Peng2020gibbs] Roger, Peng M. Online: https://bookdown.org/rdpeng/advstatcomp/gibbs-sampler.html
+.. [dinh2015nice] Laurent Dinh, David Krueger, Yoshua Bengio. "NICE: Non-linear Independent Components Estimation." ICLR workshop 2015.
