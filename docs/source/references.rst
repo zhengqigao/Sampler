@@ -9,3 +9,4 @@ References
 .. [Rezende2015] Rezende, Danilo Jimenez, and Shakir Mohamed. "Variational inference with normalizing flows." ICML 2015.
 .. [Peng2020gibbs] Roger, Peng M. Online: https://bookdown.org/rdpeng/advstatcomp/gibbs-sampler.html
 .. [dinh2015nice] Laurent Dinh, David Krueger, Yoshua Bengio. "NICE: Non-linear Independent Components Estimation." ICLR workshop 2015.
+.. [George2017maf] George Papamakarios, Theo Pavlakou, Iain Murray. "Masked Autoregressive Flow for Density Estimation." Neurips 2017.
