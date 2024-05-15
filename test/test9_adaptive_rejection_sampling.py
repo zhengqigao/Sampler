@@ -4,6 +4,7 @@ from sampler.base import *
 from sampler._common import Distribution
 from test_common_helper import MultiGauss
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 test_mean = [-1]
 test_std = [0.5]
@@ -16,8 +17,10 @@ results, info = adaptive_rejection_sampling(10000, target, lower, upper)
 
 print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
 
-plt.figure()
-plt.scatter(results, torch.ones(results.shape), s=1)
+plt.subplot(1,2,1)
+plt.hist(results.cpu().detach().numpy(), bins=50)
+plt.subplot(1,2,2)
+sns.kdeplot(data=results.cpu().detach().numpy())
 plt.show()
 
 print("=====================================")
@@ -33,6 +36,8 @@ results, info = adaptive_rejection_sampling(10000, target, lower, upper)
 
 print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
 
-plt.figure()
-plt.scatter(results, torch.ones(results.shape), s=1)
+plt.subplot(1,2,1)
+plt.hist(results.cpu().detach().numpy(), bins=50)
+plt.subplot(1,2,2)
+sns.kdeplot(data=results.cpu().detach().numpy())
 plt.show()

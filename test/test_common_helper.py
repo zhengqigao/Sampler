@@ -222,16 +222,18 @@ class CondGaussGamma(Condistribution):
         super().__init__()
         self.num_data = data.shape[0]
         self.sum_data = torch.sum(data)
-        self.w = w
+        self.w = 1/math.sqrt(w)
         self.dim = 1
         self.mul_factor = 1.0
 
     def sample(self, num_samples: int, y) -> torch.Tensor:
         # y has shape (m, 1)
         # return shape (num_samples, m, 1)
+        # print("y: {}".format(y))
         mean = y / (y * self.num_data + self.w) * self.sum_data
-        print("mean: {}".format(mean))
-        std = 1/(y * self.num_data + self.w)
+        # print("mean: {}".format(mean))
+        std = 1/math.sqrt(y * self.num_data + self.w)
+        # print("std: {}".format(std))
         assert len(y.shape) == 2 and y.shape[1] == self.dim
         return torch.randn((num_samples, y.shape[0], y.shape[1])) * std + mean
 
@@ -239,7 +241,7 @@ class CondGaussGamma(Condistribution):
         # x is of shape (N,1), y is of shape (M,1)
         # return shape (N,M)
         mean = y / (y * self.num_data + self.w) * self.sum_data
-        std = y * self.num_data + self.w
+        std = 1/math.sqrt(y * self.num_data + self.w)
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
         return -0.5 * (
@@ -267,9 +269,12 @@ class CondGammaGauss(Condistribution):
         #print("theta: {}".format(theta))
         assert len(y.shape) == 2 and y.shape[1] == self.dim
         gamma = torch.rand((int(t), num_samples, y.shape[0], y.shape[1]))
+        while torch.isinf(torch.log(gamma).sum(0)).any():
+            gamma = torch.rand((int(t), num_samples, y.shape[0], y.shape[1]))
         #print("gamma: {}".format(gamma))
         sample_value = - torch.log(gamma).sum(0) / theta
         #print(gamma.shape)
+        # print("sample_value: {}".format(sample_value))
         return sample_value
 
     def log_prob(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
