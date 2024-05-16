@@ -222,7 +222,7 @@ class CondGaussGamma(Condistribution):
         super().__init__()
         self.num_data = data.shape[0]
         self.sum_data = torch.sum(data)
-        self.w = 1/math.sqrt(w)
+        self.w = 1/w**2
         self.dim = 1
         self.mul_factor = 1.0
 
@@ -287,7 +287,7 @@ class CondGammaGauss(Condistribution):
         return -x * theta + (t - 1) * torch.log(x)
 
 
-class CorMultiGauss(Distribution):
+class CorMultiGauss2D(Distribution):
     def __init__(self, mean, std, rho):
         super().__init__()
         # 2-dimensional
@@ -299,7 +299,7 @@ class CorMultiGauss(Distribution):
     def sample(self, num_samples: int) -> torch.Tensor:
         Z = torch.randn((num_samples, self.dim))
         Z[:][0] = self.std[:][0] * Z[:][0]
-        Z[:][1] = self.std[:][1] * (Z[:][0]*self.rou + Z[:][1]*math.sqrt(1-self.rou**2))
+        Z[:][1] = self.std[:][1] * (Z[:][0]*self.rho + Z[:][1]*math.sqrt(1-self.rho**2))
         return  Z + self.mean
 
     def log_prob(self, x: torch.Tensor) -> torch.Tensor:
@@ -309,13 +309,13 @@ class CorMultiGauss(Distribution):
         )
 
 
-class CondGaussGauss(Condistribution):
+class CondGaussGauss1D(Condistribution):
     def __init__(self, mean, std, mean_cond, std_cond, rho):
         super().__init__()
         self.mean = mean if isinstance(mean, torch.Tensor) else torch.tensor(mean, dtype=torch.float32)
         self.std = std if isinstance(std, torch.Tensor) else torch.tensor(std, dtype=torch.float32)
-        self.mean_cond = mean if isinstance(mean_cond, torch.Tensor) else torch.tensor(mean_cond, dtype=torch.float32)
-        self.std_cond = std if isinstance(std_cond, torch.Tensor) else torch.tensor(std_cond, dtype=torch.float32)
+        self.mean_cond = mean_cond if isinstance(mean_cond, torch.Tensor) else torch.tensor(mean_cond, dtype=torch.float32)
+        self.std_cond = std_cond if isinstance(std_cond, torch.Tensor) else torch.tensor(std_cond, dtype=torch.float32)
         self.rho = rho
         self.dim = len(std)
         self.mul_factor = 1.0
@@ -333,6 +333,44 @@ class CondGaussGauss(Condistribution):
         # return shape (N,M)
         new_mean = self.mean + self.rho * self.std * (self.y - self.mean_cond) / self.std_cond
         new_std = self.std * math.sqrt(1-self.rho**2)
+        x = x.unsqueeze(1)
+        y = y.unsqueeze(0)
+        return -0.5 * (
+                torch.sum(((x - new_mean) / new_std) ** 2, dim=1) + torch.log(2 * torch.pi * new_std * new_std).sum())
+
+
+class BlockCondGaussGauss(Condistribution):
+    def __init__(self, mean_a, mean_b, sigma_aa, sigma_bb, sigma_ab, sigma_ba):
+        super().__init__()
+        self.mean_a = mean_a if isinstance(mean_a, torch.Tensor) else torch.tensor(mean_a, dtype=torch.float32)
+        self.mean_b = mean_b if isinstance(mean_b, torch.Tensor) else torch.tensor(mean_b, dtype=torch.float32)
+        self.sigma_aa = sigma_aa if isinstance(sigma_aa, torch.Tensor) else torch.tensor(sigma_aa, dtype=torch.float32)
+        self.sigma_bb = sigma_bb if isinstance(sigma_bb, torch.Tensor) else torch.tensor(sigma_bb, dtype=torch.float32)
+        self.sigma_ab = sigma_ab if isinstance(sigma_ab, torch.Tensor) else torch.tensor(sigma_ab, dtype=torch.float32)
+        self.sigma_ba = sigma_ba if isinstance(sigma_ba, torch.Tensor) else torch.tensor(sigma_ba, dtype=torch.float32)
+        self.dim_a = len(mean_a)
+        self.dim_b = len(mean_b)
+        self.mul_factor = 1.0
+
+    def sample(self, num_samples: int, y) -> torch.Tensor:
+        # y has shape (m, d)
+        # return shape (num_samples, m, D-d)
+        #print(f"y: {y}\ny.shape: {y.shape}\ndim_b: {self.dim_b}\nmean_b: {self.mean_b}\nlen(mean_b): {len(self.mean_b)}")
+        assert len(y.shape) == 2 and y.shape[1] == self.dim_b
+        #print(f"mean_bias: {torch.mm(torch.mm(self.sigma_ab, torch.pinverse(self.sigma_bb)), torch.t(y - self.mean_b))}")
+        new_mean = self.mean_a + torch.t(torch.mm(torch.mm(self.sigma_ab, torch.pinverse(self.sigma_bb)), torch.t(y - self.mean_b)))
+        new_std = self.sigma_aa - torch.mm(torch.mm(self.sigma_ab, torch.pinverse(self.sigma_bb)), self.sigma_ba)
+        #print(f"new_mean: {new_mean}\nnew_std: {new_std}\ntorch.randn((num_samples, y.shape[0], self.dim_a)): {torch.randn((num_samples, y.shape[0], self.dim_a))}")
+        samples = torch.matmul(torch.randn((num_samples, y.shape[0], self.dim_a)), new_std) + new_mean
+        #print(f"y.shape[0]: {y.shape[0]}")
+        #print(f"samples: {samples}\nsamples.shape: {samples.shape}")
+        return samples
+
+    def log_prob(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        # x is of shape (N,d), y is of shape (M,d)
+        # return shape (N,M)
+        new_mean = self.mean_a + self.sigma_ab * torch.pinverse(self.sigma_bb) * (y - self.mean_b)
+        new_std = self.sigma_aa - self.sigma_ab * torch.pinverse(self.sigma_bb) * self.sigma_ba
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
         return -0.5 * (

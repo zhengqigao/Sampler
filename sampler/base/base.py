@@ -164,7 +164,9 @@ def mh_sampling(num_samples: int,
 def gibbs_sampling(num_samples: int,
                    condis: Union[Tuple[Condistribution], List[Condistribution], Condistribution],
                    initial: torch.Tensor,
-                   burn_in: Optional[int] = 0) -> Tuple[torch.Tensor, Any]:
+                   burn_in: Optional[int] = 0,
+                   block: Optional[bool] = False,
+                   block_list: Optional[list] = []) -> Tuple[torch.Tensor, Any]:
     r"""
     Gibbs sampling to draw samples given conditional distributions. See Section 11.3 of [Bishop2006PRML]_.
 
@@ -177,6 +179,8 @@ def gibbs_sampling(num_samples: int,
         condis (Union[Tuple[Condistribution], List[Condistribution], Condistribution]): the conditional distributions.
         initial (torch.Tensor): the initial point to start the sampling process.
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
+        block (Optional[bool]): perform Blocking Gibbs Sampling if set to True.
+        block_list (Optional[list]): the list of variable partitions (blocks).
     """
 
     if burn_in < 0:
@@ -188,21 +192,52 @@ def gibbs_sampling(num_samples: int,
     samples = torch.clone(initial)
     mask = torch.ones(dim, dtype=torch.bool)
     for i in range(num_samples + burn_in):
-        for j in range(dim):
-            mask[j] = False
-            new_mask = torch.concat([torch.ones(j, dtype=torch.bool),torch.zeros((dim-j), dtype=torch.bool)],dim=0)
-            old_mask = torch.concat([torch.zeros(j+1, dtype=torch.bool), torch.ones((dim-j-1), dtype=torch.bool)], dim=0)
-            y = torch.concat([initial[0][new_mask], samples[i][old_mask]], dim=0)
-            #print(initial)
-            if isinstance(condis, (tuple, list)):
-                initial[0][j] = condis[j].sample(1, y=y.view(1, -1)).view(1, -1)
-            elif isinstance(condis, Condistribution):
-                initial[0][j] = condis.sample(1, y=y.view(1, -1)).view(1, -1)
-            else:
-                raise ValueError(
-                    f"The conditional distributions should be a tuple, list or a single instance of Condistribution, but got {type(condis)}.")
-            mask[j] = True
-        samples = torch.cat([samples, initial], dim=0)
+        if block:
+            if not block_list:
+                raise ValueError("block_list should be a list of ints using Blocking Gibbs Sampling.")
+            if len(block_list) != len(condis):
+                raise ValueError(f"The length of block_list should be equal to the number of conditional distributions, but got {len(block_list)}.")
+            for j in range(len(block_list)):
+                block_j = block_list[j]
+                if len(block_j) != 2:
+                    raise ValueError(f"Each block in block_list should be of length 2, but got {len(block_j)}")
+
+            block_start = [x[0] for x in block_list]
+            #print(f"block_start: {block_start}")
+            if not all(x < y for x, y in zip(block_start, block_start[1:])):
+                raise ValueError("The starting points of the blocks in block_list should be monotonically increasing")
+
+            for j in range(len(block_list)):
+                block_j = block_list[j]
+                mask = torch.concat([torch.ones(block_j[0], dtype=torch.bool),
+                                     torch.zeros((block_j[1] - block_j[0] + 1), dtype=torch.bool)], dim=0)
+                mask = torch.concat([mask, torch.ones((dim - block_j[1] - 1), dtype=torch.bool)], dim=0)
+                #print(f"mask: {mask}")
+                y = initial[0][mask]
+                if isinstance(condis, (tuple, list)):
+                    initial[0][block_j[0]:block_j[1]+1] = condis[j].sample(1, y=y.view(1, -1)).view(1, -1)
+                elif isinstance(condis, Condistribution):
+                    initial[0][block_j[0]:block_j[1]+1] = condis.sample(1, y=y.view(1, -1)).view(1, -1)
+                else:
+                    raise ValueError(
+                        f"The conditional distributions should be a tuple, list or a single instance of Condistribution, but got {type(condis)}.")
+                #print(f"initial: {initial}")
+            samples = torch.cat([samples, initial], dim=0)
+        else:
+            for j in range(dim):
+                # mask[j] = False
+                new_mask = torch.concat([torch.ones(j, dtype=torch.bool),torch.zeros((dim-j), dtype=torch.bool)],dim=0)
+                old_mask = torch.concat([torch.zeros(j+1, dtype=torch.bool), torch.ones((dim-j-1), dtype=torch.bool)], dim=0)
+                y = torch.concat([initial[0][new_mask], samples[i][old_mask]], dim=0)
+                if isinstance(condis, (tuple, list)):
+                    initial[0][j] = condis[j].sample(1, y=y.view(1, -1)).view(1, -1)
+                elif isinstance(condis, Condistribution):
+                    initial[0][j] = condis.sample(1, y=y.view(1, -1)).view(1, -1)
+                else:
+                    raise ValueError(
+                        f"The conditional distributions should be a tuple, list or a single instance of Condistribution, but got {type(condis)}.")
+                # mask[j] = True
+            samples = torch.cat([samples, initial], dim=0)
     return samples[burn_in:], None
 
 
