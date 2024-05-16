@@ -186,14 +186,27 @@ try:
     # THIS IS FEATURE, NOT BUG
     target = lambda x: torch.tensor(-torch.inf, dtype=torch.float32) * torch.ones(x.shape[0], dtype=torch.float32)
     proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
-    results, info = rejection_sampling(10000, target, proposal, k=100, max_iter=100)
+    results, info = rejection_sampling(10000, target, proposal, k=100, max_samples=100000)
     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
 except KeyboardInterrupt:
     print("KeyboardInterrupt")
 except Exception as e:
     print(e)
-    # UserWarning: Rejection sampling reaches the maximum number of iterations: 100.
-    #   warnings.warn(f"Rejection sampling reaches the maximum number of iterations: {max_iter}.")
+    # UserWarning: Rejection sampling reaches the maximum number of samples: 100000.
+    #   warnings.warn(f"Rejection sampling reaches the maximum number of samples: {max_samples}.")
+    # Mean: tensor([nan, nan])        Rejection rate: 1.0     Size: torch.Size([0, 2])
+try:
+    target = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
+    results, info = rejection_sampling(10000, target, proposal, k=100, max_samples=10)
+    print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+except KeyboardInterrupt:
+    print("KeyboardInterrupt")
+except Exception as e:
+    print(e)
+    # UserWarning: Rejection sampling reaches the maximum number of samples: 10.
+    #   warnings.warn(f"Rejection sampling reaches the maximum number of samples: {max_samples}.")
+    # Mean: tensor([ 0.1072, -0.2177])        Rejection rate: 0.9899  Size: torch.Size([101, 2])
 
 print("=====================================")
 

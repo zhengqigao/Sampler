@@ -12,7 +12,7 @@ def rejection_sampling(num_samples: int,
                        target: Union[Distribution, BiProbTrans, Func],
                        proposal: Union[Distribution, BiProbTrans],
                        k: float,
-                       max_iter: Optional[int] = None
+                       max_samples: Optional[int] = None
                        ) -> Tuple[torch.Tensor, Any]:
     r"""
     Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor :math:`k>0`. See Section 11.1.2 of [Bishop2006PRML]_.
@@ -27,11 +27,9 @@ def rejection_sampling(num_samples: int,
     if k <= 0 or not math.isfinite(k) or math.isnan(k):
         raise ValueError(f"The scaling factor k should be a positive finite scalar, but got k = {k}.")
     
-    # TODO: Is it worthy to implement the squeezing function as in [Gilks1992ars]_?
+    # TODO: (Kaiwen) implementing the squeezing function in [Gilks1992ars]_
     total_num_sample, reject_num_sample, accept_sample = 0, 0, None
-    iter = 0
-    while (total_num_sample - reject_num_sample) < num_samples and (max_iter is None or iter < max_iter):
-        iter += 1
+    while (total_num_sample - reject_num_sample) < num_samples and (max_samples is None or total_num_sample < max_samples):
         samples = proposal.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
         evals = torch.exp(target(samples))
         bound = k * torch.exp(proposal(samples))
@@ -45,8 +43,8 @@ def rejection_sampling(num_samples: int,
             accept_sample = torch.cat([accept_sample, current_accept_samples], dim=0)
         reject_num_sample += torch.sum(evals <= u).item()
         total_num_sample += samples.shape[0]
-    if max_iter is not None and iter >= max_iter:
-        warnings.warn(f"Rejection sampling reaches the maximum number of iterations: {max_iter}.")
+    if max_samples is not None and total_num_sample >= max_samples:
+        warnings.warn(f"Rejection sampling reaches the maximum number of samples: {max_samples}.")
     return accept_sample[:num_samples], {'rejection_rate': reject_num_sample / total_num_sample}
 
 
