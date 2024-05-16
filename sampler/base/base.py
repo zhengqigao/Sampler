@@ -5,7 +5,7 @@ import math
 from typing import Union, Tuple, Callable, Any, Optional, List
 from .._common import _bpt_decorator, Func, Distribution, Condistribution, BiProbTrans
 from torch.distributions import MultivariateNormal
-from sampler.distribution import LinearEnvelop1D
+from sampler.distribution import LinearEnvelop1D, UpdateLinearEnvelop1D
 from sampler.distribution import TDWrapper
 @_bpt_decorator
 def rejection_sampling(num_samples: int,
@@ -80,9 +80,8 @@ def adaptive_rejection_sampling(num_samples: int,
         raise ValueError(f"The derivative at lower point is negative.")
     if np.sign(log_grad_current[1]) > 0:
         raise ValueError(f"The derivative at upper point is positive.")
-    grid = [[lower], [upper]]
 
-    proposal = LinearEnvelop1D(grid, log_grad_current, eval_bound)
+    proposal = LinearEnvelop1D(eval_points, log_grad_current, eval_bound)
 
     # TODO: add abscissae of rejected points into the linear envolope distirbution
     total_num_sample, reject_num_sample, accept_sample = 0, 0, None
@@ -98,6 +97,29 @@ def adaptive_rejection_sampling(num_samples: int,
             accept_sample = current_accept_samples
         else:
             accept_sample = torch.cat([accept_sample, current_accept_samples], dim=0)
+
+        # Add rejected sample information into the envelope distribution
+        current_reject_samples = samples[evals <= u]
+        print(f"eval_points.shape: {eval_points.shape}, current_reject_samples.shape: {current_reject_samples.shape}")
+        eval_points = torch.concat((eval_points, current_reject_samples), dim=0)
+        eval_points, indices = torch.sort(torch.unique(eval_points, sorted=False, return_inverse=False).view(-1, 1), dim=1)
+        print(f"eval_points.shape: {eval_points.shape}\neval_points: {eval_points}")
+
+        eval_points.requires_grad = True
+        eval_bound = target(eval_points)
+
+        log_grad_current = torch.autograd.grad(eval_bound.sum(), eval_points)[0]
+        eval_points.requires_grad = False
+
+        if np.sign(log_grad_current[0]) < 0:
+            raise ValueError(f"The derivative at lower point is negative.")
+        if np.sign(log_grad_current[-1]) > 0:
+            raise ValueError(f"The derivative at upper point is positive.")
+        '''
+        proposal = UpdateLinearEnvelop1D(eval_points, log_grad_current, eval_bound)
+        # Updated the envelope distribution
+        '''
+
         reject_num_sample += torch.sum(evals <= u).item()
         total_num_sample += samples.shape[0]
     return accept_sample[:num_samples], {'rejection_rate': reject_num_sample / total_num_sample}
