@@ -12,7 +12,9 @@ def rejection_sampling(num_samples: int,
                        target: Union[Distribution, BiProbTrans, Func],
                        proposal: Union[Distribution, BiProbTrans],
                        k: float,
-                       max_samples: Optional[int] = None
+                       max_samples: Optional[int] = None,
+                       squeezing: Optional[Distribution, BiProbTrans] = None,
+                       k_squeezing: Optional[float] = None
                        ) -> Tuple[torch.Tensor, Any]:
     r"""
     Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor :math:`k>0`. See Section 11.1.2 of [Bishop2006PRML]_.
@@ -27,22 +29,40 @@ def rejection_sampling(num_samples: int,
     if k <= 0 or not math.isfinite(k) or math.isnan(k):
         raise ValueError(f"The scaling factor k should be a positive finite scalar, but got k = {k}.")
     
-    # TODO: (Kaiwen) implementing the squeezing function in [Gilks1992ars]_
     total_num_sample, reject_num_sample, accept_sample = 0, 0, None
     while (total_num_sample - reject_num_sample) < num_samples and (max_samples is None or total_num_sample < max_samples):
         samples = proposal.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
-        evals = torch.exp(target(samples))
-        bound = k * torch.exp(proposal(samples))
-        if torch.any(bound < evals):
-            raise ValueError(f"The scaling factor k = {k} is not large enough.")
-        u = torch.rand_like(bound) * bound
-        current_accept_samples = samples[evals > u]
+        up_bound = k * torch.exp(proposal(samples))
+
+        if squeezing is None or k_squeezing is None:
+            if squeezing is not None:
+                warnings.warn("Scaling factor k_squeezing undefined. Ignoring squeezing function.")
+            evals = torch.exp(target(samples))
+            if torch.any(up_bound < evals):
+                raise ValueError(f"The scaling factor k = {k} is not large enough.")
+            u = torch.rand_like(up_bound) * up_bound
+            current_accept_samples = samples[evals > u]
+        else:
+            low_bound = k_squeezing * torch.exp(squeezing(samples))
+            if torch.any(up_bound < low_bound):
+                raise ValueError(f"Either scaling factor k = {k} is not large enough, or k_squeezing = {k_squeezing} is too large.")
+            u = torch.rand_like(up_bound) * up_bound
+            current_accept_samples = samples[low_bound >= u]
+            rem_up_bound = up_bound[low_bound < u]
+            rem_samples = samples[low_bound < u]
+            rem_evals = torch.exp(target(rem_samples))
+            if torch.any(rem_up_bound < rem_evals):
+                raise ValueError(f"The scaling factor k = {k} is not large enough.")
+            rem_u = u[low_bound < u]
+            current_accept_samples = torch.cat([current_accept_samples, rem_samples[rem_evals > rem_u]], dim=0)
+
         if accept_sample is None:
             accept_sample = current_accept_samples
         else:
             accept_sample = torch.cat([accept_sample, current_accept_samples], dim=0)
         reject_num_sample += torch.sum(evals <= u).item()
         total_num_sample += samples.shape[0]
+
     if max_samples is not None and total_num_sample >= max_samples:
         warnings.warn(f"Rejection sampling reaches the maximum number of samples: {max_samples}.")
     return accept_sample[:num_samples], {'rejection_rate': reject_num_sample / total_num_sample}
