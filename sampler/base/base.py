@@ -52,13 +52,14 @@ def rejection_sampling(num_samples: int,
             current_accept_samples = samples[low_bound >= u]
             # step 2: accept samples where u>g(x)
             rem_up_bound = up_bound[low_bound < u]
-            rem_samples = samples[low_bound < u]
-            rem_evals = torch.exp(target(rem_samples))
-            if torch.any(rem_up_bound < rem_evals):
-                raise ValueError(f"The scaling factor k = {k} is not large enough.")
-            rem_u = u[low_bound < u]
-            current_accept_samples = torch.cat([current_accept_samples, rem_samples[rem_evals > rem_u]], dim=0)
-            reject_num_sample += torch.sum(rem_evals <= rem_u).item()
+            if rem_up_bound.shape[0] != 0:
+                rem_samples = samples[low_bound < u]
+                rem_evals = torch.exp(target(rem_samples))
+                if torch.any(rem_up_bound < rem_evals):
+                    raise ValueError(f"The scaling factor k = {k} is not large enough.")
+                rem_u = u[low_bound < u]
+                current_accept_samples = torch.cat([current_accept_samples, rem_samples[rem_evals > rem_u]], dim=0)
+                reject_num_sample += torch.sum(rem_evals <= rem_u).item()
 
         total_num_sample += samples.shape[0]
         if accept_sample is None:

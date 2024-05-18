@@ -141,6 +141,21 @@ class DensityFunc(object):
         return -PotentialFunc(self.name)(z)
 
 
+def PlotSamples(target, results, info):
+    x = torch.linspace(-5, 5, 100)
+    y = torch.linspace(-5, 5, 100)
+    xx, yy = torch.meshgrid(x, y)
+    grid_data = torch.cat((yy.reshape(-1, 1), xx.reshape(-1, 1)), dim=1)
+    value = target(grid_data)
+    z = torch.exp(value).reshape(100,-1)
+    plt.figure()
+    plt.title(f"Mean: {torch.mean(results, dim=0)}\nRejection rate: {info['rejection_rate']}")
+    plt.pcolormesh(x, y, z[:-1, :-1], cmap='summer')
+    plt.colorbar()
+    plt.scatter(results[:, 0], results[:, 1], marker='.', color='red', alpha=0.1)
+    plt.show()
+
+
 class TensorizedMultiGauss(Distribution):
     def __init__(self, mean, std, device=torch.device("cpu")):
         super().__init__()

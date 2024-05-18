@@ -1,6 +1,8 @@
+import numpy as np
+import matplotlib.pyplot as plt
 from sampler.base import *
 from sampler._common import Distribution
-from test_common_helper import MultiGauss, DensityFunc
+from test_common_helper import MultiGauss, DensityFunc, PlotSamples
 
 # try:
 #     target = MultiGauss(mean=test_mean, std=[1, 1, 1])
@@ -137,18 +139,21 @@ try:
     proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
     results, info = rejection_sampling(10000, DensityFunc("potential1"), proposal, k=200)
     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+    PlotSamples(DensityFunc("potential1"), results, info)
 except Exception as e:
     print(e)
 try:
     proposal = MultiGauss(mean=[0, 0], std=[1.5, 1.5])
     results, info = rejection_sampling(10000, DensityFunc("potential6"), proposal, k=200)
     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+    PlotSamples(DensityFunc("potential6"), results, info)
 except Exception as e:
     print(e)
 try:
     proposal = MultiGauss(mean=[0, 0], std=[2, 2])
     results, info = rejection_sampling(10000, DensityFunc("potential7"), proposal, k=200)
     print(f"Mean: {torch.mean(results, dim=0)}\tRejection rate: {info['rejection_rate']}\tSize: {results.shape}")
+    PlotSamples(DensityFunc("potential7"), results, info)
 except Exception as e:
     print(e)
 
