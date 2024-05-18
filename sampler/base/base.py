@@ -13,7 +13,7 @@ def rejection_sampling(num_samples: int,
                        proposal: Union[Distribution, BiProbTrans],
                        k: float,
                        max_samples: Optional[int] = None,
-                       squeezing: Optional[Distribution, BiProbTrans] = None,
+                       squeezing: Optional[Union[Distribution, BiProbTrans, Func]] = None,
                        k_squeezing: Optional[float] = None
                        ) -> Tuple[torch.Tensor, Any]:
     r"""
@@ -42,12 +42,15 @@ def rejection_sampling(num_samples: int,
                 raise ValueError(f"The scaling factor k = {k} is not large enough.")
             u = torch.rand_like(up_bound) * up_bound
             current_accept_samples = samples[evals > u]
+            reject_num_sample += torch.sum(evals <= u).item()
         else:
             low_bound = k_squeezing * torch.exp(squeezing(samples))
             if torch.any(up_bound < low_bound):
                 raise ValueError(f"Either scaling factor k = {k} is not large enough, or k_squeezing = {k_squeezing} is too large.")
             u = torch.rand_like(up_bound) * up_bound
+            # step 1: accept samples where u>g_l(x)
             current_accept_samples = samples[low_bound >= u]
+            # step 2: accept samples where u>g(x)
             rem_up_bound = up_bound[low_bound < u]
             rem_samples = samples[low_bound < u]
             rem_evals = torch.exp(target(rem_samples))
@@ -55,13 +58,13 @@ def rejection_sampling(num_samples: int,
                 raise ValueError(f"The scaling factor k = {k} is not large enough.")
             rem_u = u[low_bound < u]
             current_accept_samples = torch.cat([current_accept_samples, rem_samples[rem_evals > rem_u]], dim=0)
+            reject_num_sample += torch.sum(rem_evals <= rem_u).item()
 
+        total_num_sample += samples.shape[0]
         if accept_sample is None:
             accept_sample = current_accept_samples
         else:
             accept_sample = torch.cat([accept_sample, current_accept_samples], dim=0)
-        reject_num_sample += torch.sum(evals <= u).item()
-        total_num_sample += samples.shape[0]
 
     if max_samples is not None and total_num_sample >= max_samples:
         warnings.warn(f"Rejection sampling reaches the maximum number of samples: {max_samples}.")
