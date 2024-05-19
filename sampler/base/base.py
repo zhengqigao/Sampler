@@ -29,38 +29,31 @@ def rejection_sampling(num_samples: int,
     if k <= 0 or not math.isfinite(k) or math.isnan(k):
         raise ValueError(f"The scaling factor k should be a positive finite scalar, but got k = {k}.")
     
+    if squeezing is not None and k_squeezing is None:
+        warnings.warn("Scaling factor k_squeezing undefined. Ignoring squeezing function.")
+    elif squeezing is None and k_squeezing is not None:
+        warnings.warn("Squeezing function undefined. Ignoring k_squeezing.")
+    elif squeezing is None and k_squeezing is None:
+        flag_squeeze = False
+    else:
+        flag_squeeze = True
+    
     total_num_sample, reject_num_sample, accept_sample = 0, 0, None
     while (total_num_sample - reject_num_sample) < num_samples and (max_samples is None or total_num_sample < max_samples):
         samples = proposal.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
         up_bound = k * torch.exp(proposal(samples))
-
-        if squeezing is None or k_squeezing is None:
-            if squeezing is not None:
-                warnings.warn("Scaling factor k_squeezing undefined. Ignoring squeezing function.")
-            evals = torch.exp(target(samples))
-            if torch.any(up_bound < evals):
-                raise ValueError(f"The scaling factor k = {k} is not large enough.")
-            u = torch.rand_like(up_bound) * up_bound
-            current_accept_samples = samples[evals > u]
-            reject_num_sample += torch.sum(evals <= u).item()
-        else:
+        evals = torch.exp(target(samples))
+        if torch.any(up_bound < evals):
+            raise ValueError(f"The scaling factor k = {k} is not large enough.")
+        u = torch.rand_like(up_bound) * up_bound
+        if flag_squeeze:
             low_bound = k_squeezing * torch.exp(squeezing(samples))
-            if torch.any(up_bound < low_bound):
-                raise ValueError(f"Either scaling factor k = {k} is not large enough, or k_squeezing = {k_squeezing} is too large.")
-            u = torch.rand_like(up_bound) * up_bound
-            # step 1: accept samples where u>g_l(x)
-            current_accept_samples = samples[low_bound >= u]
-            # step 2: accept samples where u>g(x)
-            rem_up_bound = up_bound[low_bound < u]
-            if rem_up_bound.shape[0] != 0:
-                rem_samples = samples[low_bound < u]
-                rem_evals = torch.exp(target(rem_samples))
-                if torch.any(rem_up_bound < rem_evals):
-                    raise ValueError(f"The scaling factor k = {k} is not large enough.")
-                rem_u = u[low_bound < u]
-                current_accept_samples = torch.cat([current_accept_samples, rem_samples[rem_evals > rem_u]], dim=0)
-                reject_num_sample += torch.sum(rem_evals <= rem_u).item()
-
+            if torch.any(evals < low_bound):
+                raise ValueError(f"The scaling factor k_squeezing = {k_squeezing} is too large.")
+            current_accept_samples = samples[(u < low_bound) | (u < evals)]
+        else:
+            current_accept_samples = samples[u < evals]
+        reject_num_sample += torch.sum(u >= evals).item()
         total_num_sample += samples.shape[0]
         if accept_sample is None:
             accept_sample = current_accept_samples
