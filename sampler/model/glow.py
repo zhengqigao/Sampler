@@ -93,7 +93,6 @@ class Inv1by1Conv(nn.Module):
     def reset_parameters(self) -> None:
         r"""
         Initialize the weight and bias. Note that the original implementation requires to use the LU factorization,
-        i.e., W = PL(U + diag(s)).
         """
         nn.init.orthogonal_(self.weight)
         LU, pivots = torch.linalg.lu_factor(self.weight)
@@ -107,8 +106,9 @@ class Inv1by1Conv(nn.Module):
             bound = 1 / math.sqrt(fan_in)
             nn.init.uniform_(self.bias, -bound, bound)
 
-    def reparametrize_u(self, weight, permutation, inverse):
-        if inverse == False:
+    ## TODO: definitely rewrite this function, it is wrong.
+    def reparametrize_u(self, weight: torch.Tensor, permutation: torch.Tensor, inverse: bool) -> torch.Tensor:
+        if not inverse:
             l, u = torch.tril(weight,-1) + torch.diag(torch.ones(*weight.shape)), torch.triu(weight)
             return torch.matmul(permutation, torch.matmul(l, u))
         else:
