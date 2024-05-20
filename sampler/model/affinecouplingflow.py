@@ -4,13 +4,13 @@ from typing import List, Union, Tuple, Optional
 from .._common import BiProbTrans, Distribution
 
 
-class CouplingFlow(BiProbTrans):
+class AffineCouplingFlow(BiProbTrans):
     r"""
     The Affine coupling flow. It keeps the dimensions unchanged specified by the argument `keep_dim`, and the other
     dimensions are transformed by the scale and shift networks. See ..[Dinh2017] for more details.
 
     .. Example::
-        >>> couplingflow = CouplingFlow(dim=2, keep_dim=[0], scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
+        >>> couplingflow = AffineCouplingFlow(dim=2, keep_dim=[0], scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
         >>> x = torch.rand(10, 2)
         >>> x_, diff_log_det = couplingflow.backward(*couplingflow.forward(x, 0))
         >>> diff = x - x_
@@ -101,7 +101,7 @@ class RealNVP(BiProbTrans):
         else:
             self.keep_dim = keep_dim
 
-        self.transforms = nn.ModuleList([CouplingFlow(dim=self.dim,
+        self.transforms = nn.ModuleList([AffineCouplingFlow(dim=self.dim,
                                                     keep_dim=self.keep_dim[i],
                                                     scale_net=self.scale_net[i] if isinstance(self.scale_net,
                                                                                               nn.ModuleList) and i < len(
