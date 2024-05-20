@@ -18,6 +18,14 @@ class PlanarFlow(BiProbTrans):
                  alpha_iter: Optional[int] = 10000,
                  alpha_threshold: Optional[float] = 1e-9,
                  p_base: Optional[Distribution] = None):
+        r"""
+        Args:
+            dim (int): The dimension of the input.
+            num_trans (int): The number of transformations.
+            alpha_iter (Optional[int], optional): The number of iterations to solve alpha. Defaults to 10000.
+            alpha_threshold (Optional[float], optional): The threshold to stop the iteration. Defaults to 1e-9.
+            p_base (Optional[Distribution], optional): The base distribution. Defaults to None.
+        """
         super().__init__()
         self.dim = dim
         self.num_trans = num_trans
