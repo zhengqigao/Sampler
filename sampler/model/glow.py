@@ -98,7 +98,7 @@ class Inv1by1Conv(nn.Module):
         LU, pivots = torch.linalg.lu_factor(self.weight)
         P, L, U = torch.lu_unpack(LU, pivots)
 
-        self.weight = torch.tril(L, -1) + torch.triu(U, 0)
+        self.weight = nn.Parameter(torch.tril(L, -1) + torch.triu(U, 0))
         self.permutation = P
 
         if self.bias is not None:
@@ -106,34 +106,34 @@ class Inv1by1Conv(nn.Module):
             bound = 1 / math.sqrt(fan_in)
             nn.init.uniform_(self.bias, -bound, bound)
 
-    ## TODO: definitely rewrite this function, it is wrong.
     def reparametrize_u(self, weight: torch.Tensor, permutation: torch.Tensor, inverse: bool) -> torch.Tensor:
+        l, u = torch.tril(weight, -1) + torch.eye(*weight.shape), torch.triu(weight)
         if not inverse:
-            l, u = torch.tril(weight,-1) + torch.diag(torch.ones(*weight.shape)), torch.triu(weight)
             return torch.matmul(permutation, torch.matmul(l, u))
         else:
-            l, u = torch.tril(weight,-1) + torch.diag(torch.ones(*weight.shape)), torch.triu(weight)
-            return torch.matmul(torch.inverse(permutation), torch.matmul(u, l))
+            p_inv = permutation.t()
+            l_inv = torch.linalg.solve_triangular(l, torch.eye(*l.shape), upper=False)
+            u_inv = torch.linalg.solve_triangular(u, torch.eye(*u.shape), upper=True)
+            return torch.matmul(u_inv, torch.matmul(l_inv, p_inv))
 
     def forward(self, x: torch.Tensor, log_det: torch.Tensor = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         n, c, *remain = x.shape
 
-        weight = self.reparametrize_u(self.weight, self.permutation, inverse = False).unsqueeze(0)
-        bias = self.bias.unsqueeze(0) if self.bias is not None else 0.0
-        z = torch.matmul(x.view(n, c, -1), weight) + bias
-        z = z.view(n, c, *remain)
+        weight = self.reparametrize_u(self.weight, self.permutation, inverse=False)
+        bias = self.bias.unsqueeze(0).view(1, c, *[1] * len(remain)) if self.bias is not None else 0.0
 
-        log_det = log_det + torch.slogdet(weight.squeeze())[1] * math.prod(remain)
+        z = torch.einsum('nc...,cd->nd...', x, weight) + bias
+
+        log_det = log_det + torch.log(torch.diag(self.weight).abs()).sum() * math.prod(remain)
         return z, log_det
 
     def backward(self, z: torch.Tensor, log_det: torch.Tensor = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         n, c, *remain = z.shape
 
-        weight = self.reparametrize_u(self.weight, self.permutation, inverse = True).unsqueeze(0)
-        bias = self.bias.unsqueeze(0)
+        weight = self.reparametrize_u(self.weight, self.permutation, inverse=True)
+        bias = self.bias.unsqueeze(0).view(1, c, *[1] * len(remain)) if self.bias is not None else 0.0
 
-        x = torch.matmul(z.view(n, c, -1) - bias, weight)
-        x = x.view(n, c, *remain)
+        x = torch.einsum('nc...,cd->nd...', z - bias, weight)
 
-        log_det = log_det - torch.slogdet(weight.squeeze())[1] * math.prod(remain)
+        log_det = log_det - torch.log(torch.diag(self.weight).abs()).sum() * math.prod(remain)
         return x, log_det

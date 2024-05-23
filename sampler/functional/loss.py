@@ -13,12 +13,13 @@ class KLGenLoss(nn.Module):
 
     """
 
-    def __init__(self, reduction: Optional[str] = 'mean'):
+    def __init__(self, reduction: Optional[str] = 'mean', dequant_std: Optional[float] = 0.0):
         super().__init__()
         self.reduction = reduction
+        self.dequant_std = dequant_std
 
     def forward(self, model: BiProbTrans, z: torch.Tensor) -> torch.Tensor:
-        x, log_q = model.log_prob(z)
+        x, log_q = model.log_prob(z + torch.randn_like(z) * self.dequant_std)
         if self.reduction == 'mean':
             result = -torch.mean(log_q)
         elif self.reduction == 'sum':
