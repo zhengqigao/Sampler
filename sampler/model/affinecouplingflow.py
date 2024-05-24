@@ -22,7 +22,7 @@ class AffineCouplingFlow(BiProbTrans):
                  scale_net: Optional[nn.Module] = None,
                  shift_net: Optional[nn.Module] = None,
                  p_base: Optional[Distribution] = None):
-        super().__init__(p_base=p_base)
+        super().__init__()
 
         if not set(keep_dim).issubset(set(range(dim))):
             raise ValueError(f"keep_dim should be a subset of [0, {dim}), but got {keep_dim}.")
@@ -33,6 +33,8 @@ class AffineCouplingFlow(BiProbTrans):
 
         self.scale_net = scale_net
         self.shift_net = shift_net
+
+        self.p_base = p_base
 
     def forward(self, x: torch.Tensor,
                 log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
