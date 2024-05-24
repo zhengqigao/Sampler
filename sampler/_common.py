@@ -122,13 +122,9 @@ class _BaseDistribution(nn.Module):
     def __init__(self):
         super().__init__()
         self._device = torch.device("cpu")
-
+        self._mul_factor = None
     @property
     def mul_factor(self):
-        if not hasattr(self, '_mul_factor'):
-            raise AttributeError(
-                "The normalization constant is not provided, "
-                "Please set `self.mul_factor = None` or `self.div_factor = None` if unknown.")
         return self._mul_factor
 
     @mul_factor.setter
