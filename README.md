@@ -30,7 +30,8 @@ This section lists the algorithms and models that have been implemented and that
 - [Score Estimator](http://stillbreeze.github.io/REINFORCE-vs-Reparameterization-trick/) :cat:
 - [Affine Coupling Flow](https://arxiv.org/abs/1605.08803), [RealNVP](https://arxiv.org/abs/1605.08803), [NICE](https://arxiv.org/pdf/1410.8516) :dog:
 - [Planar Flow](https://arxiv.org/pdf/1505.05770), [Radial Flow](https://arxiv.org/pdf/1505.05770)  :dog:
-    - Forward and Backward both are implemented, so they can be used for generation. The backward of Planar Flow needs a root finding algorithm.
+    - Both forward and backward are implemented, so they can be used for generation. 
+    - The backward of Planar Flow needs a differentiable root finding algorithm.
 - [Glow: Generative Flow with Invertible 1×1 Convolutions](https://arxiv.org/abs/1807.03039) :dog:
 - [MADE: Masked Autoencoder Distribution Estimator](https://arxiv.org/pdf/1502.03509) :dog:
 - [MAF: Masked Autoregressive Flow](https://arxiv.org/pdf/1705.07057) :dog:
