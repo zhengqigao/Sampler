@@ -61,6 +61,8 @@ The following algorithms have been implemented:
 - [Affine Coupling Flow](https://arxiv.org/abs/1605.08803), [RealNVP](https://arxiv.org/abs/1605.08803) :dog:
 - [Planar Flow](https://arxiv.org/pdf/1505.05770) :dog:
 - [Radial Flow](https://arxiv.org/pdf/1505.05770) :dog:
+- [Glow](https://arxiv.org/abs/1807.03039) :dog:
+- [MADE](https://arxiv.org/pdf/1502.03509), [MAF](https://arxiv.org/pdf/1705.07057) :dog:
 
 
 A list of TODOs are shown below. **Please add your name after it in parentheses if you are working on it.** Move to the list above when finished development, and meanwhile please add a reference which your implementation is based on. Note that some algorithms below should be combined to the previous implemented algorithms, and some algorithms might be able to call previous implemented algorithms as subroutines. 
