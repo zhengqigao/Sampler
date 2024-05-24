@@ -29,8 +29,8 @@ This section lists the algorithms and models that have been implemented and that
 - [Hamiltonian Monte Carlo](https://arxiv.org/pdf/1206.1901.pdf) :cat:
 - [Score Estimator](http://stillbreeze.github.io/REINFORCE-vs-Reparameterization-trick/) :cat:
 - [Affine Coupling Flow](https://arxiv.org/abs/1605.08803), [RealNVP](https://arxiv.org/abs/1605.08803), [NICE](https://arxiv.org/pdf/1410.8516) :dog:
-- [Planar Flow](https://arxiv.org/pdf/1505.05770) :dog:
-- [Radial Flow](https://arxiv.org/pdf/1505.05770) :dog:
+- [Planar Flow](https://arxiv.org/pdf/1505.05770), [Radial Flow](https://arxiv.org/pdf/1505.05770)  :dog:
+    - Forward and Backward both are implemented, so they can be used for generation. The backward of Planar Flow needs a root finding algorithm.
 - [Glow: Generative Flow with Invertible 1×1 Convolutions](https://arxiv.org/abs/1807.03039) :dog:
 - [MADE: Masked Autoencoder Distribution Estimator](https://arxiv.org/pdf/1502.03509) :dog:
 - [MAF: Masked Autoregressive Flow](https://arxiv.org/pdf/1705.07057) :dog:
@@ -39,7 +39,7 @@ This section lists the algorithms and models that have been implemented and that
 
 ## Quick Example
 
-Our main effort now is on  developing the code, tutorials and documentations will be added in the near future. At this point, checking the scripts under the test folder or directly reading the docstring of a method/class is the most straightforward way to understand how to use the library. Here we show a few example usages of the library. 
+Our main effort now is on  developing the code, **tutorials and documentations will be certainly added in the near future**. At this point, checking the scripts under the test folder or directly reading the docstring of a method/class is the most straightforward way to understand how to use the library. Here we show a few example usages of the library. 
 
 ### 1. Importance Sampling and Basics of Defining a Distribution Class
 
