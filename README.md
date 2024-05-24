@@ -41,7 +41,7 @@ This section lists the algorithms and models that have been implemented and that
 
 Our main effort now is on  developing the code, tutorials and documentations will be added in the near future. At this point, checking the scripts under the test folder or directly reading the docstring of a method/class is the most straightforward way to understand how to use the library. Here we show a few example usages of the library. 
 
-1. Importance Sampling and Basics of Defining a Distribution Class
+### 1. Importance Sampling and Basics of Defining a Distribution Class
 
 ```python
 import torch
@@ -84,13 +84,14 @@ class MultiGauss(Distribution):
                 torch.sum(((x - self.mean) / self.std) ** 2, dim=1)
                 + torch.log(2 * torch.pi * self.std * self.std).sum()
         )
+
 target = MultiGauss([-1, 1, 0.5], [1,1,1])
 proposal = MultiGauss([0, 0, 0], [1,1,1])
 results, _ = importance_sampling(10000, target, proposal, f)
 print("Test mean:", results)
 ```
 
-2. Metropolis-Hastings Sampling
+### 2. Metropolis-Hastings Sampling
 
 ```python
 
@@ -123,10 +124,12 @@ class ConditionalMultiGauss(Condistribution):
         x = x.unsqueeze(1)
         y = y.unsqueeze(0)
         return -0.5 * (
-                torch.sum(((x - y) / self.std) ** 2, dim=2) + torch.log(2 * torch.pi * self.std * self.std).sum())
+                torch.sum(((x - y) / self.std) ** 2, dim=2) 
+                + torch.log(2 * torch.pi * self.std * self.std).sum())
 
 
 # define a potential function that we want to sample from
+# Here potential(z) means logp(z), i.e., p(z) = exp(potential(z)) upon to a normalization factor
 def potential(z: torch.Tensor) -> torch.Tensor:
     z1, z2 = z[:, 0], z[:, 1]
     w1 = torch.sin(2 * pi * z1 / 4)
@@ -139,6 +142,7 @@ samples, _ = mh_sampling(num_samples, target=potential,
                          transit=ConditionalMultiGauss(torch.ones(2)),
                          initial=torch.ones((num_chain, 2)),
                          burn_in=5000)
+
 # samples of shape (num_samples, num_chain, 2)
 # Let's plot the samples of the first chain
 import matplotlib.pyplot as plt
@@ -166,18 +170,19 @@ plt.show()
 
 ```
 
-3. Normalizing Flows
+### 3. Normalizing Flows for Generation Tasks
 
 ```python
 import torch
 import torch.nn as nn
-import numpy as np
 import matplotlib.pyplot as plt
 from sampler.model import RealNVP
 from sklearn import datasets
 from sampler.functional.loss import KLGenLoss
 from sampler.distribution import TDWrapper
 from torch.distributions import MultivariateNormal
+
+# define a feedforward network for the scale and shift functions in RealNVP
 class Feedforward(nn.Module):
     def __init__(self, hidden_dims):
         super(Feedforward, self).__init__()
@@ -194,6 +199,7 @@ class Feedforward(nn.Module):
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 num_trans = 12
+p_base=TDWrapper(MultivariateNormal(torch.zeros(2), torch.eye(2)))
 module = RealNVP(dim=2,
                 num_trans=num_trans,
                 scale_net=nn.ModuleList(
@@ -202,7 +208,7 @@ module = RealNVP(dim=2,
                 shift_net=nn.ModuleList(
                          [Feedforward([1, 128, 128, 128, 1]) for _ in
                           range(num_trans)]),
-                p_base=TDWrapper(MultivariateNormal(torch.zeros(2), torch.eye(2)))).to(device)
+                p_base=p_base).to(device)
 optimizer = torch.optim.Adam(module.parameters(), lr=0.0001)
 num_steps = 1000
 criterion = KLGenLoss()
@@ -221,6 +227,7 @@ samples = samples.cpu().detach().numpy()
 plt.figure()
 plt.scatter(samples[:, 0], samples[:, 1])
 plt.title("generated samples")
+
 # show the golden dataset
 plt.figure()
 x, _ = datasets.make_moons(n_samples=1000, noise=0.1)
@@ -228,4 +235,97 @@ plt.scatter(x[:, 0], x[:, 1])
 plt.title("real samples")
 plt.show()
 
+```
+
+### 4. Normalizing Flows for Density Estimation Tasks
+
+```python
+import torch
+import torch.nn as nn
+import matplotlib.pyplot as plt
+from sampler.model import RealNVP
+from sampler.functional.loss import KLDenLoss, ScoreDenLoss
+from sampler.distribution import TDWrapper
+from torch.distributions import MultivariateNormal
+from math import pi
+import numpy as np
+
+# define a feedforward network for the scale and shift functions in RealNVP
+class Feedforward(nn.Module):
+    def __init__(self, hidden_dims):
+        super(Feedforward, self).__init__()
+
+        self.hidden_layers = nn.ModuleList(
+            [nn.Linear(hidden_dims[i], hidden_dims[i + 1]) for i in range(len(hidden_dims) - 1)])
+        self.activation = nn.LeakyReLU(0.2)
+    def forward(self, x):
+        for i in range(len(self.hidden_layers) - 1):
+            x = self.activation(self.hidden_layers[i](x))
+        x = self.hidden_layers[-1](x)
+        return x
+
+# define a potential function that we want the flow model to learn
+# Here potential(z) means logp(z)
+def potential(z: torch.Tensor) -> torch.Tensor:
+    z1, z2 = z[:, 0], z[:, 1]
+    w1 = torch.sin(2 * np.pi * z1 / 4)
+    return -0.5 * ((z2 - w1) / 0.4) ** 2
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+num_trans = 12
+p_base = TDWrapper(MultivariateNormal(torch.zeros(2), torch.eye(2)))
+module = RealNVP(dim=2,
+                num_trans=num_trans,
+                scale_net=nn.ModuleList(
+                         [Feedforward([1, 128, 128, 128, 1]) for _ in
+                          range(num_trans)]),
+                shift_net=nn.ModuleList(
+                         [Feedforward([1, 128, 128, 128, 1]) for _ in
+                          range(num_trans)]),
+                p_base=p_base).to(device)
+
+optimizer = torch.optim.Adam(module.parameters(), lr=0.0001)
+max_iter = 500
+loss_list = []
+batch_size = 1000
+criterion1 = KLDenLoss(log_p = potential)
+criterion2 = ScoreDenLoss(log_p = potential)
+
+for i in range(max_iter):
+    loss1 = criterion1(module, batch_size)
+    loss2 = criterion2(module, batch_size)
+    loss_list.append(loss1.item())
+    if torch.isnan(loss1).any() or torch.isinf(loss1).any() or i == max_iter - 1:
+        plt.figure()
+        plt.plot(loss_list)
+        plt.title("Loss")
+        break
+    optimizer.zero_grad()
+    loss1.backward() # loss2.backward() uses score estimator, and usually has large variance. It is recommended to use loss1.backward()
+    optimizer.step()
+    print(f"iter {i}, KLDenLoss: {loss1.item():.3f}, ScoreDenLoss: {loss2.item():.3f}")
+
+# do visualization
+bound = 4
+
+plt.figure()
+samples, log_prob = module.sample(50000)
+samples = samples.detach().cpu().numpy()
+log_prob = log_prob.detach().cpu().numpy()
+plt.scatter(samples[:, 0], samples[:, 1], c=np.exp(log_prob).reshape(-1),
+                cmap='viridis')
+plt.colorbar()
+plt.title('learnt module samples')
+plt.xlim(-bound, bound)
+plt.ylim(-bound, bound)
+
+
+
+xx, yy = torch.meshgrid(torch.linspace(-bound, bound, 100), torch.linspace(-bound, bound, 100))
+grid_data = torch.cat((xx.reshape(-1, 1), yy.reshape(-1, 1)), dim=1)
+plt.figure()
+plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(potential(grid_data)), cmap='viridis')
+plt.title('golden result')
+plt.show()
 ```

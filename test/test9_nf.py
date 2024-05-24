@@ -119,7 +119,7 @@ def run_density_matching_example():
     ## TODO: I tested potential3 and potential6, they work. Can you try testing other cases? Note that because of randomness,
     # may need to run with different random seeds to obtain good results. Also, I haven't tested it on GPU.
 
-    potential_func = PotentialFunc("potential6")
+    potential_func = PotentialFunc("potential2")
 
     # show poential_function
     bound = 4
@@ -166,7 +166,7 @@ def run_density_matching_example():
             plt.show()
             break
         optimizer.zero_grad()
-        loss_tmp.backward() # loss.backward() should be used, loss_tmp.backward() uses score estimator, and usually has large variance.
+        loss.backward() # loss.backward() should be used, loss_tmp.backward() uses score estimator, and usually has large variance.
         optimizer.step()
         print(f"iter {i}, loss: {loss.item()}, loss_tmp: {loss_tmp.item()}")
 
@@ -231,4 +231,4 @@ def run_generation_example():
 
 
 run_density_matching_example()
-run_generation_example()
+# run_generation_example()
