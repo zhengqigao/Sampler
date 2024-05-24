@@ -62,7 +62,7 @@ The following algorithms have been implemented:
 - [Planar Flow](https://arxiv.org/pdf/1505.05770) :dog:
 - [Radial Flow](https://arxiv.org/pdf/1505.05770) :dog:
 - [Glow: Generative Flow with Invertible 1×1 Convolutions](https://arxiv.org/abs/1807.03039) :dog:
-- [MADE: Masked Autoencoder Distribution Estimator](https://arxiv.org/pdf/1502.03509)
+- [MADE: Masked Autoencoder Distribution Estimator](https://arxiv.org/pdf/1502.03509) :dog:
 - [MAF: Masked Autoregressive Flow](https://arxiv.org/pdf/1705.07057) :dog:
 
 
