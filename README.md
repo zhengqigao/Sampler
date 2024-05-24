@@ -58,11 +58,12 @@ The following algorithms have been implemented:
 - [Langevin Monte Carlo](https://abdulfatir.com/blog/2020/Langevin-Monte-Carlo/) :cat:
 - [Hamiltonian Monte Carlo](https://arxiv.org/pdf/1206.1901.pdf) :cat:
 - [Score Estimator](http://stillbreeze.github.io/REINFORCE-vs-Reparameterization-trick/) :cat:
-- [Affine Coupling Flow](https://arxiv.org/abs/1605.08803), [RealNVP](https://arxiv.org/abs/1605.08803) :dog:
+- [Affine Coupling Flow](https://arxiv.org/abs/1605.08803), [RealNVP](https://arxiv.org/abs/1605.08803), [NICE](https://arxiv.org/pdf/1410.8516) :dog:
 - [Planar Flow](https://arxiv.org/pdf/1505.05770) :dog:
 - [Radial Flow](https://arxiv.org/pdf/1505.05770) :dog:
-- [Glow](https://arxiv.org/abs/1807.03039) :dog:
-- [MADE](https://arxiv.org/pdf/1502.03509), [MAF](https://arxiv.org/pdf/1705.07057) :dog:
+- [Glow: Generative Flow with Invertible 1×1 Convolutions](https://arxiv.org/abs/1807.03039) :dog:
+- [MADE: Masked Autoencoder Distribution Estimator](https://arxiv.org/pdf/1502.03509)
+- [MAF: Masked Autoregressive Flow](https://arxiv.org/pdf/1705.07057) :dog:
 
 
 A list of TODOs are shown below. **Please add your name after it in parentheses if you are working on it.** Move to the list above when finished development, and meanwhile please add a reference which your implementation is based on. Note that some algorithms below should be combined to the previous implemented algorithms, and some algorithms might be able to call previous implemented algorithms as subroutines. 
