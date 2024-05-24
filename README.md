@@ -2,13 +2,13 @@
 
 ## Introduction
 
-This library is dedicated to providing a comprehensive collection of sampling methods, including but not limited to classical sampling techniques, deep learning-based samplers, and rare event samplers. It is designed with PyTorch data formats in mind for seamless integration into modern machine learning workflows. 
+This library is dedicated to providing a comprehensive collection of sampling methods, including but not limited to classical sampling techniques, deep learning-based samplers (specifically, normalizing flows). It is designed with PyTorch data formats in mind for seamless integration into modern machine learning workflows. 
 
-**This project is under active development and will be updated daily.** At this point, the implemented functions are in Beta stage. Things (functions, code structures, documentations, even the library name) might be subjected to change without notice. If you are interested in using the library, we suggest to take a try and check back later for updates. Also, please feel free to raise an issue for any bugs or feature requests. 
+**This project is under active development and will be updated daily.** At this point, the implemented functions are in Beta stage. Things (functions, code structures, method arguments, class definitions) might be subjected to change without notice. If you are interested in using the library, we suggest to take a try and check back later for updates. Also, please feel free to raise an issue for any bugs or feature requests. We will gradually add tutorials and documentations for better user experience. 
 
 ## Installation
 
-When we believe the library is stable enough, we will release the first version on pypi and conda. For now, to install the package, the `pip` command is needed.
+When we believe the library is stable enough, we will release it on pypi and conda. For now, installing the library can be done with the `pip` command.
 
 ```bash
 
