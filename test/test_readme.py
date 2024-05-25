@@ -1,3 +1,6 @@
+import sys
+sys.path.append('..')
+
 # import torch
 # from torch.distributions import MultivariateNormal
 # from sampler.base import importance_sampling
@@ -207,7 +210,7 @@ def potential(z: torch.Tensor) -> torch.Tensor:
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 num_trans = 12
-p_base = TDWrapper(MultivariateNormal(torch.zeros(2), torch.eye(2)))
+p_base = TDWrapper(MultivariateNormal(torch.zeros(2), torch.eye(2))).to(device)
 module = RealNVP(dim=2,
                 num_trans=num_trans,
                 scale_net=nn.ModuleList(

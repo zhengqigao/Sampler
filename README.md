@@ -198,9 +198,9 @@ class Feedforward(nn.Module):
         return x
 
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 num_trans = 12
-p_base=TDWrapper(MultivariateNormal(torch.zeros(2), torch.eye(2)))
+p_base=TDWrapper(MultivariateNormal(torch.zeros(2), torch.eye(2))).to(device)
 module = RealNVP(dim=2,
                 num_trans=num_trans,
                 scale_net=nn.ModuleList(
@@ -272,10 +272,10 @@ def potential(z: torch.Tensor) -> torch.Tensor:
     w1 = torch.sin(2 * np.pi * z1 / 4)
     return -0.5 * ((z2 - w1) / 0.4) ** 2
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cpu")
 
 num_trans = 12
-p_base = TDWrapper(MultivariateNormal(torch.zeros(2), torch.eye(2)))
+p_base = TDWrapper(MultivariateNormal(torch.zeros(2), torch.eye(2))).to(device)
 module = RealNVP(dim=2,
                 num_trans=num_trans,
                 scale_net=nn.ModuleList(

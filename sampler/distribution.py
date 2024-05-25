@@ -1,5 +1,7 @@
+from typing import Union
+
 import torch
-from ._common import Distribution
+from ._common import Distribution, checker
 from torch.distributions import Distribution as TorchDistribution
 import torch.distributions
 
@@ -10,9 +12,11 @@ class TDWrapper(Distribution):
         self.distribution = distribution
         self.mul_factor = 1.0
 
+    @checker
     def sample(self, num_samples: int) -> torch.Tensor:
         return self.distribution.sample(torch.Size([num_samples]))
 
+    @checker
     def log_prob(self, x: torch.Tensor) -> torch.Tensor:
         return self.distribution.log_prob(x)
 
