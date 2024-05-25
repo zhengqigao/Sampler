@@ -40,7 +40,6 @@ class AffineCouplingFlow(BiProbTrans):
                 log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
 
         x_keep, x_trans = x[:, self.keep_dim], x[:, self.trans_dim]
-        print(x_keep.device)
         s = self.scale_net(x_keep) if self.scale_net is not None else torch.zeros_like(x_trans)
         t = self.shift_net(x_keep) if self.shift_net is not None else torch.zeros_like(x_trans)
 

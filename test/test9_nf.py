@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 sys.path.append(os.path.abspath("../"))
 import numpy as np
 from sampler.model import AffineCouplingFlow, RealNVP
-from test_common_helper import Feedforward, MultiGauss, PotentialFunc
+from test_common_helper import Feedforward, TensorizedMultiGauss, PotentialFunc, MultiGauss
 from sampler._common import Distribution
 from sampler.base import importance_sampling
 from torch.distributions.multivariate_normal import MultivariateNormal
@@ -116,12 +116,13 @@ def test_sample():
 
 
 def run_density_matching_example():
-    ## TODO: I tested potential3 and potential6, they work. Can you try testing other cases? Note that because of randomness,
-    # may need to run with different random seeds to obtain good results. Also, I haven't tested it on GPU.
+    ## TODO: Potential 3 and 4 trials are not really stable, actually rare works as the MCMC case, will investigate more
+    ## a work seed for potential 4 torch.manual_seed(10000000000000000)
+    ## GPU version is tested
 
-    potential_func = PotentialFunc("potential2")
+    potential_func = PotentialFunc("potential7")
 
-    # show poential_function
+    # show potential_function
     bound = 4
     x = torch.linspace(-bound, bound, 100)
     y = torch.linspace(-bound, bound, 100)
@@ -134,11 +135,9 @@ def run_density_matching_example():
     plt.figure()
     plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(-value), cmap='viridis')
     plt.title('golden result')
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    # device = torch.device("mps")
     num_trans = 12
-    ## TODO: to(device), module.sample might have error, because p_base is on cpu, while all parameters of module is on gpu.
     module = RealNVP(dim=2,
                      num_trans=num_trans,
                      scale_net=nn.ModuleList(
@@ -147,9 +146,9 @@ def run_density_matching_example():
                      shift_net=nn.ModuleList(
                          [Feedforward([1, 128, 128, 128, 1], 'leakyrelu') for _ in
                           range(num_trans)]),
-                     p_base=MultiGauss(mean=[0, 0], std=[1, 1])).to(device)
+                     p_base=TensorizedMultiGauss(mean=[0, 0], std=[1, 1], device=device)).to(device)
 
-    optimizer = torch.optim.Adam(module.parameters(), lr=0.0001)
+    optimizer = torch.optim.Adam(module.parameters(), lr=1e-4)
     max_iter = 500
     loss_list = []
     batch_size = 1000
@@ -181,7 +180,9 @@ def run_density_matching_example():
     plt.xlim(-bound, bound)
     plt.ylim(-bound, bound)
     plt.figure()
-    plt.scatter(grid_data[:, 0], grid_data[:, 1], c=torch.exp(module.log_prob(grid_data)[1]).detach().numpy(),
+    grid_data = grid_data.to(device)
+    grid_data_numpy = grid_data.detach().cpu().numpy()
+    plt.scatter(grid_data_numpy[:, 0], grid_data_numpy[:, 1], c=torch.exp(module.log_prob(grid_data)[1]).detach().cpu().numpy(),
                 cmap='viridis')
     plt.colorbar()
     plt.title('learned module distribution')
