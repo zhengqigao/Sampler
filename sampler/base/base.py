@@ -25,22 +25,21 @@ def rejection_sampling(num_samples: int,
         proposal (Distribution): the proposal distribution.
         k (float): a positive constant such that :math: `k q(x) \geq \tilde{p}(x)` holds for all `x`.
     """
-
-    if k <= 0 or not math.isfinite(k) or math.isnan(k):
+    if not (k > 0 and math.isfinite(k)):
         raise ValueError(f"The scaling factor k should be a positive finite scalar, but got k = {k}.")
-    
     if squeezing is not None and k_squeezing is None:
         warnings.warn("Scaling factor k_squeezing undefined. Ignoring squeezing function.")
-    elif squeezing is None and k_squeezing is not None:
+    if squeezing is None and k_squeezing is not None:
         warnings.warn("Squeezing function undefined. Ignoring k_squeezing.")
-    elif squeezing is None and k_squeezing is None:
-        flag_squeeze = False
-    else:
-        flag_squeeze = True
-    
-    total_num_sample, reject_num_sample, accept_sample = 0, 0, None
-    while (total_num_sample - reject_num_sample) < num_samples and (max_samples is None or total_num_sample < max_samples):
-        samples = proposal.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
+
+    flag_squeeze = squeezing is not None and k_squeezing is not None
+    total_num_sample = 0
+    reject_num_sample = 0
+    accept_sample = None
+
+    while total_num_sample - reject_num_sample < num_samples and (max_samples is None or total_num_sample < max_samples):
+        num_remaining_samples = num_samples - accept_sample.shape[0] if accept_sample is not None else num_samples
+        samples = proposal.sample(num_remaining_samples)
         up_bound = k * torch.exp(proposal(samples))
         evals = torch.exp(target(samples))
         if torch.any(up_bound < evals):
@@ -55,14 +54,11 @@ def rejection_sampling(num_samples: int,
             current_accept_samples = samples[u < evals]
         reject_num_sample += torch.sum(u >= evals).item()
         total_num_sample += samples.shape[0]
-        if accept_sample is None:
-            accept_sample = current_accept_samples
-        else:
-            accept_sample = torch.cat([accept_sample, current_accept_samples], dim=0)
+        accept_sample = current_accept_samples if accept_sample is None else torch.cat([accept_sample, current_accept_samples], dim=0)
 
     if max_samples is not None and total_num_sample >= max_samples:
         warnings.warn(f"Rejection sampling reaches the maximum number of samples: {max_samples}.")
-    return accept_sample[:num_samples], {'rejection_rate': reject_num_sample / total_num_sample}
+    return accept_sample[:num_samples], {"rejection_rate": reject_num_sample / total_num_sample}
 
 
 @_bpt_decorator
