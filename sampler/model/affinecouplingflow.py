@@ -18,18 +18,20 @@ class AffineCouplingFlow(BiProbTrans):
     """
 
     def __init__(self, dim: int,
-                 keep_dim: List[int],
+                 keep_dim: Union[List[int], Tuple[int], torch.Tensor],
                  scale_net: Optional[nn.Module] = None,
                  shift_net: Optional[nn.Module] = None,
                  p_base: Optional[Distribution] = None):
         super().__init__()
 
-        if not set(keep_dim).issubset(set(range(dim))):
-            raise ValueError(f"keep_dim should be a subset of [0, {dim}), but got {keep_dim}.")
-
         self.dim = dim
-        self.keep_dim = keep_dim
-        self.trans_dim = sorted(list(set(range(dim)) - set(keep_dim)))
+
+        keep_dim, all_dim = torch.tensor(keep_dim, dtype=torch.int), torch.arange(dim)
+        if ~torch.all(torch.isin(keep_dim, all_dim)):
+            raise ValueError(f"keep_dim should be a subset of [0,{dim-1}), but got {keep_dim}.")
+
+        self.register_buffer("keep_dim", keep_dim)
+        self.register_buffer("trans_dim", all_dim[~torch.isin(all_dim, keep_dim)])
 
         self.scale_net = scale_net
         self.shift_net = shift_net
@@ -38,7 +40,6 @@ class AffineCouplingFlow(BiProbTrans):
 
     def forward(self, x: torch.Tensor,
                 log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
-
         x_keep, x_trans = x[:, self.keep_dim], x[:, self.trans_dim]
         s = self.scale_net(x_keep) if self.scale_net is not None else torch.zeros_like(x_trans)
         t = self.shift_net(x_keep) if self.shift_net is not None else torch.zeros_like(x_trans)
@@ -52,7 +53,6 @@ class AffineCouplingFlow(BiProbTrans):
 
     def backward(self, z: torch.Tensor,
                  log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
-
         z_keep, z_trans = z[:, self.keep_dim], z[:, self.trans_dim]
         s = self.scale_net(z_keep) if self.scale_net is not None else torch.zeros_like(z_trans)
         t = self.shift_net(z_keep) if self.shift_net is not None else torch.zeros_like(z_trans)
@@ -82,12 +82,11 @@ class RealNVP(BiProbTrans):
 
     def __init__(self, num_trans: int,
                  dim: int,
-                 scale_net: Optional[Union[nn.Module, nn.ModuleList]] = None,
-                 shift_net: Optional[Union[nn.Module, nn.ModuleList]] = None,
-                 keep_dim: Optional[List[List[int]]] = None,
+                 scale_net: Optional[Union[nn.Module, nn.ModuleList, List, Tuple]] = None,
+                 shift_net: Optional[Union[nn.Module, nn.ModuleList, List, Tuple]] = None,
+                 keep_dim: Optional[Union[torch.Tensor, List[List[int]]]] = None,
                  p_base: Optional[Distribution] = None):
         super().__init__()
-
 
         self.num_trans = num_trans
         self.dim = dim
@@ -104,13 +103,17 @@ class RealNVP(BiProbTrans):
             self.keep_dim = keep_dim
 
         self.transforms = nn.ModuleList([AffineCouplingFlow(dim=self.dim,
-                                                    keep_dim=self.keep_dim[i],
-                                                    scale_net=self.scale_net[i] if isinstance(self.scale_net,
-                                                                                              nn.ModuleList) and i < len(
-                                                        self.scale_net) else self.scale_net,
-                                                    shift_net=self.shift_net[i] if isinstance(self.shift_net,
-                                                                                              nn.ModuleList) and i < len(
-                                                        self.shift_net) else None) for i in range(num_trans)])
+                                                            keep_dim=self.keep_dim[i],
+                                                            scale_net=self.scale_net[i] if isinstance(self.scale_net,
+                                                                                                      (nn.ModuleList,
+                                                                                                       List,
+                                                                                                       Tuple)) and i < len(
+                                                                self.scale_net) else self.scale_net,
+                                                            shift_net=self.shift_net[i] if isinstance(self.shift_net,
+                                                                                                      (nn.ModuleList,
+                                                                                                       List,
+                                                                                                       Tuple)) and i < len(
+                                                                self.shift_net) else None) for i in range(num_trans)])
 
     def forward(self, x: torch.Tensor,
                 log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -126,6 +129,7 @@ class RealNVP(BiProbTrans):
             log_det = log_det + ld
         return z, log_det
 
+
 class NICE(RealNVP):
     r"""
     The NICE model described in ..[dinh2015nice]. It is a special case of RealNVP where the scale networks are none.
@@ -137,9 +141,10 @@ class NICE(RealNVP):
         >>> diff = x - x_
         >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
     """
+
     def __init__(self, num_trans: int,
                  dim: int,
-                 shift_net: Optional[Union[nn.Module, nn.ModuleList]] = None,
+                 shift_net: Optional[Union[nn.Module, nn.ModuleList, List, Tuple]] = None,
                  keep_dim: Optional[List[List[int]]] = None,
                  p_base: Optional[Distribution] = None):
         super().__init__(num_trans, dim, None, shift_net, keep_dim, p_base)

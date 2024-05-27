@@ -18,10 +18,10 @@ from sampler.functional import KLDenLoss, KLGenLoss, ScoreDenLoss
 
 def test_maf():
     dim = 4
-    num_trans = 10
+    num_trans = 20
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     flowtransform = MAF(dim=dim, num_trans=num_trans,
-                        made=nn.ModuleList(MADE(hidden_dims=[dim, 20, 2 * dim]) for _ in range(num_trans)),
+                        made=list(MADE(hidden_dims=[dim, 20, 2 * dim]) for _ in range(num_trans)),
                         p_base=mg)
     print(flowtransform.p_base)
     x = torch.rand(100, dim)
@@ -147,6 +147,6 @@ def run_generation_example(plot_or_save='plot', device='cpu'):
         plt.show()
 
 
-# test_maf()
+test_maf()
 # run_density_matching_example()
-run_generation_example('plot','cpu')
+# run_generation_example('plot','cpu')

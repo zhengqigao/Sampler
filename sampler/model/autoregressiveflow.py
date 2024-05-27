@@ -39,7 +39,7 @@ class MAF(BiProbTrans):
 
     def __init__(self, dim: int,
                  num_trans: int,
-                 made: Optional[Union[nn.Module, nn.ModuleList]] = None,
+                 made: Optional[Union[nn.Module, nn.ModuleList, List, Tuple]] = None,
                  p_base: Optional[Distribution] = None):
         super().__init__()
         self.dim = dim
@@ -47,7 +47,7 @@ class MAF(BiProbTrans):
         self.p_base = p_base
 
         self.transforms = nn.ModuleList([MAFLayer(dim=self.dim,
-                                                  made = self.made[i] if isinstance(self.made, nn.ModuleList) and i < len(
+                                                  made = self.made[i] if isinstance(self.made, (nn.ModuleList, list, tuple)) and i < len(
                                                         self.made) else self.made,) for i in range(num_trans)])
 
     def forward(self, x: torch.Tensor,
