@@ -147,6 +147,6 @@ def run_generation_example(plot_or_save='plot', device='cpu'):
         plt.show()
 
 
-test_maf()
-# run_density_matching_example()
+# test_maf()
+run_density_matching_example()
 # run_generation_example('plot','cpu')

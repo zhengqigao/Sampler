@@ -44,12 +44,13 @@ class KLDenLoss(nn.Module):
 
     def forward(self, model: BiProbTrans, num_samples: int) -> torch.Tensor:
         sample, log_q = model.sample(num_samples)
+        log_p = self.log_p(sample)
         if self.reduction == 'mean':
-            result = torch.mean(log_q - self.log_p(sample))
+            result = torch.mean(log_q - log_p)
         elif self.reduction == 'sum':
-            result = torch.sum(log_q - self.log_p(sample))
+            result = torch.sum(log_q - log_p)
         elif self.reduction == 'none':
-            result = log_q - self.log_p(sample)
+            result = log_q - log_p
         else:
             raise ValueError(f"reduction should be 'mean', 'sum' or 'none', but got {self.reduction}.")
         return result
