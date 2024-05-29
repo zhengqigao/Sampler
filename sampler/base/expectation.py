@@ -188,8 +188,8 @@ class ScoreEstimator(torch.autograd.Function):
         samples, evals, *param = ctx.saved_tensors
 
         if isinstance(module, BiProbTrans):
-            warnings.warn(f"Use Score Estimator (SE) with BiProbTrans (BPT) is depreciated, as reparameterization has been "
-                          f"implicitly used in BPT, more accurate gradient estimator can be directly calculated. SE "
+            warnings.warn(f"Use Score Estimator (SE) with BiProbTrans (BPT) is depreciated,"
+                          f" more accurate gradient estimator can be directly calculated. SE "
                           f"has large variance and is designed for a general Distribution class.")
             module.modify()
 

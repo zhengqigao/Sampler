@@ -140,7 +140,7 @@ class NICE(RealNVP):
 
     Example:
         .. code-block:: python
-        
+
             >>> nice = NICE(num_trans = 3, dim=2, shift_net=nn.Linear(1, 1))
             >>> x = torch.rand(10, 2)
             >>> x_, diff_log_det = nice.backward(*nice.forward(x, 0))

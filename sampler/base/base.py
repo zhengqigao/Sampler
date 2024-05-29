@@ -295,19 +295,22 @@ def langevin_monte_carlo(num_samples: int,
 
     Args:
         num_samples (int): the number of samples to be returned.
-        target (Distribution): the target distribution.
+        target (Union[Distribution, BiProbTrans, Func]): the target distribution. Since sampling is not required, it can be a function.
         step_size (float): the step size to discretize the Langevin dynamics.
         initial (torch.Tensor): the initial point to start the sampling process.
         adjusted (Optional[bool]): whether to adjust the acceptance ratio using the Metropolis-Hasting criterion, default to False.
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
         event_func (Optional[Func]): when it returns True, the LMC will terminate immediately; default to a function that always returns False.
+
+    Returns:
+        torch.Tensor: the samples drawn by LMC.
     """
 
-    if isinstance(num_samples, int) != True or num_samples <= 0:
+    if not isinstance(num_samples, int) or num_samples <= 0:
         raise ValueError(
             f"The number of samples to be drawn should be a positive integer, but got num_samples = {num_samples}.")
-    if isinstance(step_size, float) != True or step_size <= 0:
-        raise ValueError(f"The step size should be positive, but got tau = {step_size}.")
+    if not isinstance(step_size, float) or step_size <= 0:
+        raise ValueError(f"The step size should be positive, but got {step_size}.")
 
     if initial.ndim == 1:  # tolerate the user to feed in one chain, reshape to (1, D) when given (D,)
         current = initial.view(1, -1)
@@ -350,7 +353,7 @@ def langevin_monte_carlo(num_samples: int,
         if (isinstance(event_value, bool) or # provide some flexibility allowing torch.Tensor([True])
                 (isinstance(event_value, torch.Tensor) and event_value.dtype == torch.bool and event_value.numel() == 1)):
             if event_value:
-                if samples.shape[0] >= burn_in:
+                if samples.shape[0] > burn_in:
                     return samples[burn_in:]
                 else:
                     warnings.warn("event_func is triggered before burn_in stage")
@@ -358,7 +361,7 @@ def langevin_monte_carlo(num_samples: int,
         else:
             raise ValueError(f"event_func should return a single boolean value, but got {type(event_value)}.")
 
-    return samples[burn_in:].detach()
+    return samples[burn_in:]
 
 
 @_bpt_decorator
@@ -374,11 +377,11 @@ def hamiltonian_monte_carlo(num_samples: int,
 
     Args:
         num_samples (int): the number of samples to be returned.
-        target (Distribution): the target distribution.
+        target (Union[Distribution, BiProbTrans, Func]): the target distribution.
         step_size (float): the step size to discretize the Hamiltonian dynamics.
         num_leapfrog (int): the number of leapfrog steps to be taken.
         initial (torch.Tensor): the initial point to start the sampling process.
-        kinetic (Optional[Distribution]): the kinetic distribution, default to a standard multivariate Gaussian.
+        kinetic (Optional[Union[Distribution, BiProbTrans]]): the kinetic distribution, default to a standard multivariate Gaussian.
         burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.
 
     """
@@ -397,10 +400,10 @@ def hamiltonian_monte_carlo(num_samples: int,
             f"but got {kinetic.sample(1).shape[1]} and {dim}.")
 
     if not isinstance(step_size, float) or step_size <= 0:
-        raise ValueError(f"The step size should be positive, but got tau = {step_size}.")
+        raise ValueError(f"The step size should be positive, but got {step_size}.")
     if not isinstance(num_leapfrog, int) or num_leapfrog <= 0:
         raise ValueError(
-            f"The number of leapfrog steps should be a positive integer , but got num_leapfrog = {num_leapfrog}.")
+            f"The number of leapfrog steps should be a positive integer, but got {num_leapfrog}.")
     step_size = torch.tensor(step_size).to(device)
     samples = torch.clone(initial.unsqueeze(0))
 
@@ -441,4 +444,4 @@ def hamiltonian_monte_carlo(num_samples: int,
         initial_q[accept] = current_q[accept]
         samples = torch.cat([samples, initial_q.unsqueeze(0)], dim=0)
 
-    return samples[burn_in:].detach()
+    return samples[burn_in:]
