@@ -160,6 +160,17 @@ class _BaseDistribution(nn.Module):
 
     def to(self, device: Union[torch.device, str]):
         self._device = device if isinstance(device, torch.device) else torch.device(device)
+
+        if not hasattr(self, '_sample'):
+            setattr(self, '_sample', self.sample)
+        if not hasattr(self, '_log_prob'):
+            setattr(self, '_log_prob', self.log_prob)
+
+        self.sample = (lambda inst, *args, **kwargs:
+                       inst._sample(*args, **kwargs).to(self._device)).__get__(self)
+        self.log_prob = (lambda inst, *args, **kwargs:
+                         inst._log_prob(*args, **kwargs).to(self._device)).__get__(self)
+
         return super().to(device)
 
     def sample(self, *args, **kwargs) -> torch.Tensor:
@@ -214,15 +225,6 @@ class Distribution(_BaseDistribution):
 
         raise NotImplementedError
 
-    def to(self, device: Union[torch.device, str]):
-        self._device = device if isinstance(device, torch.device) else torch.device(device)
-        setattr(self, '_ori_sample', self.sample)
-        setattr(self, '_ori_log_prob', self.log_prob)
-        self.sample = (lambda inst, num_samples:
-                       inst._ori_sample(num_samples).to(self._device)).__get__(self)
-        self.log_prob = (lambda inst, x: inst._ori_log_prob(x).to(self._device)).__get__(self)
-        return super().to(device)
-
 
 class Condistribution(_BaseDistribution):
     r"""
@@ -257,15 +259,6 @@ class Condistribution(_BaseDistribution):
         """
 
         raise NotImplementedError
-
-    def to(self, device: Union[torch.device, str]):
-        self._device = device if isinstance(device, torch.device) else torch.device(device)
-        setattr(self, '_ori_sample', self.sample)
-        setattr(self, '_ori_log_prob', self.log_prob)
-        self.sample = (lambda inst, num_samples, y:
-                       inst._ori_sample(num_samples, y).to(self._device)).__get__(self)
-        self.log_prob = (lambda inst, x, y: inst._ori_log_prob(x, y).to(self._device)).__get__(self)
-        return super().to(device)
 
 
 class UniProbTrans(nn.Module):
@@ -401,20 +394,20 @@ class BiProbTrans(nn.Module):
         if not self._modify_state:
             self._modify_state = True
 
-            setattr(self, '_ori_sample', self.sample)
-            setattr(self, '_ori_forward', self.forward)
+            setattr(self, '_sample', self.sample)
+            setattr(self, '_forward', self.forward)
 
             self.sample = (lambda inst, num_samples:
-                           inst._ori_forward(inst.p_base.sample(num_samples), 0)[0]).__get__(self)
+                           inst._forward(inst.p_base.sample(num_samples), 0)[0]).__get__(self)
             self.forward = (lambda inst, z: inst.log_prob(z)[1]).__get__(self)
             setattr(self, 'mul_factor', self.p_base.mul_factor)
 
     def restore(self):
         if self._modify_state:
             self._modify_state = False
-            self.sample = self._ori_sample
-            self.forward = self._ori_forward
-            del self._ori_sample, self._ori_forward, self.mul_factor
+            self.sample = self._sample
+            self.forward = self._forward
+            del self._sample, self._forward, self.mul_factor
 
 
 def _bpt_decorator(func: Callable) -> Callable:

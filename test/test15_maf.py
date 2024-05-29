@@ -50,7 +50,7 @@ def run_density_matching_example():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    num_trans = 30
+    num_trans = 10
     dim = 2
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     module = MAF(dim=dim, num_trans=num_trans,
