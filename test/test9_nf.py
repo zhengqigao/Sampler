@@ -120,7 +120,7 @@ def run_density_matching_example():
     ## a work seed for potential 4 torch.manual_seed(10000000000000000)
     ## GPU version is tested
 
-    potential_func = PotentialFunc("potential7")
+    potential_func = PotentialFunc("potential2")
 
     # show potential_function
     bound = 4
@@ -146,8 +146,7 @@ def run_density_matching_example():
                      shift_net=nn.ModuleList(
                          [Feedforward([1, 128, 128, 128, 1], 'leakyrelu') for _ in
                           range(num_trans)]),
-                     p_base=TensorizedMultiGauss(mean=[0, 0], std=[1, 1], device=device)).to(device)
-
+                     p_base=MultiGauss(mean=[0, 0], std=[1, 1]).to(device)).to(device)
     optimizer = torch.optim.Adam(module.parameters(), lr=1e-4)
     max_iter = 500
     loss_list = []

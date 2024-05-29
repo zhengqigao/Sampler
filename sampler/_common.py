@@ -123,6 +123,7 @@ class _BaseDistribution(nn.Module):
         super().__init__()
         self._device = torch.device("cpu")
         self._mul_factor = None
+
     @property
     def mul_factor(self):
         return self._mul_factor
@@ -213,6 +214,15 @@ class Distribution(_BaseDistribution):
 
         raise NotImplementedError
 
+    def to(self, device: Union[torch.device, str]):
+        self._device = device if isinstance(device, torch.device) else torch.device(device)
+        setattr(self, '_ori_sample', self.sample)
+        setattr(self, '_ori_log_prob', self.log_prob)
+        self.sample = (lambda inst, num_samples:
+                       inst._ori_sample(num_samples).to(self._device)).__get__(self)
+        self.log_prob = (lambda inst, x: inst._ori_log_prob(x).to(self._device)).__get__(self)
+        return super().to(device)
+
 
 class Condistribution(_BaseDistribution):
     r"""
@@ -247,6 +257,15 @@ class Condistribution(_BaseDistribution):
         """
 
         raise NotImplementedError
+
+    def to(self, device: Union[torch.device, str]):
+        self._device = device if isinstance(device, torch.device) else torch.device(device)
+        setattr(self, '_ori_sample', self.sample)
+        setattr(self, '_ori_log_prob', self.log_prob)
+        self.sample = (lambda inst, num_samples, y:
+                       inst._ori_sample(num_samples, y).to(self._device)).__get__(self)
+        self.log_prob = (lambda inst, x, y: inst._ori_log_prob(x, y).to(self._device)).__get__(self)
+        return super().to(device)
 
 
 class UniProbTrans(nn.Module):

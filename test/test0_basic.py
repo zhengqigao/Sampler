@@ -1,6 +1,8 @@
+import torch
+
 from sampler.base import *
 from sampler._common import Distribution, _BaseDistribution
-
+from test_common_helper import ConditionalMultiGauss
 
 
 class MultiGauss(Distribution):
@@ -59,3 +61,20 @@ print(instance2.mul_factor, instance2.div_factor)  # should return 0.5 2.0
 
 s = instance2.sample(10)
 print(s)
+
+# to(device) test for Distribution and Condistribution
+device = torch.device("mps")
+instance3 = MultiGauss([1, 2], [1, 1])
+s = instance3.sample(10)
+print(s.device)
+s = instance3.to(device).sample(10)
+print(s.device)
+s = instance3.log_prob(torch.tensor([[1, 2]]))
+print(s.device)
+instance4 = ConditionalMultiGauss([1, 2])
+s = instance4.sample(10, torch.Tensor([[1, 1]]))
+print(s.device)
+s = instance4.to(device).sample(10, torch.Tensor([[1, 1]]))
+print(s.device)
+s = instance4.log_prob(torch.tensor([[1, 2]]), torch.tensor([[1, 2]]))
+print(s.device)
