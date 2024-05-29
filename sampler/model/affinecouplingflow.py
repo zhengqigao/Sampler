@@ -9,12 +9,14 @@ class AffineCouplingFlow(BiProbTrans):
     The Affine coupling flow. It keeps the dimensions unchanged specified by the argument `keep_dim`, and the other
     dimensions are transformed by the scale and shift networks. See ..[Dinh2017] for more details.
 
-    .. Example::
-        >>> couplingflow = AffineCouplingFlow(dim=2, keep_dim=[0], scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
-        >>> x = torch.rand(10, 2)
-        >>> x_, diff_log_det = couplingflow.backward(*couplingflow.forward(x, 0))
-        >>> diff = x - x_
-        >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
+    Example:
+        .. code-block:: python
+
+            >>> couplingflow = AffineCouplingFlow(dim=2, keep_dim=[0], scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
+            >>> x = torch.rand(10, 2)
+            >>> x_, diff_log_det = couplingflow.backward(*couplingflow.forward(x, 0))
+            >>> diff = x - x_
+            >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
     """
 
     def __init__(self, dim: int,
@@ -72,12 +74,14 @@ class RealNVP(BiProbTrans):
     are both a list of modules of the same length as `num_trans` to allow for customized architectures. See ..[Dinh2017]
     for more details.
 
-    .. Example::
-        >>> realnvp = RealNVP(num_trans = 3, dim=2, scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
-        >>> x = torch.rand(10, 2)
-        >>> x_, diff_log_det = realnvp.backward(*realnvp.forward(x, 0))
-        >>> diff = x - x_
-        >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
+    Example:
+        .. code-block:: python
+
+            >>> realnvp = RealNVP(num_trans = 3, dim=2, scale_net=nn.Linear(1, 1), shift_net=nn.Linear(1, 1))
+            >>> x = torch.rand(10, 2)
+            >>> x_, diff_log_det = realnvp.backward(*realnvp.forward(x, 0))
+            >>> diff = x - x_
+            >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
     """
 
     def __init__(self, num_trans: int,
@@ -134,12 +138,14 @@ class NICE(RealNVP):
     r"""
     The NICE model described in ..[dinh2015nice]. It is a special case of RealNVP where the scale networks are none.
 
-    .. Example::
-        >>> nice = NICE(num_trans = 3, dim=2, shift_net=nn.Linear(1, 1))
-        >>> x = torch.rand(10, 2)
-        >>> x_, diff_log_det = nice.backward(*nice.forward(x, 0))
-        >>> diff = x - x_
-        >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
+    Example:
+        .. code-block:: python
+        
+            >>> nice = NICE(num_trans = 3, dim=2, shift_net=nn.Linear(1, 1))
+            >>> x = torch.rand(10, 2)
+            >>> x_, diff_log_det = nice.backward(*nice.forward(x, 0))
+            >>> diff = x - x_
+            >>> print(f"diff = {torch.max(torch.abs(diff))}, diff_log_det = {torch.max(torch.abs(diff_log_det))}")
     """
 
     def __init__(self, num_trans: int,

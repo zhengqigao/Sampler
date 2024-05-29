@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sampler.base.expectation &mdash; sampler 0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=92fd9be5" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/katex-math.css?v=91adb8b6" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=44496db0"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../../../_static/katex.min.js?v=48ec3933"></script>
+        <script src="../../../_static/auto-render.min.js?v=8b9f325c"></script>
+        <script src="../../../_static/katex_autorenderer.js?v=bebc588a"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            sampler
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../sampler.html">sampler package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../references.html">References</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">sampler</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">sampler.base.expectation</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for sampler.base.expectation</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span>
+<span class="kn">from</span> <span class="nn">.._common</span> <span class="kn">import</span> <span class="n">Func</span><span class="p">,</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">Condistribution</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">,</span> <span class="n">_bpt_decorator</span>
+<span class="kn">from</span> <span class="nn">.base</span> <span class="kn">import</span> <span class="n">mh_sampling</span>
+<span class="kn">from</span> <span class="nn">.._utils</span> <span class="kn">import</span> <span class="n">_get_params</span>
+<span class="kn">from</span> <span class="nn">torch.distributions.categorical</span> <span class="kn">import</span> <span class="n">Categorical</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+
+<span class="nd">@_bpt_decorator</span>
+<span class="k">def</span> <span class="nf">importance_sampling</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                        <span class="n">target</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Distribution</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">,</span> <span class="n">Func</span><span class="p">],</span>
+                        <span class="n">proposal</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Distribution</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">],</span>
+                        <span class="n">eval_func</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Func</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">resample_ratio</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
+                        <span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Importance sampling (IS) estimator to calculate the expectation of a function :math:`f(x)` with respect to a target distribution :math:`p(x)` using a proposal distribution :math:`q(x)`. Sampling-importance-Resampling (SIR) has been integrated and can be triggered to return samples.</span>
+
+<span class="sd">    .. note:: IS works regardless of normalized or not. See Eq. (11.19) of [Bishop2006PRML]_ for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case. SIR can be used to draw samples from the target distribution utilizing the importance weights. The argument ``resample_ratio`` controls the size of resamples. Note that our resampling process is always done without replacement. Because resampling with replacement is not always possible (unless Eq. (24.2) is True in [kimhung]_).</span>
+
+<span class="sd">    .. math::</span>
+
+<span class="sd">        \mathbb{E}[f(x)] = \int f(x) p(x) dx \approx \frac{1}{N} \sum_{i=1}^{N} w(x_i) f(x_i)</span>
+
+<span class="sd">    where the weights are given by :math:`w(x) = \frac{p(x)}{q(x)}`. The provided ``eval_func`` can be a multi-dimensional function. See Section 11.1.5 of [Bishop2006PRML]_ and [kimhung]_ on SIR.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        num_samples (int): the number of samples to be drawn.</span>
+<span class="sd">        target (Union[Distribution, BiProbTrans, Func]): the target distribution. Since target doesn&#39;t need a sampling method, it can be a function.</span>
+<span class="sd">        proposal (Union[Distribution, BiProbTrans]): the proposal distribution.</span>
+<span class="sd">        eval_func (Optional[Func]): the function whose expectation to be evaluated if it is not None.</span>
+<span class="sd">        resample_ratio (Optional[float]): perform Sampling-Importance-Resampling (SIR) and return samples if set to larger than 0.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:</span>
+<span class="sd">            - **expectation** (Optional[torch.Tensor]): The estimated expectation of a function with respect to a target distribution. Returns `None` if `eval_func` is not provided.</span>
+<span class="sd">            - **resample** (Optional[torch.Tensor]): Resampled samples from the target distribution using SIR if `resample_ratio` is greater than 0, otherwise returns `None`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">resample_ratio</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">or</span> <span class="n">resample_ratio</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">resample_ratio</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The resample_ratio must be a float in [0,1], but got </span><span class="si">{</span><span class="n">resample_ratio</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="n">samples</span> <span class="o">=</span> <span class="n">proposal</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">num_samples</span><span class="p">)</span>
+
+    <span class="n">target_log_probs</span> <span class="o">=</span> <span class="n">target</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">target_log_probs</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span> <span class="ow">or</span> <span class="n">torch</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">target_log_probs</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;target log_prob returns NaN.&quot;</span><span class="p">)</span>
+
+    <span class="n">proposal_log_probs</span> <span class="o">=</span> <span class="n">proposal</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">isnan</span><span class="p">(</span><span class="n">proposal_log_probs</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">()</span> <span class="ow">or</span> <span class="n">torch</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">proposal_log_probs</span><span class="p">)</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;proposal log_prob returns NaN.&quot;</span><span class="p">)</span>
+
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">target_log_probs</span> <span class="o">-</span> <span class="n">proposal_log_probs</span><span class="p">)</span>
+
+    <span class="n">resample</span><span class="p">,</span> <span class="n">expectation</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+
+    <span class="k">if</span> <span class="n">resample_ratio</span><span class="p">:</span>
+        <span class="n">normalized_weights</span> <span class="o">=</span> <span class="n">weights</span> <span class="o">/</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">Categorical</span><span class="p">(</span><span class="n">normalized_weights</span><span class="p">)</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">Size</span><span class="p">([</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">resample_ratio</span> <span class="o">*</span> <span class="n">num_samples</span><span class="p">))]))</span>
+        <span class="n">resample</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">eval_func</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">evals</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>
+        <span class="n">weights</span> <span class="o">=</span> <span class="n">weights</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">evals</span><span class="o">.</span><span class="n">ndim</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="s1">&#39;mul_factor&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">proposal</span><span class="p">,</span> <span class="s1">&#39;mul_factor&#39;</span><span class="p">)</span>
+                <span class="ow">or</span> <span class="p">(</span><span class="n">target</span><span class="o">.</span><span class="n">mul_factor</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">proposal</span><span class="o">.</span><span class="n">mul_factor</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">weights</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The importance weights are all zeros, normalizing the weights lead to NaN.&quot;</span><span class="p">)</span>
+            <span class="n">expectation</span> <span class="o">=</span> <span class="p">(</span><span class="n">weights</span> <span class="o">*</span> <span class="n">evals</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">weights</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">expectation</span> <span class="o">=</span> <span class="p">(</span><span class="n">weights</span> <span class="o">*</span> <span class="n">evals</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">expectation</span><span class="p">,</span> <span class="n">resample</span>
+
+
+<div class="viewcode-block" id="annealed_importance_sampling"><a class="viewcode-back" href="../../../sampler.base.html#sampler.base.expectation.annealed_importance_sampling">[docs]</a><span class="k">def</span> <span class="nf">annealed_importance_sampling</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                                 <span class="n">target</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span>
+                                 <span class="n">base</span><span class="p">:</span> <span class="n">Distribution</span><span class="p">,</span>
+                                 <span class="n">transit</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Condistribution</span><span class="p">],</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Condistribution</span><span class="p">],</span> <span class="n">Condistribution</span><span class="p">],</span>
+                                 <span class="n">eval_func</span><span class="p">:</span> <span class="n">Func</span><span class="p">,</span>
+                                 <span class="n">beta</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]],</span>
+                                 <span class="n">anneal_log_criterion</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">logpt</span><span class="p">,</span> <span class="n">logpb</span><span class="p">,</span> <span class="n">beta</span><span class="p">:</span> <span class="n">beta</span> <span class="o">*</span> <span class="n">logpt</span> <span class="o">+</span> <span class="p">(</span>
+                                         <span class="mi">1</span> <span class="o">-</span> <span class="n">beta</span><span class="p">)</span> <span class="o">*</span> <span class="n">logpb</span><span class="p">,</span>
+                                 <span class="n">burn_in</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">3</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Annealed importance sampling (AIS) estimator to calculate the expectation of a function :math: `f(x)` with</span>
+<span class="sd">    respect to a target distribution :math:`p(x)` using a sequence of intermediate distributions :math:`p_N(x),</span>
+<span class="sd">    p_{N-1}(x), ..., p_0(x)`.</span>
+
+
+<span class="sd">    .. note:: The annealing sequence should be strictly increasing, its element represents the beta variable used in</span>
+<span class="sd">    the anneal_log_criterion, corresponding to the weight/portion used on the target.  The transition distributions must</span>
+<span class="sd">    leave the intermediate distributions invariant, i.e., :math:`p_j(x&#39;) = \int T(x&#39;, x) p_{j}(x) dx`. To guarantee</span>
+<span class="sd">    the invariance, the provided `transit` conditional distribution will be used to define a Metropolis-Hasting</span>
+<span class="sd">    transition. See Eq(11.44)- (11.45) of [Bishop2006PRML]_ for more details. By default, we use the annealing</span>
+<span class="sd">    criterion: :math:`p_j(x) = p^{\beta_j}_{0}(x) p^{(1-\beta_j)}_{N}(x)`. See [Neal2001ais]_.</span>
+
+
+<span class="sd">    Args:</span>
+<span class="sd">        num_samples (int): the number of samples to be drawn.</span>
+<span class="sd">        target (Distribution): the target distribution that the expectation to be estimated with respect to.</span>
+<span class="sd">        base (Distribution): the base distribution.</span>
+<span class="sd">        transit (Union[List[Condistribution], Tuple[Condistribution], Condistribution]): the transition distributions.</span>
+<span class="sd">        eval_func (Func): the function to be evaluated.</span>
+<span class="sd">        beta (Union[Tuple[float], List[float]]): the annealing sequence.</span>
+<span class="sd">        anneal_log_criterion (Optional[Callable]): the annealed criterion, default to :math: `\beta \log p_t + (1-\beta) \log p_b`.</span>
+<span class="sd">        burn_in (Optional[int]): the number of burn-in samples to be discarded in Markov Chain, default to 3.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The annealing sequence should be a tuple or a list, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">beta</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">beta</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The annealing sequence should be strictly increasing.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">beta</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">beta</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">beta</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">beta</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span> <span class="o">+</span> <span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The length of the annealing sequence (including 0 and 1 at two extremes) &quot;</span>
+                             <span class="sa">f</span><span class="s2">&quot; should be larger than 3, but got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="n">num_transit</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">beta</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">transit</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">transit</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num_transit</span> <span class="o">-</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The number of transition distributions should equal &quot;</span>
+                         <span class="sa">f</span><span class="s2">&quot;the length of the annealing sequence, i.e.,&quot;</span>
+                         <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">num_transit</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">, but got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">transit</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_transit</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">current</span> <span class="o">=</span> <span class="n">base</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">num_samples</span><span class="p">)</span>
+            <span class="n">logpt</span><span class="p">,</span> <span class="n">logpb</span> <span class="o">=</span> <span class="n">target</span><span class="p">(</span><span class="n">current</span><span class="p">),</span> <span class="n">base</span><span class="p">(</span><span class="n">current</span><span class="p">)</span>
+            <span class="n">weight</span> <span class="o">=</span> <span class="n">anneal_log_criterion</span><span class="p">(</span><span class="n">logpt</span><span class="p">,</span> <span class="n">logpb</span><span class="p">,</span> <span class="n">beta</span><span class="p">[</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> <span class="o">-</span> <span class="n">anneal_log_criterion</span><span class="p">(</span><span class="n">logpt</span><span class="p">,</span> <span class="n">logpb</span><span class="p">,</span> <span class="n">beta</span><span class="p">[</span><span class="n">n</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">current_transit</span> <span class="o">=</span> <span class="n">transit</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">transit</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">))</span> <span class="k">else</span> <span class="n">transit</span>
+
+            <span class="n">new</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">mh_sampling</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span>
+                                 <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">anneal_log_criterion</span><span class="p">(</span><span class="n">target</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">base</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">beta</span><span class="p">[</span><span class="n">n</span><span class="p">]),</span>
+                                 <span class="n">current_transit</span><span class="p">,</span>
+                                 <span class="n">current</span><span class="p">,</span>
+                                 <span class="n">burn_in</span><span class="p">)</span>
+
+            <span class="n">logpt</span><span class="p">,</span> <span class="n">logpb</span> <span class="o">=</span> <span class="n">target</span><span class="p">(</span><span class="n">new</span><span class="p">),</span> <span class="n">base</span><span class="p">(</span><span class="n">new</span><span class="p">)</span>
+            <span class="n">weight</span> <span class="o">+=</span> <span class="n">anneal_log_criterion</span><span class="p">(</span><span class="n">logpt</span><span class="p">,</span> <span class="n">logpb</span><span class="p">,</span> <span class="n">beta</span><span class="p">[</span><span class="n">n</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])</span> \
+                      <span class="o">-</span> <span class="n">anneal_log_criterion</span><span class="p">(</span><span class="n">logpt</span><span class="p">,</span> <span class="n">logpb</span><span class="p">,</span> <span class="n">beta</span><span class="p">[</span><span class="n">n</span><span class="p">])</span>
+            <span class="n">current</span> <span class="o">=</span> <span class="n">new</span>
+
+    <span class="n">evals</span> <span class="o">=</span> <span class="n">eval_func</span><span class="p">(</span><span class="n">current</span><span class="p">)</span>
+    <span class="n">weight</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">evals</span><span class="o">.</span><span class="n">ndim</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">weight</span> <span class="o">*</span> <span class="n">evals</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">weight</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ScoreEstimator"><a class="viewcode-back" href="../../../sampler.base.html#sampler.base.expectation.ScoreEstimator">[docs]</a><span class="k">class</span> <span class="nc">ScoreEstimator</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">Function</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The REINFORCE algorithm, also known as the score function estimator, to estimate the gradient of the expectation of :math: `E_{p_{\theta}(x)}[f(x)]` with respect to the parameters of :math: `\theta`. It is known to have large variance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="ScoreEstimator.forward"><a class="viewcode-back" href="../../../sampler.base.html#sampler.base.expectation.ScoreEstimator.forward">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">num_sample</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">module</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Distribution</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">],</span> <span class="n">func</span><span class="p">:</span> <span class="n">Func</span><span class="p">,</span>
+                <span class="n">reduction</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;mean&#39;</span><span class="p">,</span> <span class="o">*</span><span class="n">param</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+
+        <span class="k">if</span> <span class="n">reduction</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span> <span class="s1">&#39;mean&#39;</span><span class="p">,</span> <span class="s1">&#39;sum&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;reduction should be &#39;mean&#39;, &#39;sum&#39; or &#39;none&#39;, but got </span><span class="si">{</span><span class="n">reduction</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+        <span class="n">ctx</span><span class="o">.</span><span class="n">module</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">reduction</span> <span class="o">=</span> <span class="n">module</span><span class="p">,</span> <span class="n">reduction</span>
+        <span class="n">samples</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">num_sample</span><span class="p">)</span>
+        <span class="n">evals</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>
+        <span class="n">ctx</span><span class="o">.</span><span class="n">save_for_backward</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">evals</span><span class="p">,</span> <span class="o">*</span><span class="n">param</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">reduction</span> <span class="o">==</span> <span class="s1">&#39;mean&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">evals</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">reduction</span> <span class="o">==</span> <span class="s1">&#39;sum&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">evals</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">reduction</span> <span class="o">==</span> <span class="s1">&#39;none&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">evals</span></div>
+
+<div class="viewcode-block" id="ScoreEstimator.backward"><a class="viewcode-back" href="../../../sampler.base.html#sampler.base.expectation.ScoreEstimator.backward">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">backward</span><span class="p">(</span><span class="n">ctx</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">],</span> <span class="o">...</span><span class="p">]:</span>
+        <span class="n">module</span><span class="p">,</span> <span class="n">reduction</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">module</span><span class="p">,</span> <span class="n">ctx</span><span class="o">.</span><span class="n">reduction</span>
+
+        <span class="k">if</span> <span class="n">reduction</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;none&#39;</span><span class="p">,</span> <span class="s1">&#39;mean&#39;</span><span class="p">,</span> <span class="s1">&#39;sum&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;reduction should be &#39;mean&#39;, &#39;sum&#39; or &#39;none&#39;, but got </span><span class="si">{</span><span class="n">reduction</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">reduction</span> <span class="o">==</span> <span class="s1">&#39;none&#39;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;grad can be implicitly created only for scalar outputs.&quot;</span><span class="p">)</span>
+
+        <span class="n">samples</span><span class="p">,</span> <span class="n">evals</span><span class="p">,</span> <span class="o">*</span><span class="n">param</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">.</span><span class="n">saved_tensors</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Use Score Estimator (SE) with BiProbTrans (BPT) is depreciated, as reparameterization has been &quot;</span>
+                          <span class="sa">f</span><span class="s2">&quot;implicitly used in BPT, more accurate gradient estimator can be directly calculated. SE &quot;</span>
+                          <span class="sa">f</span><span class="s2">&quot;has large variance and is designed for a general Distribution class.&quot;</span><span class="p">)</span>
+            <span class="n">module</span><span class="o">.</span><span class="n">modify</span><span class="p">()</span>
+
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">enable_grad</span><span class="p">():</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">evals</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span> <span class="o">*</span> <span class="n">module</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">*</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">evals</span><span class="o">.</span><span class="n">ndim</span><span class="p">)))</span> <span class="o">+</span> <span class="n">evals</span>
+            <span class="n">obj</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">reduction</span> <span class="o">==</span> <span class="s1">&#39;mean&#39;</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="n">grad_input</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">param</span><span class="p">,</span> <span class="n">grad_output</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">):</span>
+            <span class="n">module</span><span class="o">.</span><span class="n">restore</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="n">grad_input</span></div></div>
+
+
+<span class="n">score_estimator</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">num_sample</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s1">&#39;mean&#39;</span><span class="p">:</span> <span class="n">ScoreEstimator</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">num_sample</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">reduction</span><span class="p">,</span> <span class="o">*</span><span class="n">_get_params</span><span class="p">(</span><span class="n">model</span><span class="p">))</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Zhengqi Gao.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -53,22 +53,24 @@
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">sampler package</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#submodules">Submodules</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#module-sampler.base">sampler.base module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#sampler.base.adaptive_rejection_sampling"><code class="docutils literal notranslate"><span class="pre">adaptive_rejection_sampling()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#sampler.base.annealed_importance_sampling"><code class="docutils literal notranslate"><span class="pre">annealed_importance_sampling()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#sampler.base.gibbs_sampling"><code class="docutils literal notranslate"><span class="pre">gibbs_sampling()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#sampler.base.hamiltonian_monte_carlo"><code class="docutils literal notranslate"><span class="pre">hamiltonian_monte_carlo()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#sampler.base.importance_sampling"><code class="docutils literal notranslate"><span class="pre">importance_sampling()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#sampler.base.langevin_monte_carlo"><code class="docutils literal notranslate"><span class="pre">langevin_monte_carlo()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#sampler.base.mh_sampling"><code class="docutils literal notranslate"><span class="pre">mh_sampling()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#sampler.base.rejection_sampling"><code class="docutils literal notranslate"><span class="pre">rejection_sampling()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-sampler.base">sampler.base module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-sampler.distribution">sampler.distribution module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#sampler.distribution.LinearEnvelop1D"><code class="docutils literal notranslate"><span class="pre">LinearEnvelop1D</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sampler.distribution.LinearEnvelop1D.log_prob"><code class="docutils literal notranslate"><span class="pre">LinearEnvelop1D.log_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sampler.distribution.LinearEnvelop1D.sample"><code class="docutils literal notranslate"><span class="pre">LinearEnvelop1D.sample()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sampler.distribution.LinearEnvelop1D.training"><code class="docutils literal notranslate"><span class="pre">LinearEnvelop1D.training</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="#module-sampler.distribution">sampler.distribution module</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#sampler.distribution.MultivariateNormal"><code class="docutils literal notranslate"><span class="pre">MultivariateNormal()</span></code></a></li>
-<li class="toctree-l3"><a class="reference internal" href="#sampler.distribution.Wrapper"><code class="docutils literal notranslate"><span class="pre">Wrapper</span></code></a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#sampler.distribution.Wrapper.evaluate_density"><code class="docutils literal notranslate"><span class="pre">Wrapper.evaluate_density()</span></code></a></li>
-<li class="toctree-l4"><a class="reference internal" href="#sampler.distribution.Wrapper.sample"><code class="docutils literal notranslate"><span class="pre">Wrapper.sample()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#sampler.distribution.TDWrapper"><code class="docutils literal notranslate"><span class="pre">TDWrapper</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sampler.distribution.TDWrapper.log_prob"><code class="docutils literal notranslate"><span class="pre">TDWrapper.log_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sampler.distribution.TDWrapper.sample"><code class="docutils literal notranslate"><span class="pre">TDWrapper.sample()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sampler.distribution.TDWrapper.training"><code class="docutils literal notranslate"><span class="pre">TDWrapper.training</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#sampler.distribution.UpdateLinearEnvelop1D"><code class="docutils literal notranslate"><span class="pre">UpdateLinearEnvelop1D</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#sampler.distribution.UpdateLinearEnvelop1D.log_prob"><code class="docutils literal notranslate"><span class="pre">UpdateLinearEnvelop1D.log_prob()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sampler.distribution.UpdateLinearEnvelop1D.sample"><code class="docutils literal notranslate"><span class="pre">UpdateLinearEnvelop1D.sample()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#sampler.distribution.UpdateLinearEnvelop1D.training"><code class="docutils literal notranslate"><span class="pre">UpdateLinearEnvelop1D.training</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -110,192 +112,105 @@
 </section>
 <section id="module-sampler.base">
 <span id="sampler-base-module"></span><h2>sampler.base module<a class="headerlink" href="#module-sampler.base" title="Permalink to this heading"></a></h2>
-<dl class="py function">
-<dt class="sig sig-object py" id="sampler.base.adaptive_rejection_sampling">
-<span class="sig-prename descclassname"><span class="pre">sampler.base.</span></span><span class="sig-name descname"><span class="pre">adaptive_rejection_sampling</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/sampler/base.html#adaptive_rejection_sampling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.base.adaptive_rejection_sampling" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="sampler.base.annealed_importance_sampling">
-<span class="sig-prename descclassname"><span class="pre">sampler.base.</span></span><span class="sig-name descname"><span class="pre">annealed_importance_sampling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">num_samples:</span> <span class="pre">int,</span> <span class="pre">target:</span> <span class="pre">~sampler._common.Distribution,</span> <span class="pre">base:</span> <span class="pre">~sampler._common.Distribution,</span> <span class="pre">transit:</span> <span class="pre">~typing.List[~sampler._common.Condistribution]</span> <span class="pre">|</span> <span class="pre">~typing.Tuple[~sampler._common.Condistribution]</span> <span class="pre">|</span> <span class="pre">~sampler._common.Condistribution,</span> <span class="pre">eval_func:</span> <span class="pre">~sampler._common.Func,</span> <span class="pre">beta:</span> <span class="pre">~typing.Tuple[float]</span> <span class="pre">|</span> <span class="pre">~typing.List[float],</span> <span class="pre">anneal_log_criterion:</span> <span class="pre">~typing.Callable</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">&lt;function</span> <span class="pre">&lt;lambda&gt;&gt;,</span> <span class="pre">burn_in:</span> <span class="pre">int</span> <span class="pre">|</span> <span class="pre">None</span> <span class="pre">=</span> <span class="pre">3</span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/sampler/base.html#annealed_importance_sampling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.base.annealed_importance_sampling" title="Permalink to this definition"></a></dt>
-<dd><p>Annealed importance sampling (AIS) estimator to calculate the expectation of a function :math: <cite>f(x)</cite> with
-respect to a target distribution <span class="math">\(p(x)\)</span> using a sequence of intermediate distributions <span class="math">\(p_N(x),
-p_{N-1}(x), ..., p_0(x)\)</span>.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>The annealing sequence should be strictly increasing, its element represents the beta variable used in</p>
-</div>
-<p>the anneal_log_criterion, corresponding to the weight/portion used on the target.  The transition distributions must
-leave the intermediate distributions invariant, i.e., <span class="math">\(p_j(x') = \int T(x', x) p_{j}(x) dx\)</span>. To guratantee
-the invariances, the provided <cite>transit</cite> conditional distribution will be used to define a Metropolis-Hasting
-transition. See Eq(11.44)- (11.45) of <a class="reference internal" href="references.html#bishop2006prml" id="id1"><span>[Bishop2006PRML]</span></a> for more details. By default, we use the annealing
-criterion: <span class="math">\(p_j(x) = p^{\beta_j}_{0}(x) p^{(1-\beta_j)}_{N}(x)\)</span>. See <a class="reference internal" href="references.html#neal2001ais" id="id2"><span>[Neal2001ais]</span></a>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>num_samples</strong> (<em>int</em>) – the number of samples to be drawn.</p></li>
-<li><p><strong>target</strong> (<em>Distribution</em>) – the target distribution that the expectation to be estimated with respect to.</p></li>
-<li><p><strong>base</strong> (<em>Distribution</em>) – the base distribution.</p></li>
-<li><p><strong>transit</strong> (<em>Union</em><em>[</em><em>List</em><em>[</em><em>Condistribution</em><em>]</em><em>, </em><em>Tuple</em><em>[</em><em>Condistribution</em><em>]</em><em>, </em><em>Condistribution</em><em>]</em>) – the transition distributions.</p></li>
-<li><p><strong>eval_func</strong> (<em>Func</em>) – the function to be evaluated.</p></li>
-<li><p><strong>beta</strong> (<em>Union</em><em>[</em><em>Tuple</em><em>[</em><em>float</em><em>]</em><em>, </em><em>List</em><em>[</em><em>float</em><em>]</em><em>]</em>) – the annealing sequence.</p></li>
-<li><p><strong>anneal_log_criterion</strong> (<em>Optional</em><em>[</em><em>Callable</em><em>]</em>) – the annealed criterion, default to :math: <cite>beta log p_t + (1-beta) log p_b</cite>.</p></li>
-<li><p><strong>burin_in</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – the number of burn-in samples to be discarded in Markov Chain, default to 3.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="sampler.base.gibbs_sampling">
-<span class="sig-prename descclassname"><span class="pre">sampler.base.</span></span><span class="sig-name descname"><span class="pre">gibbs_sampling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">condis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Condistribution</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Condistribution</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Condistribution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/sampler/base.html#gibbs_sampling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.base.gibbs_sampling" title="Permalink to this definition"></a></dt>
-<dd><p>Gibbs sampling to draw samples given conditional distributions. See Section 11.3 of <a class="reference internal" href="references.html#bishop2006prml" id="id3"><span>[Bishop2006PRML]</span></a>.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>Even though given all those conditional probabilities, it is still impossible to directly evaluate the joint distribution density. However, Gibbs sampling provides a way to draw samples from the joint distribution.</p>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>num_samples</strong> (<em>int</em>) – the number of samples to be drawn.</p></li>
-<li><p><strong>condis</strong> (<em>Union</em><em>[</em><em>Tuple</em><em>[</em><em>Condistribution</em><em>]</em><em>, </em><em>List</em><em>[</em><em>Condistribution</em><em>]</em><em>, </em><em>Condistribution</em><em>]</em>) – the conditional distributions.</p></li>
-<li><p><strong>initial</strong> (<em>torch.Tensor</em>) – the initial point to start the sampling process.</p></li>
-<li><p><strong>burn_in</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – the number of burn-in samples to be discarded, default to 0.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="sampler.base.hamiltonian_monte_carlo">
-<span class="sig-prename descclassname"><span class="pre">sampler.base.</span></span><span class="sig-name descname"><span class="pre">hamiltonian_monte_carlo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Distribution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_leapfrog</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kinetic</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Distribution</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/sampler/base.html#hamiltonian_monte_carlo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.base.hamiltonian_monte_carlo" title="Permalink to this definition"></a></dt>
-<dd><p>Hamiltonian Monte Carlo (HMC) to draw samples from a target distribution.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>num_samples</strong> (<em>int</em>) – the number of samples to be returned.</p></li>
-<li><p><strong>target</strong> (<em>Distribution</em>) – the target distribution.</p></li>
-<li><p><strong>step_size</strong> (<em>float</em>) – the step size to discretize the Hamiltonian dynamics.</p></li>
-<li><p><strong>num_leapfrog</strong> (<em>int</em>) – the number of leapfrog steps to be taken.</p></li>
-<li><p><strong>initial</strong> (<em>torch.Tensor</em>) – the initial point to start the sampling process.</p></li>
-<li><p><strong>kinetic</strong> (<em>Optional</em><em>[</em><em>Distribution</em><em>]</em>) – the kinetic distribution, default to a standard multivariate Gaussian.</p></li>
-<li><p><strong>burn_in</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – the number of burn-in samples to be discarded, default to 0.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="sampler.base.importance_sampling">
-<span class="sig-prename descclassname"><span class="pre">sampler.base.</span></span><span class="sig-name descname"><span class="pre">importance_sampling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Distribution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">proposal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Distribution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eval_func</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Func</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">float</span></span></span><a class="reference internal" href="_modules/sampler/base.html#importance_sampling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.base.importance_sampling" title="Permalink to this definition"></a></dt>
-<dd><p>Importance sampling (IS) estimator to calculate the expectation of a function :math: <cite>f(x)</cite> with respect to a target distribution <span class="math">\(p(x)\)</span> using a proposal distribution <span class="math">\(q(x)\)</span>. The estimator is given by:</p>
-<div class="math">
-\[\mathbb{E}[f(x)] = \int f(x) p(x) dx \approx \frac{1}{N} \sum_{i=1}^{N} w(x_i) f(x_i)\]</div>
-<p>where the weights are given by <span class="math">\(w(x) = \frac{p(x)}{q(x)}\)</span>. The provided <code class="docutils literal notranslate"><span class="pre">eval_func</span></code> can be a multi-dimensional function.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>num_samples</strong> (<em>int</em>) – the number of samples to be drawn.</p></li>
-<li><p><strong>target</strong> (<em>Distribution</em>) – the target distribution.</p></li>
-<li><p><strong>proposal</strong> (<em>Distribution</em>) – the proposal distribution.</p></li>
-<li><p><strong>eval_func</strong> (<em>Func</em>) – the function to be evaluated.</p></li>
-</ul>
-</dd>
-</dl>
-<p>‘’’
-# [Debug this using sphinx feature] The text in this part won’t be used to in documentation generation, only for developers references’ purposes. IS works regardless of normalized or not. See Eq. (11.19) of <a class="reference internal" href="references.html#bishop2006prml" id="id4"><span>[Bishop2006PRML]</span></a> for the normalized case, and Eqs. (11.20)-(11.23) for how we handle the unnormalized case.</p>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="sampler.base.langevin_monte_carlo">
-<span class="sig-prename descclassname"><span class="pre">sampler.base.</span></span><span class="sig-name descname"><span class="pre">langevin_monte_carlo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Distribution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">step_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adjusted</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/sampler/base.html#langevin_monte_carlo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.base.langevin_monte_carlo" title="Permalink to this definition"></a></dt>
-<dd><p>Langevin Monte Carlo (LMC) to draw samples from a target distribution.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>num_samples</strong> (<em>int</em>) – the number of samples to be returned.</p></li>
-<li><p><strong>target</strong> (<em>Distribution</em>) – the target distribution.</p></li>
-<li><p><strong>step_size</strong> (<em>float</em>) – the step size to discretize the Langevin dynamics.</p></li>
-<li><p><strong>adjusted</strong> (<em>Optional</em><em>[</em><em>bool</em><em>]</em>) – whether to adjust the acceptance ratio using the Metropolis-Hasting criterion, default to False.</p></li>
-<li><p><strong>burn_in</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – the number of burn-in samples to be discarded, default to 0.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="sampler.base.mh_sampling">
-<span class="sig-prename descclassname"><span class="pre">sampler.base.</span></span><span class="sig-name descname"><span class="pre">mh_sampling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Distribution</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Callable</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">transit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Condistribution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">initial</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">burn_in</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/sampler/base.html#mh_sampling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.base.mh_sampling" title="Permalink to this definition"></a></dt>
-<dd><p>Metropolis-Hastings (MH) sampling to draw samples from a target distribution using a proposal distribution. See Section 11.2.2. of <a class="reference internal" href="references.html#bishop2006prml" id="id5"><span>[Bishop2006PRML]</span></a>.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p><cite>num_samples</cite> represents the number of samples will be returned. <cite>burn_in</cite> represents the first <cite>burn_in</cite> samples will be discarded. Thus, there will be <cite>num_samples + burn_in</cite> samples in total, with the first one being the <cite>initial</cite> and all the remaining ones to be generated by MH.</p>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>num_samples</strong> (<em>int</em>) – the number of samples to be returned.</p></li>
-<li><p><strong>target</strong> (<em>Union</em><em>[</em><em>Distribution</em><em>, </em><em>Callable</em><em>]</em>) – the target distribution. It doesn’t need to have a sampling function, so we allow it to be a callable as well.</p></li>
-<li><p><strong>transit</strong> (<em>Distribution</em>) – the transition distribution.</p></li>
-<li><p><strong>initial</strong> (<em>torch.Tensor</em>) – the initial point to start the sampling process. The first dimension is the batch dimension B, and (num_samples, B, …) will be returned.</p></li>
-<li><p><strong>burn_in</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>) – the number of burn-in samples to be discarded, default to 0.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py function">
-<dt class="sig sig-object py" id="sampler.base.rejection_sampling">
-<span class="sig-prename descclassname"><span class="pre">sampler.base.</span></span><span class="sig-name descname"><span class="pre">rejection_sampling</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Distribution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">proposal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Distribution</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tensor</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/sampler/base.html#rejection_sampling"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.base.rejection_sampling" title="Permalink to this definition"></a></dt>
-<dd><p>Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor <span class="math">\(k&gt;0\)</span>. See Section 11.1.2 of <a class="reference internal" href="references.html#bishop2006prml" id="id6"><span>[Bishop2006PRML]</span></a>.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>num_samples</strong> (<em>int</em>) – the number of samples to be drawn.</p></li>
-<li><p><strong>target</strong> (<em>Distribution</em>) – the target distribution.</p></li>
-<li><p><strong>proposal</strong> (<em>Distribution</em>) – the proposal distribution.</p></li>
-<li><p><strong>k</strong> (<em>float</em>) – a positive constant such that :math: <cite>k q(x) geq tilde{p}(x)</cite>.</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
 </section>
 <section id="module-sampler.distribution">
 <span id="sampler-distribution-module"></span><h2>sampler.distribution module<a class="headerlink" href="#module-sampler.distribution" title="Permalink to this heading"></a></h2>
-<dl class="py function">
-<dt class="sig sig-object py" id="sampler.distribution.MultivariateNormal">
-<span class="sig-prename descclassname"><span class="pre">sampler.distribution.</span></span><span class="sig-name descname"><span class="pre">MultivariateNormal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">loc</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cov</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#sampler.distribution.MultivariateNormal" title="Permalink to this definition"></a></dt>
-<dd></dd></dl>
-
 <dl class="py class">
-<dt class="sig sig-object py" id="sampler.distribution.Wrapper">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sampler.distribution.</span></span><span class="sig-name descname"><span class="pre">Wrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distribution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Distribution</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sampler/distribution.html#Wrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.distribution.Wrapper" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="sampler.distribution.LinearEnvelop1D">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sampler.distribution.</span></span><span class="sig-name descname"><span class="pre">LinearEnvelop1D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">derivative</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eval_value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sampler/distribution.html#LinearEnvelop1D"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.distribution.LinearEnvelop1D" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Distribution</span></code></p>
 <dl class="py method">
-<dt class="sig sig-object py" id="sampler.distribution.Wrapper.evaluate_density">
-<span class="sig-name descname"><span class="pre">evaluate_density</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#sampler.distribution.Wrapper.evaluate_density" title="Permalink to this definition"></a></dt>
-<dd><p>Evaluate the density function <span class="math">\(\tilde{p}(x)\)</span> at given <span class="math">\(x\)</span>. When in_log is True, the logarithm of the density function <span class="math">\(log\tilde{p}(x)\)</span> should be returned. The returned values should be of shape (x.shape[0],).</p>
+<dt class="sig sig-object py" id="sampler.distribution.LinearEnvelop1D.log_prob">
+<span class="sig-name descname"><span class="pre">log_prob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/sampler/distribution.html#LinearEnvelop1D.log_prob"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.distribution.LinearEnvelop1D.log_prob" title="Permalink to this definition"></a></dt>
+<dd><p>Evaluate the density function <span class="math">\(log\tilde{p}(x)\)</span> at given <span class="math">\(x\)</span>. The returned values should be of shape (x.shape[0],).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<em>torch.Tensor</em>) – the point(s) at which to evaluate the density function.</p></li>
-<li><p><strong>in_log</strong> (<em>bool</em>) – the returned values are in natural logarithm scale if True.</p></li>
-</ul>
+<dd class="field-odd"><p><strong>x</strong> (<em>torch.Tensor</em>) – the point(s) at which to evaluate the density function.</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="sampler.distribution.Wrapper.sample">
-<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#sampler.distribution.Wrapper.sample" title="Permalink to this definition"></a></dt>
-<dd><p>Draw samples from the distribution :math: <cite>p(cdot)</cite>. The samples should be of shape (num_samples, …).</p>
+<dt class="sig sig-object py" id="sampler.distribution.LinearEnvelop1D.sample">
+<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/sampler/distribution.html#LinearEnvelop1D.sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.distribution.LinearEnvelop1D.sample" title="Permalink to this definition"></a></dt>
+<dd><p>Draw samples from the distribution. The samples should be of shape (num_samples, …).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>num_samples</strong> (<em>int</em>) – the number of samples to be drawn.</p>
 </dd>
 </dl>
 </dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sampler.distribution.LinearEnvelop1D.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#sampler.distribution.LinearEnvelop1D.training" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="sampler.distribution.TDWrapper">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sampler.distribution.</span></span><span class="sig-name descname"><span class="pre">TDWrapper</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">distribution</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Distribution</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sampler/distribution.html#TDWrapper"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.distribution.TDWrapper" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Distribution</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="sampler.distribution.TDWrapper.log_prob">
+<span class="sig-name descname"><span class="pre">log_prob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#sampler.distribution.TDWrapper.log_prob" title="Permalink to this definition"></a></dt>
+<dd><p>Evaluate the density function <span class="math">\(log\tilde{p}(x)\)</span> at given <span class="math">\(x\)</span>. The returned values should be of shape (x.shape[0],).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>torch.Tensor</em>) – the point(s) at which to evaluate the density function.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sampler.distribution.TDWrapper.sample">
+<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#sampler.distribution.TDWrapper.sample" title="Permalink to this definition"></a></dt>
+<dd><p>Draw samples from the distribution. The samples should be of shape (num_samples, …).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>num_samples</strong> (<em>int</em>) – the number of samples to be drawn.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sampler.distribution.TDWrapper.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#sampler.distribution.TDWrapper.training" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="sampler.distribution.UpdateLinearEnvelop1D">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">sampler.distribution.</span></span><span class="sig-name descname"><span class="pre">UpdateLinearEnvelop1D</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">grid</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">derivative</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eval_value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/sampler/distribution.html#UpdateLinearEnvelop1D"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.distribution.UpdateLinearEnvelop1D" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Distribution</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="sampler.distribution.UpdateLinearEnvelop1D.log_prob">
+<span class="sig-name descname"><span class="pre">log_prob</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tensor</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/sampler/distribution.html#UpdateLinearEnvelop1D.log_prob"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.distribution.UpdateLinearEnvelop1D.log_prob" title="Permalink to this definition"></a></dt>
+<dd><p>Evaluate the density function <span class="math">\(log\tilde{p}(x)\)</span> at given <span class="math">\(x\)</span>. The returned values should be of shape (x.shape[0],).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>torch.Tensor</em>) – the point(s) at which to evaluate the density function.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="sampler.distribution.UpdateLinearEnvelop1D.sample">
+<span class="sig-name descname"><span class="pre">sample</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tensor</span></span></span><a class="reference internal" href="_modules/sampler/distribution.html#UpdateLinearEnvelop1D.sample"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#sampler.distribution.UpdateLinearEnvelop1D.sample" title="Permalink to this definition"></a></dt>
+<dd><p>Draw samples from the distribution. The samples should be of shape (num_samples, …).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>num_samples</strong> (<em>int</em>) – the number of samples to be drawn.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="sampler.distribution.UpdateLinearEnvelop1D.training">
+<span class="sig-name descname"><span class="pre">training</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">bool</span></em><a class="headerlink" href="#sampler.distribution.UpdateLinearEnvelop1D.training" title="Permalink to this definition"></a></dt>
+<dd></dd></dl>
 
 </dd></dl>
 

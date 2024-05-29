@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sampler.base.base &mdash; sampler 0.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=92fd9be5" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/katex-math.css?v=91adb8b6" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="../../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../../../_static/jquery.js?v=5d32c60e"></script>
+        <script src="../../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script data-url_root="../../../" id="documentation_options" src="../../../_static/documentation_options.js?v=44496db0"></script>
+        <script src="../../../_static/doctools.js?v=888ff710"></script>
+        <script src="../../../_static/sphinx_highlight.js?v=4825356b"></script>
+        <script src="../../../_static/katex.min.js?v=48ec3933"></script>
+        <script src="../../../_static/auto-render.min.js?v=8b9f325c"></script>
+        <script src="../../../_static/katex_autorenderer.js?v=bebc588a"></script>
+    <script src="../../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../../index.html" class="icon icon-home">
+            sampler
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../sampler.html">sampler package</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../references.html">References</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../../index.html">sampler</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">sampler.base.base</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for sampler.base.base</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">warnings</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Dict</span>
+<span class="kn">from</span> <span class="nn">.._common</span> <span class="kn">import</span> <span class="n">_bpt_decorator</span><span class="p">,</span> <span class="n">Func</span><span class="p">,</span> <span class="n">Distribution</span><span class="p">,</span> <span class="n">Condistribution</span><span class="p">,</span> <span class="n">BiProbTrans</span>
+<span class="kn">from</span> <span class="nn">torch.distributions</span> <span class="kn">import</span> <span class="n">MultivariateNormal</span>
+<span class="kn">from</span> <span class="nn">sampler.distribution</span> <span class="kn">import</span> <span class="n">LinearEnvelop1D</span><span class="p">,</span> <span class="n">UpdateLinearEnvelop1D</span>
+<span class="kn">from</span> <span class="nn">sampler.distribution</span> <span class="kn">import</span> <span class="n">TDWrapper</span>
+<span class="nd">@_bpt_decorator</span>
+<span class="k">def</span> <span class="nf">rejection_sampling</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                       <span class="n">target</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Distribution</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">,</span> <span class="n">Func</span><span class="p">],</span>
+                       <span class="n">proposal</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Distribution</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">],</span>
+                       <span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                       <span class="n">max_samples</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">squeezing</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Distribution</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">,</span> <span class="n">Func</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                       <span class="n">k_squeezing</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+                       <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor :math:`k&gt;0`. See Section 11.1.2 of [Bishop2006PRML]_.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        num_samples (int): the number of samples to be drawn.</span>
+<span class="sd">        target (Distribution): the target distribution.</span>
+<span class="sd">        proposal (Distribution): the proposal distribution.</span>
+<span class="sd">        k (float): a positive constant such that :math: `k q(x) \geq \tilde{p}(x)` holds for all `x`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">k</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">math</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">k</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The scaling factor k should be a positive finite scalar, but got k = </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">squeezing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">k_squeezing</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Scaling factor k_squeezing undefined. Ignoring squeezing function.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">squeezing</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">k_squeezing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;Squeezing function undefined. Ignoring k_squeezing.&quot;</span><span class="p">)</span>
+
+    <span class="n">flag_squeeze</span> <span class="o">=</span> <span class="n">squeezing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">k_squeezing</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+    <span class="n">total_num_sample</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">reject_num_sample</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">accept_sample</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="k">while</span> <span class="n">total_num_sample</span> <span class="o">-</span> <span class="n">reject_num_sample</span> <span class="o">&lt;</span> <span class="n">num_samples</span> <span class="ow">and</span> <span class="p">(</span><span class="n">max_samples</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">total_num_sample</span> <span class="o">&lt;</span> <span class="n">max_samples</span><span class="p">):</span>
+        <span class="n">num_remaining_samples</span> <span class="o">=</span> <span class="n">num_samples</span> <span class="o">-</span> <span class="n">accept_sample</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">accept_sample</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">num_samples</span>
+        <span class="n">samples</span> <span class="o">=</span> <span class="n">proposal</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">num_remaining_samples</span><span class="p">)</span>
+        <span class="n">up_bound</span> <span class="o">=</span> <span class="n">k</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">proposal</span><span class="p">(</span><span class="n">samples</span><span class="p">))</span>
+        <span class="n">evals</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">target</span><span class="p">(</span><span class="n">samples</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">up_bound</span> <span class="o">&lt;</span> <span class="n">evals</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The scaling factor k = </span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> is not large enough.&quot;</span><span class="p">)</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand_like</span><span class="p">(</span><span class="n">up_bound</span><span class="p">)</span> <span class="o">*</span> <span class="n">up_bound</span>
+        <span class="k">if</span> <span class="n">flag_squeeze</span><span class="p">:</span>
+            <span class="n">low_bound</span> <span class="o">=</span> <span class="n">k_squeezing</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">squeezing</span><span class="p">(</span><span class="n">samples</span><span class="p">))</span>
+            <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">evals</span> <span class="o">&lt;</span> <span class="n">low_bound</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The scaling factor k_squeezing = </span><span class="si">{</span><span class="n">k_squeezing</span><span class="si">}</span><span class="s2"> is too large.&quot;</span><span class="p">)</span>
+            <span class="n">current_accept_samples</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[(</span><span class="n">u</span> <span class="o">&lt;</span> <span class="n">low_bound</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">u</span> <span class="o">&lt;</span> <span class="n">evals</span><span class="p">)]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">current_accept_samples</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="n">u</span> <span class="o">&lt;</span> <span class="n">evals</span><span class="p">]</span>
+        <span class="n">reject_num_sample</span> <span class="o">+=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">u</span> <span class="o">&gt;=</span> <span class="n">evals</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">total_num_sample</span> <span class="o">+=</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">accept_sample</span> <span class="o">=</span> <span class="n">current_accept_samples</span> <span class="k">if</span> <span class="n">accept_sample</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">accept_sample</span><span class="p">,</span> <span class="n">current_accept_samples</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">max_samples</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">total_num_sample</span> <span class="o">&gt;=</span> <span class="n">max_samples</span><span class="p">:</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rejection sampling reaches the maximum number of samples: </span><span class="si">{</span><span class="n">max_samples</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">accept_sample</span><span class="p">[:</span><span class="n">num_samples</span><span class="p">],</span> <span class="p">{</span><span class="s2">&quot;rejection_rate&quot;</span><span class="p">:</span> <span class="n">reject_num_sample</span> <span class="o">/</span> <span class="n">total_num_sample</span><span class="p">}</span>
+
+
+<span class="nd">@_bpt_decorator</span>
+<span class="k">def</span> <span class="nf">adaptive_rejection_sampling</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                                <span class="n">target</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Distribution</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">,</span> <span class="n">Func</span><span class="p">],</span>
+                                <span class="n">lower</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                                <span class="n">upper</span><span class="p">:</span> <span class="nb">float</span><span class="p">,)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Adaptive Rejection sampling to draw samples from a log-concave target distribution. See Section 11.1.3 of [Bishop2006PRML]_.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        num_samples (int): the number of samples to be drawn.</span>
+<span class="sd">        target (Union[Distribution, BiProbTrans, Func]): the target 1-dimension distribution.</span>
+<span class="sd">        lower (float): the lower point to start the grid, the derivative here should be positive.</span>
+<span class="sd">        upper (float): the upper point to end the grid, the derivative here should be negative.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">lower</span> <span class="o">&gt;</span> <span class="n">upper</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The value of lower point should be smaller than the upper point.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">lower</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="o">.</span><span class="n">isinf</span><span class="p">(</span><span class="n">upper</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The value of lower point or upper point is invalid.&quot;</span><span class="p">)</span>
+
+    <span class="n">eval_points</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">([[</span><span class="n">lower</span><span class="p">],</span> <span class="p">[</span><span class="n">upper</span><span class="p">]])</span>
+
+    <span class="n">eval_points</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">eval_bound</span> <span class="o">=</span> <span class="n">target</span><span class="p">(</span><span class="n">eval_points</span><span class="p">)</span>
+
+    <span class="n">log_grad_current</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">eval_bound</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">eval_points</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">eval_points</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">log_grad_current</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The derivative at lower point is negative.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sign</span><span class="p">(</span><span class="n">log_grad_current</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The derivative at upper point is positive.&quot;</span><span class="p">)</span>
+
+    <span class="n">proposal</span> <span class="o">=</span> <span class="n">LinearEnvelop1D</span><span class="p">(</span><span class="n">eval_points</span><span class="p">,</span> <span class="n">log_grad_current</span><span class="p">,</span> <span class="n">eval_bound</span><span class="p">)</span>
+
+    <span class="c1"># TODO: add abscissae of rejected points into the linear envolope distirbution</span>
+    <span class="n">total_num_sample</span><span class="p">,</span> <span class="n">reject_num_sample</span><span class="p">,</span> <span class="n">accept_sample</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="kc">None</span>
+    <span class="n">iteration_count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">total_num_sample</span> <span class="o">-</span> <span class="n">reject_num_sample</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">num_samples</span><span class="p">:</span>
+        <span class="n">iteration_count</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="n">samples</span> <span class="o">=</span> <span class="n">proposal</span><span class="o">.</span><span class="n">sample</span><span class="p">((</span><span class="n">num_samples</span> <span class="o">-</span> <span class="n">accept_sample</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="k">if</span> <span class="n">accept_sample</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">num_samples</span><span class="p">)</span>
+        <span class="n">evals</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">target</span><span class="p">(</span><span class="n">samples</span><span class="p">))</span>
+        <span class="n">bound</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">proposal</span><span class="p">(</span><span class="n">samples</span><span class="p">))</span>
+        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">bound</span> <span class="o">&lt;</span> <span class="n">evals</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Wrong envelop distribution.&quot;</span><span class="p">)</span>
+        <span class="n">u</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand_like</span><span class="p">(</span><span class="n">bound</span><span class="p">)</span> <span class="o">*</span> <span class="n">bound</span>
+        <span class="n">current_accept_samples</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="n">evals</span> <span class="o">&gt;</span> <span class="n">u</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">accept_sample</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">accept_sample</span> <span class="o">=</span> <span class="n">current_accept_samples</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">accept_sample</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">accept_sample</span><span class="p">,</span> <span class="n">current_accept_samples</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+<span class="w">        </span><span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        # Add rejected sample information into the envelope distribution</span>
+<span class="sd">        current_reject_samples = samples[evals &lt;= u]</span>
+<span class="sd">        eval_points = torch.concat((eval_points, current_reject_samples[:10]), dim=0).detach()</span>
+<span class="sd">        eval_points, indices = torch.sort(torch.unique(eval_points, sorted=False, return_inverse=False).view(-1, 1), dim=1)</span>
+
+<span class="sd">        eval_points.requires_grad = True</span>
+<span class="sd">        eval_bound = target(eval_points)</span>
+
+<span class="sd">        log_grad_current = torch.autograd.grad(eval_bound.sum(), eval_points)[0]</span>
+<span class="sd">        eval_points.requires_grad = False</span>
+
+<span class="sd">        if np.sign(log_grad_current[0]) &lt; 0:</span>
+<span class="sd">            raise ValueError(f&quot;The derivative at lower point is negative.&quot;)</span>
+<span class="sd">        if np.sign(log_grad_current[-1]) &gt; 0:</span>
+<span class="sd">            raise ValueError(f&quot;The derivative at upper point is positive.&quot;)</span>
+<span class="sd">        print(f&quot;log_grad_current.shape: {log_grad_current.shape}\nlog_grad_current: {log_grad_current}\neval_points: {eval_points}\neval_bound: {eval_bound}&quot;)</span>
+
+<span class="sd">        proposal = UpdateLinearEnvelop1D(eval_points.clone().detach(), log_grad_current, eval_bound)</span>
+<span class="sd">        # Updated the envelope distribution</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="n">reject_num_sample</span> <span class="o">+=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">evals</span> <span class="o">&lt;=</span> <span class="n">u</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+        <span class="n">total_num_sample</span> <span class="o">+=</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1">#print(f&quot;samples.shape[0]: {samples.shape[0]}\nsamples: {samples}\ntorch.sum(evals &lt;= u).item(): {torch.sum(evals &lt;= u).item()}\ncurrent_accept_samples: {current_accept_samples.shape}\ncurrent_reject_samples: {current_reject_samples.shape}&quot;)</span>
+    <span class="k">return</span> <span class="n">accept_sample</span><span class="p">[:</span><span class="n">num_samples</span><span class="p">],</span> <span class="p">{</span><span class="s1">&#39;rejection_rate&#39;</span><span class="p">:</span> <span class="n">reject_num_sample</span> <span class="o">/</span> <span class="n">total_num_sample</span><span class="p">,</span> <span class="s1">&#39;iteration_count&#39;</span><span class="p">:</span> <span class="n">iteration_count</span><span class="p">}</span>
+
+<span class="nd">@_bpt_decorator</span>
+<span class="k">def</span> <span class="nf">mh_sampling</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                <span class="n">target</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Distribution</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">,</span> <span class="n">Func</span><span class="p">],</span>
+                <span class="n">transit</span><span class="p">:</span> <span class="n">Condistribution</span><span class="p">,</span>
+                <span class="n">initial</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+                <span class="n">burn_in</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+                <span class="n">event_func</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Func</span><span class="p">]</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Metropolis-Hastings (MH) sampling to draw samples from a target distribution using a transition conditional distribution. See Section 11.2.2. of [Bishop2006PRML]_.</span>
+
+<span class="sd">    .. note:: `num_samples` represents the number of samples returned. `burn_in` represents the first `burn_in` samples will be discarded. Thus, there will be `num_samples + burn_in` samples in total, with the first one being the provided `initial` and all the remaining ones to be generated by MH.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        num_samples (int): the number of samples to be returned when event_func always return False during the sampling.</span>
+<span class="sd">        target (Union[Distribution, BiProbTrans, Func]): the target distribution. Since the target doesn&#39;t need to have a sampling method, it can be a function.</span>
+<span class="sd">        transit (Distribution): the transition distribution. Both a density and a sampling function are needed.</span>
+<span class="sd">        initial (torch.Tensor): the initial point to start the sampling process. The first dimension is the batch dimension B, and (num_samples, B, ...) will be returned.</span>
+<span class="sd">        burn_in (Optional[int]): the number of samples to be discarded at the beginning of MCMC, default to 0.</span>
+<span class="sd">        event_func (Optional[Func]): when it returns True, the MH sampling will terminate immediately; default to a function that always returns False.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        Tuple[torch.Tensor, Any]: the samples drawn by MH and the status dictionary.</span>
+<span class="sd">        - samples (torch.Tensor): the samples drawn by MH, with the first dimension being the number of samples + burn_in.</span>
+<span class="sd">        - status (Dict): A dictionary containing information in the MH sampling procedure.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">burn_in</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="n">burn_in</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The number of burn_in samples should be a non-negative integer, but got burn_in = </span><span class="si">{</span><span class="n">burn_in</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="n">num_samples</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The number of samples to be drawn should be a positive integer, but got num_samples = </span><span class="si">{</span><span class="n">num_samples</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">num_samples</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">initial</span><span class="p">,</span> <span class="p">{}</span>
+
+    <span class="k">if</span> <span class="n">initial</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># tolerate only one chain provided, reshape to (1, D) when given (D,)</span>
+        <span class="n">initial</span> <span class="o">=</span> <span class="n">initial</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">initial</span><span class="o">.</span><span class="n">device</span>
+    <span class="n">samples</span><span class="p">,</span> <span class="n">num_accept</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">initial</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">initial</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="k">while</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">num_samples</span> <span class="o">+</span> <span class="n">burn_in</span><span class="p">:</span>
+        <span class="n">new</span> <span class="o">=</span> <span class="n">transit</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">initial</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">initial</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">ratio</span> <span class="o">=</span> <span class="n">target</span><span class="p">(</span><span class="n">new</span><span class="p">)</span> <span class="o">+</span> <span class="n">transit</span><span class="p">(</span><span class="n">initial</span><span class="p">,</span> <span class="n">new</span><span class="p">)</span><span class="o">.</span><span class="n">diag</span><span class="p">()</span> \
+                <span class="o">-</span> <span class="n">target</span><span class="p">(</span><span class="n">initial</span><span class="p">)</span> <span class="o">-</span> <span class="n">transit</span><span class="p">(</span><span class="n">new</span><span class="p">,</span> <span class="n">initial</span><span class="p">)</span><span class="o">.</span><span class="n">diag</span><span class="p">()</span>
+        <span class="n">ratio</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">ratio</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="c1"># min(1, ratio) is not necessary</span>
+        <span class="n">accept</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">ratio</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">ratio</span>
+        <span class="n">num_accept</span> <span class="o">+=</span> <span class="n">accept</span>
+        <span class="n">new</span><span class="p">[</span><span class="o">~</span><span class="n">accept</span><span class="p">]</span> <span class="o">=</span> <span class="n">initial</span><span class="p">[</span><span class="o">~</span><span class="n">accept</span><span class="p">]</span>
+        <span class="n">initial</span> <span class="o">=</span> <span class="n">new</span>
+        <span class="n">samples</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">samples</span><span class="p">,</span> <span class="n">new</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">event_value</span> <span class="o">=</span> <span class="n">event_func</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">event_value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="c1"># provide some flexibility allowing torch.Tensor([True])</span>
+                <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">event_value</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="ow">and</span> <span class="n">event_value</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">bool</span> <span class="ow">and</span> <span class="n">event_value</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">event_value</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">burn_in</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">samples</span><span class="p">[</span><span class="n">burn_in</span><span class="p">:],</span> <span class="p">{</span><span class="s1">&#39;acceptance_rate&#39;</span><span class="p">:</span> <span class="n">num_accept</span> <span class="o">/</span> <span class="p">(</span><span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)}</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;event_func is triggered before burn_in stage&quot;</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">samples</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;acceptance_rate&#39;</span><span class="p">:</span> <span class="n">num_accept</span> <span class="o">/</span> <span class="p">(</span><span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;event_func should return a single boolean value, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">event_value</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">samples</span><span class="p">[</span><span class="n">burn_in</span><span class="p">:],</span> <span class="p">{</span><span class="s1">&#39;acceptance_rate&#39;</span><span class="p">:</span> <span class="n">num_accept</span> <span class="o">/</span> <span class="p">(</span><span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)}</span>
+
+
+<div class="viewcode-block" id="gibbs_sampling"><a class="viewcode-back" href="../../../sampler.base.html#sampler.base.base.gibbs_sampling">[docs]</a><span class="k">def</span> <span class="nf">gibbs_sampling</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                   <span class="n">condis</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="n">Condistribution</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">Condistribution</span><span class="p">],</span> <span class="n">Condistribution</span><span class="p">],</span>
+                   <span class="n">initial</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+                   <span class="n">burn_in</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+                   <span class="n">block</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                   <span class="n">block_list</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">]</span> <span class="o">=</span> <span class="p">[])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gibbs sampling to draw samples given conditional distributions. See Section 11.3 of [Bishop2006PRML]_.</span>
+
+
+<span class="sd">    .. note:: Even though given all those conditional probabilities, it is still impossible to directly evaluate the joint distribution density. However, Gibbs sampling provides a way to draw samples from the joint distribution.</span>
+
+
+<span class="sd">    Args:</span>
+<span class="sd">        num_samples (int): the number of samples to be drawn.</span>
+<span class="sd">        condis (Union[Tuple[Condistribution], List[Condistribution], Condistribution]): the conditional distributions.</span>
+<span class="sd">        initial (torch.Tensor): the initial point to start the sampling process.</span>
+<span class="sd">        burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.</span>
+<span class="sd">        block (Optional[bool]): perform Blocking Gibbs Sampling if set to True.</span>
+<span class="sd">        block_list (Optional[list]): the list of variable partitions (blocks).</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">burn_in</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The number of burn-in samples should be non-negative, but got burn_in = </span><span class="si">{</span><span class="n">burn_in</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="n">initial</span> <span class="o">=</span> <span class="n">initial</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">dim</span> <span class="o">=</span> <span class="n">initial</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="n">samples</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">initial</span><span class="p">)</span>
+    <span class="n">mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_samples</span> <span class="o">+</span> <span class="n">burn_in</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">block</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">block_list</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;block_list should be a list of ints using Blocking Gibbs Sampling.&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">block_list</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">condis</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The length of block_list should be equal to the number of conditional distributions, but got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">block_list</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">block_list</span><span class="p">)):</span>
+                <span class="n">block_j</span> <span class="o">=</span> <span class="n">block_list</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">block_j</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Each block in block_list should be of length 2, but got </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">block_j</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="n">block_start</span> <span class="o">=</span> <span class="p">[</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">block_list</span><span class="p">]</span>
+            <span class="c1">#print(f&quot;block_start: {block_start}&quot;)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="n">y</span> <span class="k">for</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">block_start</span><span class="p">,</span> <span class="n">block_start</span><span class="p">[</span><span class="mi">1</span><span class="p">:])):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The starting points of the blocks in block_list should be monotonically increasing&quot;</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">block_list</span><span class="p">)):</span>
+                <span class="n">block_j</span> <span class="o">=</span> <span class="n">block_list</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
+                <span class="n">mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">block_j</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">),</span>
+                                     <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">block_j</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">block_j</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">mask</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">dim</span> <span class="o">-</span> <span class="n">block_j</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="c1">#print(f&quot;mask: {mask}&quot;)</span>
+                <span class="n">y</span> <span class="o">=</span> <span class="n">initial</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">mask</span><span class="p">]</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">condis</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+                    <span class="n">initial</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">block_j</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span><span class="n">block_j</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">condis</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">condis</span><span class="p">,</span> <span class="n">Condistribution</span><span class="p">):</span>
+                    <span class="n">initial</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">block_j</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span><span class="n">block_j</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">+</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">condis</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;The conditional distributions should be a tuple, list or a single instance of Condistribution, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">condis</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+                <span class="c1">#print(f&quot;initial: {initial}&quot;)</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">samples</span><span class="p">,</span> <span class="n">initial</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dim</span><span class="p">):</span>
+                <span class="c1"># mask[j] = False</span>
+                <span class="n">new_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">j</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">),</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">dim</span><span class="o">-</span><span class="n">j</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">)],</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">old_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">dim</span><span class="o">-</span><span class="n">j</span><span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">y</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">initial</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">new_mask</span><span class="p">],</span> <span class="n">samples</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">old_mask</span><span class="p">]],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">condis</span><span class="p">,</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">list</span><span class="p">)):</span>
+                    <span class="n">initial</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">condis</span><span class="p">[</span><span class="n">j</span><span class="p">]</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">condis</span><span class="p">,</span> <span class="n">Condistribution</span><span class="p">):</span>
+                    <span class="n">initial</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">condis</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="sa">f</span><span class="s2">&quot;The conditional distributions should be a tuple, list or a single instance of Condistribution, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">condis</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+                <span class="c1"># mask[j] = True</span>
+            <span class="n">samples</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">samples</span><span class="p">,</span> <span class="n">initial</span><span class="p">],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">samples</span><span class="p">[</span><span class="n">burn_in</span><span class="p">:],</span> <span class="kc">None</span></div>
+
+
+<span class="nd">@_bpt_decorator</span>
+<span class="k">def</span> <span class="nf">langevin_monte_carlo</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                         <span class="n">target</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Distribution</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">,</span> <span class="n">Func</span><span class="p">],</span>
+                         <span class="n">step_size</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                         <span class="n">initial</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+                         <span class="n">adjusted</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">bool</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+                         <span class="n">burn_in</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+                         <span class="n">event_func</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Func</span><span class="p">]</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">_</span><span class="p">:</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Langevin Monte Carlo (LMC) to draw samples from a target distribution.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        num_samples (int): the number of samples to be returned.</span>
+<span class="sd">        target (Distribution): the target distribution.</span>
+<span class="sd">        step_size (float): the step size to discretize the Langevin dynamics.</span>
+<span class="sd">        initial (torch.Tensor): the initial point to start the sampling process.</span>
+<span class="sd">        adjusted (Optional[bool]): whether to adjust the acceptance ratio using the Metropolis-Hasting criterion, default to False.</span>
+<span class="sd">        burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.</span>
+<span class="sd">        event_func (Optional[Func]): when it returns True, the LMC will terminate immediately; default to a function that always returns False.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">num_samples</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="o">!=</span> <span class="kc">True</span> <span class="ow">or</span> <span class="n">num_samples</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The number of samples to be drawn should be a positive integer, but got num_samples = </span><span class="si">{</span><span class="n">num_samples</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="o">!=</span> <span class="kc">True</span> <span class="ow">or</span> <span class="n">step_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The step size should be positive, but got tau = </span><span class="si">{</span><span class="n">step_size</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">initial</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># tolerate the user to feed in one chain, reshape to (1, D) when given (D,)</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="n">initial</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">current</span> <span class="o">=</span> <span class="n">initial</span>
+
+    <span class="n">samples</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">current</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">initial</span><span class="o">.</span><span class="n">device</span>
+    <span class="n">step_size</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">step_size</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+
+    <span class="n">current</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">logp_current</span> <span class="o">=</span> <span class="n">target</span><span class="p">(</span><span class="n">current</span><span class="p">)</span>
+    <span class="c1"># a trick to make the objective to be a scalar so that the gradient can be computed.</span>
+    <span class="n">log_grad_current</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">logp_current</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">current</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">current</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="k">while</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">num_samples</span> <span class="o">+</span> <span class="n">burn_in</span><span class="p">:</span>
+        <span class="n">noise</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">randn_like</span><span class="p">(</span><span class="n">current</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">new</span> <span class="o">=</span> <span class="p">(</span><span class="n">current</span> <span class="o">+</span> <span class="n">step_size</span> <span class="o">*</span> <span class="n">log_grad_current</span> <span class="o">+</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">step_size</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">noise</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+
+        <span class="n">new</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">logp_new</span> <span class="o">=</span> <span class="n">target</span><span class="p">(</span><span class="n">new</span><span class="p">)</span>
+        <span class="n">log_grad_new</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">logp_new</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">new</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">new</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="k">if</span> <span class="n">adjusted</span><span class="p">:</span>
+            <span class="n">accept</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">new</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">((</span><span class="n">logp_new</span> <span class="o">-</span> <span class="n">logp_current</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span>
+                    <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">current</span> <span class="o">-</span> <span class="n">new</span> <span class="o">-</span> <span class="n">step_size</span> <span class="o">*</span> <span class="n">log_grad_new</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span>
+                                      <span class="n">dim</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">current</span><span class="o">.</span><span class="n">ndim</span><span class="p">)))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">step_size</span><span class="p">)</span>
+                    <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">torch</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">new</span> <span class="o">-</span> <span class="n">current</span> <span class="o">-</span> <span class="n">step_size</span> <span class="o">*</span> <span class="n">log_grad_current</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span>
+                                      <span class="n">dim</span><span class="o">=</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">current</span><span class="o">.</span><span class="n">ndim</span><span class="p">)))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">4</span> <span class="o">*</span> <span class="n">step_size</span><span class="p">)))</span>
+
+            <span class="n">logp_new</span><span class="p">[</span><span class="o">~</span><span class="n">accept</span><span class="p">]</span> <span class="o">=</span> <span class="n">logp_current</span><span class="p">[</span><span class="o">~</span><span class="n">accept</span><span class="p">]</span>
+            <span class="n">log_grad_new</span><span class="p">[</span><span class="o">~</span><span class="n">accept</span><span class="p">]</span> <span class="o">=</span> <span class="n">log_grad_current</span><span class="p">[</span><span class="o">~</span><span class="n">accept</span><span class="p">]</span>
+            <span class="n">new</span><span class="p">[</span><span class="o">~</span><span class="n">accept</span><span class="p">]</span> <span class="o">=</span> <span class="n">current</span><span class="p">[</span><span class="o">~</span><span class="n">accept</span><span class="p">]</span>
+
+        <span class="n">current</span><span class="p">,</span> <span class="n">logp_current</span><span class="p">,</span> <span class="n">log_grad_current</span> <span class="o">=</span> <span class="n">new</span><span class="p">,</span> <span class="n">logp_new</span><span class="p">,</span> <span class="n">log_grad_new</span>
+        <span class="n">samples</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">samples</span><span class="p">,</span> <span class="n">new</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">event_value</span> <span class="o">=</span> <span class="n">event_func</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">event_value</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="ow">or</span> <span class="c1"># provide some flexibility allowing torch.Tensor([True])</span>
+                <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">event_value</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">)</span> <span class="ow">and</span> <span class="n">event_value</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="n">torch</span><span class="o">.</span><span class="n">bool</span> <span class="ow">and</span> <span class="n">event_value</span><span class="o">.</span><span class="n">numel</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="n">event_value</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">burn_in</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">samples</span><span class="p">[</span><span class="n">burn_in</span><span class="p">:]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;event_func is triggered before burn_in stage&quot;</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">samples</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;event_func should return a single boolean value, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">event_value</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">samples</span><span class="p">[</span><span class="n">burn_in</span><span class="p">:]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+
+
+<span class="nd">@_bpt_decorator</span>
+<span class="k">def</span> <span class="nf">hamiltonian_monte_carlo</span><span class="p">(</span><span class="n">num_samples</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                            <span class="n">target</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">Distribution</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">,</span> <span class="n">Func</span><span class="p">],</span>
+                            <span class="n">step_size</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                            <span class="n">num_leapfrog</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+                            <span class="n">initial</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span>
+                            <span class="n">kinetic</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="n">Distribution</span><span class="p">,</span> <span class="n">BiProbTrans</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                            <span class="n">burn_in</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">:</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Hamiltonian Monte Carlo (HMC) to draw samples from a target distribution.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        num_samples (int): the number of samples to be returned.</span>
+<span class="sd">        target (Distribution): the target distribution.</span>
+<span class="sd">        step_size (float): the step size to discretize the Hamiltonian dynamics.</span>
+<span class="sd">        num_leapfrog (int): the number of leapfrog steps to be taken.</span>
+<span class="sd">        initial (torch.Tensor): the initial point to start the sampling process.</span>
+<span class="sd">        kinetic (Optional[Distribution]): the kinetic distribution, default to a standard multivariate Gaussian.</span>
+<span class="sd">        burn_in (Optional[int]): the number of burn-in samples to be discarded, default to 0.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">initial</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>  <span class="c1"># tolerate the user to feed in one chain, reshape to (1, D) when given (D,)</span>
+        <span class="n">initial</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">dim</span> <span class="o">=</span> <span class="n">initial</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">initial</span><span class="o">.</span><span class="n">device</span>
+    <span class="k">if</span> <span class="n">kinetic</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">kinetic</span> <span class="o">=</span> <span class="n">TDWrapper</span><span class="p">(</span><span class="n">MultivariateNormal</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">),</span> <span class="n">torch</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)))</span>
+    <span class="k">elif</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">kinetic</span><span class="p">,</span> <span class="n">Distribution</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The kinetic distribution should be an instance of Distribution, but got </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">kinetic</span><span class="p">)</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">kinetic</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="n">dim</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The dimension of the sample drawn from the kinetic distribution should equal that from the target distribution, &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;but got </span><span class="si">{</span><span class="n">kinetic</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">dim</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">step_size</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="ow">or</span> <span class="n">step_size</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The step size should be positive, but got tau = </span><span class="si">{</span><span class="n">step_size</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">num_leapfrog</span><span class="p">,</span> <span class="nb">int</span><span class="p">)</span> <span class="ow">or</span> <span class="n">num_leapfrog</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The number of leapfrog steps should be a positive integer , but got num_leapfrog = </span><span class="si">{</span><span class="n">num_leapfrog</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+    <span class="n">step_size</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">step_size</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">samples</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">clone</span><span class="p">(</span><span class="n">initial</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
+
+    <span class="k">while</span> <span class="n">samples</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">num_samples</span> <span class="o">+</span> <span class="n">burn_in</span><span class="p">:</span>
+        <span class="n">initial_q</span><span class="p">,</span> <span class="n">initial_p</span> <span class="o">=</span> <span class="n">samples</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">kinetic</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="n">initial</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># draw a new momentum</span>
+        <span class="n">current_q</span><span class="p">,</span> <span class="n">current_p</span> <span class="o">=</span> <span class="n">initial_q</span><span class="p">,</span> <span class="n">initial_p</span>
+
+        <span class="c1"># make a half step for momentum at the beginning</span>
+        <span class="n">current_q</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">logq_current</span> <span class="o">=</span> <span class="n">target</span><span class="p">(</span><span class="n">current_q</span><span class="p">)</span>
+        <span class="n">logq_grad_current</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">logq_current</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">current_q</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">current_q</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">current_p</span> <span class="o">=</span> <span class="n">current_p</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">step_size</span> <span class="o">*</span> <span class="n">logq_grad_current</span>
+
+        <span class="k">for</span> <span class="nb">iter</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_leapfrog</span><span class="p">):</span>
+            <span class="c1"># full step for position</span>
+            <span class="n">current_p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">logp_current</span> <span class="o">=</span> <span class="n">kinetic</span><span class="p">(</span><span class="n">current_p</span><span class="p">)</span>
+            <span class="n">logp_grad_current</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">logp_current</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">current_p</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">current_p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">current_q</span> <span class="o">=</span> <span class="n">current_q</span> <span class="o">-</span> <span class="n">step_size</span> <span class="o">*</span> <span class="n">logp_grad_current</span>
+
+            <span class="c1"># full step for momentum, except for the last iteration</span>
+            <span class="n">current_q</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">logq_current</span> <span class="o">=</span> <span class="n">target</span><span class="p">(</span><span class="n">current_q</span><span class="p">)</span>
+            <span class="n">logq_grad_current</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">autograd</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">logq_current</span><span class="o">.</span><span class="n">sum</span><span class="p">(),</span> <span class="n">current_q</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">current_q</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="n">current_p</span> <span class="o">=</span> <span class="n">current_p</span> <span class="o">+</span> <span class="n">step_size</span> <span class="o">*</span> <span class="n">logq_grad_current</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="nb">iter</span> <span class="o">!=</span> <span class="n">num_leapfrog</span> <span class="o">-</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">0.5</span><span class="p">)</span>
+
+        <span class="c1"># negative momentum in the end</span>
+        <span class="n">current_p</span> <span class="o">=</span> <span class="o">-</span><span class="n">current_p</span>
+
+        <span class="c1"># MH criterion to accept or reject the sample</span>
+        <span class="n">logH_new</span> <span class="o">=</span> <span class="n">kinetic</span><span class="p">(</span><span class="n">current_p</span><span class="p">)</span> <span class="o">+</span> <span class="n">logq_current</span>
+        <span class="n">logH_initial</span> <span class="o">=</span> <span class="n">kinetic</span><span class="p">(</span><span class="n">initial_p</span><span class="p">)</span> <span class="o">+</span> <span class="n">target</span><span class="p">(</span><span class="n">initial_q</span><span class="p">)</span>
+        <span class="n">accept</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">logH_new</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">torch</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="o">-</span><span class="n">logH_new</span> <span class="o">+</span> <span class="n">logH_initial</span><span class="p">)</span>
+
+        <span class="n">initial_q</span><span class="p">[</span><span class="n">accept</span><span class="p">]</span> <span class="o">=</span> <span class="n">current_q</span><span class="p">[</span><span class="n">accept</span><span class="p">]</span>
+        <span class="n">samples</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">([</span><span class="n">samples</span><span class="p">,</span> <span class="n">initial_q</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)],</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">samples</span><span class="p">[</span><span class="n">burn_in</span><span class="p">:]</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2024, Zhengqi Gao.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
