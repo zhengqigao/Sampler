@@ -28,25 +28,29 @@ def importance_sampling(num_samples: int,
 
     Args:
         num_samples (int): the number of samples to be drawn.
-        target (Union[Distribution, Func]): the target distribution. Since target doesn't need to have a sampling method, it can be a function.
-        proposal (Distribution): the proposal distribution.
+        target (Union[Distribution, BiProbTrans, Func]): the target distribution. Since target doesn't need a sampling method, it can be a function.
+        proposal (Union[Distribution, BiProbTrans]): the proposal distribution.
         eval_func (Optional[Func]): the function whose expectation to be evaluated if it is not None.
         resample_ratio (Optional[float]): perform Sampling-Importance-Resampling (SIR) and return samples if set to larger than 0.
+
+    Returns:
+        Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
+            - **expectation** (Optional[torch.Tensor]): The estimated expectation of a function with respect to a target distribution. Returns `None` if `eval_func` is not provided.
+            - **resample** (Optional[torch.Tensor]): Resampled samples from the target distribution using SIR if `resample_ratio` is greater than 0, otherwise returns `None`.
     """
-    if not isinstance(resample_ratio, (float, int)) or resample_ratio is torch.nan or resample_ratio < 0 or resample_ratio > 1:
+    if not isinstance(resample_ratio, float) or resample_ratio < 0 or resample_ratio > 1:
         raise ValueError(f"The resample_ratio must be a float in [0,1], but got {resample_ratio}.")
 
     samples = proposal.sample(num_samples)
+
     target_log_probs = target(samples)
-    if torch.isnan(target_log_probs).any().item():
-        warnings.warn("target log_prob returns NaN.")
-        # raise ValueError("target log_prob returns NaN.")
-        # kaiwen: warning doesn't work every time, exception always work.
+    if torch.isnan(target_log_probs).any() or torch.isinf(target_log_probs).any():
+        raise ValueError("target log_prob returns NaN.")
+
     proposal_log_probs = proposal(samples)
-    if torch.isnan(proposal_log_probs).any().item():
-        warnings.warn("proposal log_prob returns NaN.")
-        # raise ValueError("proposal log_prob returns NaN.")
-        # kaiwen: warning doesn't work every time, exception always work.
+    if torch.isnan(proposal_log_probs).any() or torch.isinf(proposal_log_probs).any():
+        raise ValueError("proposal log_prob returns NaN.")
+
     weights = torch.exp(target_log_probs - proposal_log_probs)
 
     resample, expectation = None, None

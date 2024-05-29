@@ -2,7 +2,7 @@ import warnings
 import numpy as np
 import torch
 import math
-from typing import Union, Tuple, Callable, Any, Optional, List
+from typing import Union, Tuple, Callable, Any, Optional, List, Dict
 from .._common import _bpt_decorator, Func, Distribution, Condistribution, BiProbTrans
 from torch.distributions import MultivariateNormal
 from sampler.distribution import LinearEnvelop1D, UpdateLinearEnvelop1D
@@ -140,13 +140,13 @@ def adaptive_rejection_sampling(num_samples: int,
         #print(f"samples.shape[0]: {samples.shape[0]}\nsamples: {samples}\ntorch.sum(evals <= u).item(): {torch.sum(evals <= u).item()}\ncurrent_accept_samples: {current_accept_samples.shape}\ncurrent_reject_samples: {current_reject_samples.shape}")
     return accept_sample[:num_samples], {'rejection_rate': reject_num_sample / total_num_sample, 'iteration_count': iteration_count}
 
-
+@_bpt_decorator
 def mh_sampling(num_samples: int,
-                target: Union[Distribution, Func],
+                target: Union[Distribution, BiProbTrans, Func],
                 transit: Condistribution,
                 initial: torch.Tensor,
                 burn_in: Optional[int] = 0,
-                event_func: Optional[Func] = lambda _: False) -> Tuple[torch.Tensor, Any]:
+                event_func: Optional[Func] = lambda _: False) -> Tuple[torch.Tensor, Dict]:
     r"""
     Metropolis-Hastings (MH) sampling to draw samples from a target distribution using a transition conditional distribution. See Section 11.2.2. of [Bishop2006PRML]_.
 
@@ -154,11 +154,16 @@ def mh_sampling(num_samples: int,
 
     Args:
         num_samples (int): the number of samples to be returned when event_func always return False during the sampling.
-        target (Union[Distribution, Func]): the target distribution. Since the target doesn't need to have a sampling method, it can be a function.
+        target (Union[Distribution, BiProbTrans, Func]): the target distribution. Since the target doesn't need to have a sampling method, it can be a function.
         transit (Distribution): the transition distribution. Both a density and a sampling function are needed.
         initial (torch.Tensor): the initial point to start the sampling process. The first dimension is the batch dimension B, and (num_samples, B, ...) will be returned.
         burn_in (Optional[int]): the number of samples to be discarded at the beginning of MCMC, default to 0.
         event_func (Optional[Func]): when it returns True, the MH sampling will terminate immediately; default to a function that always returns False.
+
+    Returns:
+        Tuple[torch.Tensor, Any]: the samples drawn by MH and the status dictionary.
+        - samples (torch.Tensor): the samples drawn by MH, with the first dimension being the number of samples + burn_in.
+        - status (Dict): A dictionary containing information in the MH sampling procedure.
     """
 
     if not isinstance(burn_in, int) or burn_in < 0:
@@ -166,7 +171,7 @@ def mh_sampling(num_samples: int,
     if not isinstance(num_samples, int) or num_samples <= 0:
         raise ValueError(f"The number of samples to be drawn should be a positive integer, but got num_samples = {num_samples}.")
     elif num_samples == 1:
-        return initial, None
+        return initial, {}
 
     if initial.ndim == 1:  # tolerate only one chain provided, reshape to (1, D) when given (D,)
         initial = initial.view(1, -1)
@@ -187,7 +192,7 @@ def mh_sampling(num_samples: int,
         if (isinstance(event_value, bool) or # provide some flexibility allowing torch.Tensor([True])
                 (isinstance(event_value, torch.Tensor) and event_value.dtype == torch.bool and event_value.numel() == 1)):
             if event_value:
-                if samples.shape[0] >= burn_in:
+                if samples.shape[0] > burn_in:
                     return samples[burn_in:], {'acceptance_rate': num_accept / (samples.shape[0] - 1)}
                 else:
                     warnings.warn("event_func is triggered before burn_in stage")

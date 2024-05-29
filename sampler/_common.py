@@ -161,15 +161,10 @@ class _BaseDistribution(nn.Module):
     def to(self, device: Union[torch.device, str]):
         self._device = device if isinstance(device, torch.device) else torch.device(device)
 
-        if not hasattr(self, '_sample'):
-            setattr(self, '_sample', self.sample)
-        if not hasattr(self, '_log_prob'):
-            setattr(self, '_log_prob', self.log_prob)
-
         self.sample = (lambda inst, *args, **kwargs:
-                       inst._sample(*args, **kwargs).to(self._device)).__get__(self)
+                       inst.sample(*args, **kwargs).to(self._device)).__get__(self)
         self.log_prob = (lambda inst, *args, **kwargs:
-                         inst._log_prob(*args, **kwargs).to(self._device)).__get__(self)
+                         inst.log_prob(*args, **kwargs).to(self._device)).__get__(self)
 
         return super().to(device)
 

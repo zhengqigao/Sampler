@@ -20,7 +20,7 @@ pip install git+https://github.com/zhengqigao/Sampler.git
 
 This section lists the algorithms and models that have been implemented and that will be implemented in the future. This section will be updated regularly as new algorithms and models are added. We use :cat: and :dog: to represent classical and deep learning-related, respectively, noticing the first characters are c and d. **We use :tea: to represent the algorithms that have been tested.** The following algorithms have been implemented:
 
-- [Importance sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf), [Sampling Importance Resampling](https://onlinelibrary.wiley.com/doi/pdf/10.1002/0470090456.ch24#:~:text=He%20called%20it%20the%20sampling,of%20size%20m%20as%20output.) :cat:
+- [Importance sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf), [Sampling Importance Resampling](https://onlinelibrary.wiley.com/doi/pdf/10.1002/0470090456.ch24#:~:text=He%20called%20it%20the%20sampling,of%20size%20m%20as%20output.) :cat:, :tea:
 - [Rejection sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) :cat:
 - [Metropolis-Hastings sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) :cat:, :tea:
 - [Gibbs sampling](https://www.microsoft.com/en-us/research/uploads/prod/2006/01/Bishop-Pattern-Recognition-and-Machine-Learning-2006.pdf) :cat:
