@@ -28,7 +28,7 @@ This section lists the algorithms and models that have been implemented and that
 - [Langevin Monte Carlo](https://abdulfatir.com/blog/2020/Langevin-Monte-Carlo/) :cat:, :tea:
 - [Hamiltonian Monte Carlo](https://arxiv.org/pdf/1206.1901.pdf) :cat:, :tea:
 - [Score Estimator](http://stillbreeze.github.io/REINFORCE-vs-Reparameterization-trick/) :cat:,:tea:
-- [Affine Coupling Flow](https://arxiv.org/abs/1605.08803), [RealNVP](https://arxiv.org/abs/1605.08803), [NICE](https://arxiv.org/pdf/1410.8516) :dog:
+- [Affine Coupling Flow](https://arxiv.org/abs/1605.08803), [RealNVP](https://arxiv.org/abs/1605.08803), [NICE](https://arxiv.org/pdf/1410.8516) :dog:, :tea:
 - [Planar Flow](https://arxiv.org/pdf/1505.05770), [Radial Flow](https://arxiv.org/pdf/1505.05770)  :dog:
     - Both forward and backward are implemented, so they can be used for generation. 
     - The backward of Planar Flow needs a differentiable root finding algorithm.
