@@ -27,10 +27,9 @@ def rejection_sampling(num_samples: int,
     """
     if not (k > 0 and math.isfinite(k)):
         raise ValueError(f"The scaling factor k should be a positive finite scalar, but got k = {k}.")
-    if squeezing is not None and k_squeezing is None:
-        warnings.warn("Scaling factor k_squeezing undefined. Ignoring squeezing function.")
-    if squeezing is None and k_squeezing is not None:
-        warnings.warn("Squeezing function undefined. Ignoring k_squeezing.")
+    if (squeezing is None) ^ (k_squeezing is None):
+        warnings.warn("The rejection sampling will be performed without squeezing, "
+                      " because one of squeezing distribution and factor is not provided.")
 
     flag_squeeze = squeezing is not None and k_squeezing is not None
     total_num_sample = 0
