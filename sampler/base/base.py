@@ -48,7 +48,7 @@ def rejection_sampling(num_samples: int,
         if flag_squeeze:
             low_bound = k_squeezing * torch.exp(squeezing(samples))
             if torch.any(evals < low_bound):
-                raise ValueError(f"The scaling factor k_squeezing = {k_squeezing} is too large.")
+                raise ValueError(f"The scaling factor k_squeezing = {k_squeezing} is not small enough.")
             current_accept_samples = samples[(u < low_bound) | (u < evals)]
         else:
             current_accept_samples = samples[u < evals]
@@ -57,7 +57,8 @@ def rejection_sampling(num_samples: int,
         accept_sample = current_accept_samples if accept_sample is None else torch.cat([accept_sample, current_accept_samples], dim=0)
 
     if max_samples is not None and total_num_sample >= max_samples:
-        warnings.warn(f"Rejection sampling reaches the maximum number of samples: {max_samples}.")
+        warnings.warn(f"Rejection sampling reaches the maximum number of total sampling: {max_samples},"
+                      f" but only {accept_sample.shape[0]} collected, fewer than the required {num_samples}.")
     return accept_sample[:num_samples], {"rejection_rate": reject_num_sample / total_num_sample}
 
 
