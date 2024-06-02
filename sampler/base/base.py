@@ -16,14 +16,18 @@ def rejection_sampling(num_samples: int,
                        squeezing: Optional[Union[Distribution, BiProbTrans, Func]] = None,
                        k_squeezing: Optional[float] = None
                        ) -> Tuple[torch.Tensor, Any]:
+    # TODO kaiwen, rewrite docstring!
     r"""
-    Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor :math:`k>0`. See Section 11.1.2 of [Bishop2006PRML]_.
+    Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor :math:`k>0`. See Section 11.1.2 of [Bishop2006PRML]_. The user has the option to specify the maximum number of samples, the squeezing distribution (see [Gilks1992ars]_) and its scaling factor :math:`k_\text{sq}>0`.
 
     Args:
         num_samples (int): the number of samples to be drawn.
-        target (Distribution): the target distribution.
-        proposal (Distribution): the proposal distribution.
+        target (Union[Distribution, BiProbTrans, Func]): the target distribution.
+        proposal (Union[Distribution, BiProbTrans]): the proposal distribution.
         k (float): a positive constant such that :math: `k q(x) \geq \tilde{p}(x)` holds for all `x`.
+        max_samples (Optional[int]): maximum number of samples to be drawn from proposal distribution.
+        squeezing (Optional[Union[Distribution, BiProbTrans, Func]]): the squeezing distribution.
+        k_squeezing (Optional[float]): a positive constant ensuring :math: `k q(x) \geq \tilde{p}(x) \geq k_\text{sq} q_\text{sq}(x)` for all `x`.
     """
     if not (k > 0 and math.isfinite(k)):
         raise ValueError(f"The scaling factor k should be a positive finite scalar, but got k = {k}.")
