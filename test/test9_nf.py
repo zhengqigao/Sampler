@@ -14,16 +14,18 @@ from sampler.base import importance_sampling
 from torch.distributions.multivariate_normal import MultivariateNormal
 from sklearn import datasets
 from sampler.functional import KLDenLoss, KLGenLoss, ScoreDenLoss
+
+
 # test a single transform block
 
 def test_couple_flow():
     dim = 4
     mg = MultiGauss(mean=[0] * dim, std=[1] * dim)
     flowtransform = AffineCouplingFlow(dim=dim,
-                               keep_dim=[0, 2],
-                               scale_net=Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu'),
-                               shift_net=Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu'),
-                               p_base=mg)
+                                       keep_dim=[0, 2],
+                                       scale_net=Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu'),
+                                       shift_net=Feedforward([max(1, dim // 2), 2, 2, max(1, dim // 2)], 'relu'),
+                                       p_base=mg)
 
     print(flowtransform.p_base)
     flowtransform.p_base = None
@@ -115,7 +117,7 @@ def test_sample():
     print(results)
 
 
-def run_density_matching_example():
+def run_density_matching_example(save_path=None):
     ## TODO: Potential 3 and 4 trials are not really stable, actually rare works as the MCMC case, will investigate more
     ## a work seed for potential 4 torch.manual_seed(10000000000000000)
     ## GPU version is tested
@@ -164,10 +166,12 @@ def run_density_matching_example():
             plt.show()
             break
         optimizer.zero_grad()
-        loss.backward() # loss.backward() should be used, loss_tmp.backward() uses score estimator, and usually has large variance.
+        loss.backward()  # loss.backward() should be used, loss_tmp.backward() uses score estimator, and usually has large variance.
         optimizer.step()
         print(f"iter {i}, loss: {loss.item()}, loss_tmp: {loss_tmp.item()}")
-
+    if save_path:
+        torch.save(module, os.path.join(save_path, "model.pth"))  # method 1
+        torch.save(module.state_dict(), os.path.join(save_path, "model_dict.pth"))  # method 2
     plt.figure()
     samples, log_prob = module.sample(50000)
     samples = samples.detach().cpu().numpy()
@@ -181,12 +185,66 @@ def run_density_matching_example():
     plt.figure()
     grid_data = grid_data.to(device)
     grid_data_numpy = grid_data.detach().cpu().numpy()
-    plt.scatter(grid_data_numpy[:, 0], grid_data_numpy[:, 1], c=torch.exp(module.log_prob(grid_data)[1]).detach().cpu().numpy(),
+    plt.scatter(grid_data_numpy[:, 0], grid_data_numpy[:, 1],
+                c=torch.exp(module.log_prob(grid_data)[1]).detach().cpu().numpy(),
                 cmap='viridis')
     plt.colorbar()
     plt.title('learned module distribution')
     plt.show()
 
+
+def test_loading_model(model_path=None, method=1):
+    r"""
+
+    Args:
+        model_path: Path to load the model
+        method: 1、load the whole model directly
+                2、initialize the model and load the state_dict
+    Returns:
+
+    """
+
+    if model_path:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        bound = 4
+        x = torch.linspace(-bound, bound, 100)
+        y = torch.linspace(-bound, bound, 100)
+        xx, yy = torch.meshgrid(x, y)
+        grid_data = torch.cat((xx.reshape(-1, 1), yy.reshape(-1, 1)), dim=1)
+        num_trans = 12
+        if method == 1:
+            module = torch.load(model_path)
+        else:
+            module = RealNVP(dim=2,
+                     num_trans=num_trans,
+                     scale_net=nn.ModuleList(
+                         [Feedforward([1, 128, 128, 128, 1], 'leakyrelu') for _ in
+                          range(num_trans)]),
+                     shift_net=nn.ModuleList(
+                         [Feedforward([1, 128, 128, 128, 1], 'leakyrelu') for _ in
+                          range(num_trans)]),
+                     p_base=MultiGauss(mean=[0, 0], std=[1, 1]).to(device)).to(device)
+            module.load_state_dict(torch.load(model_path))
+
+        plt.figure()
+        samples, log_prob = module.sample(50000)
+        samples = samples.detach().cpu().numpy()
+        log_prob = log_prob.detach().cpu().numpy()
+        plt.scatter(samples[:, 0], samples[:, 1], c=np.exp(log_prob).reshape(-1),
+                    cmap='viridis')
+        plt.colorbar()
+        plt.title('learnt module samples')
+        plt.xlim(-bound, bound)
+        plt.ylim(-bound, bound)
+        plt.figure()
+        grid_data = grid_data.to(device)
+        grid_data_numpy = grid_data.detach().cpu().numpy()
+        plt.scatter(grid_data_numpy[:, 0], grid_data_numpy[:, 1],
+                    c=torch.exp(module.log_prob(grid_data)[1]).detach().cpu().numpy(),
+                    cmap='viridis')
+        plt.colorbar()
+        plt.title('learned module distribution')
+        plt.show()
 
 
 def run_generation_example():
@@ -221,7 +279,6 @@ def run_generation_example():
     plt.figure()
     plt.scatter(samples[:, 0], samples[:, 1])
     plt.title("generated samples")
-
     plt.figure()
     x, _ = datasets.make_moons(n_samples=1000, noise=0.1)
     plt.scatter(x[:, 0], x[:, 1])
@@ -230,5 +287,6 @@ def run_generation_example():
     plt.show()
 
 
-run_density_matching_example()
+run_density_matching_example(save_path="./model_state_dict")
 # run_generation_example()
+test_loading_model(model_path="./model_state_dict/model_dict.pth", method=2)

@@ -3,7 +3,7 @@ import torch.nn as nn
 from typing import List, Union, Tuple, Optional
 from .._common import BiProbTrans, Distribution
 import math
-
+from sampler.model.affinecouplingflow import AffineCouplingFlow
 
 class Actnorm(BiProbTrans):
     r"""
@@ -137,3 +137,54 @@ class Inv1by1Conv(nn.Module):
 
         log_det = log_det - torch.log(torch.diag(self.weight).abs()).sum() * math.prod(remain)
         return x, log_det
+
+"""
+class glow(BiProbTrans):
+
+    def __init__(self, num_features: int,
+                 num_trans: int,
+                 dim: int,
+                 scale_net: Optional[Union[nn.Module, nn.ModuleList, List, Tuple]] = None,
+                 shift_net: Optional[Union[nn.Module, nn.ModuleList, List, Tuple]] = None,
+                 keep_dim: Optional[Union[torch.Tensor, List[List[int]]]] = None,
+                 p_base: Optional[Distribution] = None):
+        super().__init__()
+
+        self.num_trans = num_trans
+        self.dim = dim
+        self.scale_net = scale_net
+        self.shift_net = shift_net
+        self.p_base = p_base
+
+        # by default, keep_dim alternates between even and odd indices
+        if keep_dim is None:
+            self.keep_dim = [list(range(i % 2 == 0, dim, 2)) for i in range(num_trans)]
+        elif len(keep_dim) != num_trans:
+            raise ValueError(f"keep_dim should have length {self.num_trans}, but got {len(keep_dim)}.")
+        else:
+            self.keep_dim = keep_dim
+
+        self.transforms = nn.ModuleList([AffineCouplingFlow(dim=self.dim,
+                                                            keep_dim=self.keep_dim[i],
+                                                            scale_net=self.scale_net[i] if isinstance(self.scale_net,
+                                                                                                      (nn.ModuleList,
+                                                                                                       List,
+                                                                                                       Tuple)) and i < len(
+                                                                self.scale_net) else self.scale_net,
+                                                            shift_net=self.shift_net[i] if isinstance(self.shift_net,
+                                                                                                      (nn.ModuleList,
+                                                                                                       List,
+                                                                                                       Tuple)) and i < len(
+                                                                self.shift_net) else None) for i in range(num_trans)])
+
+
+    def forward(self):
+
+
+    def backforward(self):
+
+"""
+
+
+
+

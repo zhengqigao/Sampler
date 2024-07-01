@@ -158,17 +158,27 @@ class _BaseDistribution(nn.Module):
     def device(self, value: Union[torch.device, str]):
         self.to(value)
 
+    def re_sample(self, *args, **kwargs):
+        return self._sample(*args, **kwargs).to(self._device)
+
+    def re_log_prob(self, *args, **kwargs):
+        return self._log_prob(*args, **kwargs).to(self._device)
+
+
     def to(self, device: Union[torch.device, str]):
         self._device = device if isinstance(device, torch.device) else torch.device(device)
 
         setattr(self, '_sample', self.sample)
         setattr(self, '_log_prob', self.log_prob)
-
+        """
         self.sample = (lambda inst, *args, **kwargs:
                        inst._sample(*args, **kwargs).to(self._device)).__get__(self)
         self.log_prob = (lambda inst, *args, **kwargs:
                          inst._log_prob(*args, **kwargs).to(self._device)).__get__(self)
-
+        """
+        # named function is needed for saving model, lambda is not supported
+        self.sample = self.re_sample
+        self.log_prob = self.re_log_prob
         return super().to(device)
 
     def sample(self, *args, **kwargs) -> torch.Tensor:

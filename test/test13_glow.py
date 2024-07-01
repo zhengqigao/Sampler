@@ -22,7 +22,7 @@ def test_actnorm():
     print(f"diff = {torch.max(torch.abs(x - x_)):.3e}, log_prob = {log_prob.abs().max():.3e}")
 
 def test_1by1conv():
-    shape = (10, 4, 4)
+    shape = (10, 4, 4) #c,h,w??
     mg = TensorizedMultiGauss(mean=torch.zeros(*shape), std=torch.ones(*shape))
     flowtransform = Inv1by1Conv(num_features=shape[0], p_base=mg, bias=True)
     print(flowtransform.p_base)
