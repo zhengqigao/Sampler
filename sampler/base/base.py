@@ -5,7 +5,7 @@ import math
 from typing import Union, Tuple, Callable, Any, Optional, List, Dict
 from .._common import _bpt_decorator, Func, Distribution, Condistribution, BiProbTrans
 from torch.distributions import MultivariateNormal
-from sampler.distribution import LinearEnvelop1D, UpdateLinearEnvelop1D
+from sampler.distribution import LinearEnvelop1D
 from sampler.distribution import TDWrapper
 @_bpt_decorator
 def rejection_sampling(num_samples: int,
@@ -16,21 +16,24 @@ def rejection_sampling(num_samples: int,
                        squeezing: Optional[Union[Distribution, BiProbTrans, Func]] = None,
                        k_squeezing: Optional[float] = None
                        ) -> Tuple[torch.Tensor, Any]:
+    # TODO kaiwen, rewrite docstring!
     r"""
-    Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor :math:`k>0`. See Section 11.1.2 of [Bishop2006PRML]_.
+    Rejection sampling to draw samples from a target distribution using a proposal distribution and a scaling factor :math:`k>0`. See Section 11.1.2 of [Bishop2006PRML]_. The user has the option to specify the maximum number of samples, the squeezing distribution (see [Gilks1992ars]_) and its scaling factor :math:`k_\text{sq}>0`.
 
     Args:
         num_samples (int): the number of samples to be drawn.
-        target (Distribution): the target distribution.
-        proposal (Distribution): the proposal distribution.
+        target (Union[Distribution, BiProbTrans, Func]): the target distribution.
+        proposal (Union[Distribution, BiProbTrans]): the proposal distribution.
         k (float): a positive constant such that :math: `k q(x) \geq \tilde{p}(x)` holds for all `x`.
+        max_samples (Optional[int]): maximum number of samples to be drawn from proposal distribution.
+        squeezing (Optional[Union[Distribution, BiProbTrans, Func]]): the squeezing distribution.
+        k_squeezing (Optional[float]): a positive constant ensuring :math: `k q(x) \geq \tilde{p}(x) \geq k_\text{sq} q_\text{sq}(x)` for all `x`.
     """
     if not (k > 0 and math.isfinite(k)):
         raise ValueError(f"The scaling factor k should be a positive finite scalar, but got k = {k}.")
-    if squeezing is not None and k_squeezing is None:
-        warnings.warn("Scaling factor k_squeezing undefined. Ignoring squeezing function.")
-    if squeezing is None and k_squeezing is not None:
-        warnings.warn("Squeezing function undefined. Ignoring k_squeezing.")
+    if (squeezing is None) ^ (k_squeezing is None):
+        warnings.warn("The rejection sampling will be performed without squeezing, "
+                      " because one of squeezing distribution and factor is not provided.")
 
     flag_squeeze = squeezing is not None and k_squeezing is not None
     total_num_sample = 0
@@ -48,7 +51,7 @@ def rejection_sampling(num_samples: int,
         if flag_squeeze:
             low_bound = k_squeezing * torch.exp(squeezing(samples))
             if torch.any(evals < low_bound):
-                raise ValueError(f"The scaling factor k_squeezing = {k_squeezing} is too large.")
+                raise ValueError(f"The scaling factor k_squeezing = {k_squeezing} is not small enough.")
             current_accept_samples = samples[(u < low_bound) | (u < evals)]
         else:
             current_accept_samples = samples[u < evals]
@@ -57,7 +60,8 @@ def rejection_sampling(num_samples: int,
         accept_sample = current_accept_samples if accept_sample is None else torch.cat([accept_sample, current_accept_samples], dim=0)
 
     if max_samples is not None and total_num_sample >= max_samples:
-        warnings.warn(f"Rejection sampling reaches the maximum number of samples: {max_samples}.")
+        warnings.warn(f"Rejection sampling reaches the maximum number of total sampling: {max_samples},"
+                      f" but only {accept_sample.shape[0]} collected, fewer than the required {num_samples}.")
     return accept_sample[:num_samples], {"rejection_rate": reject_num_sample / total_num_sample}
 
 
@@ -102,6 +106,7 @@ def adaptive_rejection_sampling(num_samples: int,
     while (total_num_sample - reject_num_sample) < num_samples:
         iteration_count += 1
         samples = proposal.sample((num_samples - accept_sample.shape[0]) if accept_sample is not None else num_samples)
+
         evals = torch.exp(target(samples))
         bound = torch.exp(proposal(samples))
         if torch.any(bound < evals):
@@ -113,10 +118,9 @@ def adaptive_rejection_sampling(num_samples: int,
         else:
             accept_sample = torch.cat([accept_sample, current_accept_samples], dim=0)
 
-        '''
         # Add rejected sample information into the envelope distribution
         current_reject_samples = samples[evals <= u]
-        eval_points = torch.concat((eval_points, current_reject_samples[:10]), dim=0).detach()
+        eval_points = torch.concat((eval_points, current_reject_samples), dim=0).detach()
         eval_points, indices = torch.sort(torch.unique(eval_points, sorted=False, return_inverse=False).view(-1, 1), dim=1)
 
         eval_points.requires_grad = True
@@ -129,15 +133,11 @@ def adaptive_rejection_sampling(num_samples: int,
             raise ValueError(f"The derivative at lower point is negative.")
         if np.sign(log_grad_current[-1]) > 0:
             raise ValueError(f"The derivative at upper point is positive.")
-        print(f"log_grad_current.shape: {log_grad_current.shape}\nlog_grad_current: {log_grad_current}\neval_points: {eval_points}\neval_bound: {eval_bound}")
 
-        proposal = UpdateLinearEnvelop1D(eval_points.clone().detach(), log_grad_current, eval_bound)
-        # Updated the envelope distribution
-        '''
+        proposal = LinearEnvelop1D(eval_points.clone().detach(), log_grad_current, eval_bound)
 
         reject_num_sample += torch.sum(evals <= u).item()
         total_num_sample += samples.shape[0]
-        #print(f"samples.shape[0]: {samples.shape[0]}\nsamples: {samples}\ntorch.sum(evals <= u).item(): {torch.sum(evals <= u).item()}\ncurrent_accept_samples: {current_accept_samples.shape}\ncurrent_reject_samples: {current_reject_samples.shape}")
     return accept_sample[:num_samples], {'rejection_rate': reject_num_sample / total_num_sample, 'iteration_count': iteration_count}
 
 @_bpt_decorator
