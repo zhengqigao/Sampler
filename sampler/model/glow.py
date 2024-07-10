@@ -5,6 +5,7 @@ from .._common import BiProbTrans, Distribution
 import math
 from sampler.model.affinecouplingflow import AffineCouplingFlow
 
+
 class Actnorm(BiProbTrans):
     r"""
     Actnorm described in ..[kingma2018glow].
@@ -81,7 +82,7 @@ class Inv1by1Conv(nn.Module):
 
         super().__init__()
         self.num_features = num_features
-        self.p_base = p_base
+        self.p_base = p_base  ## what is this for?
         self.bias = bias
 
         self.weight = nn.Parameter(torch.empty(num_features, num_features))
@@ -138,10 +139,18 @@ class Inv1by1Conv(nn.Module):
         log_det = log_det - torch.log(torch.diag(self.weight).abs()).sum() * math.prod(remain)
         return x, log_det
 
-"""
-class glow(BiProbTrans):
 
-    def __init__(self, num_features: int,
+class Glowblock(BiProbTrans):
+    r"""
+    Basic step in the Glow flow
+
+    - ActNorm
+    - Invertible1x1Conv
+    - MaskedAffineFlow
+    """
+
+    def __init__(self,
+                 num_features: int,
                  num_trans: int,
                  dim: int,
                  scale_net: Optional[Union[nn.Module, nn.ModuleList, List, Tuple]] = None,
@@ -150,6 +159,7 @@ class glow(BiProbTrans):
                  p_base: Optional[Distribution] = None):
         super().__init__()
 
+        self.num_features = num_features
         self.num_trans = num_trans
         self.dim = dim
         self.scale_net = scale_net
@@ -164,27 +174,54 @@ class glow(BiProbTrans):
         else:
             self.keep_dim = keep_dim
 
-        self.transforms = nn.ModuleList([AffineCouplingFlow(dim=self.dim,
-                                                            keep_dim=self.keep_dim[i],
-                                                            scale_net=self.scale_net[i] if isinstance(self.scale_net,
-                                                                                                      (nn.ModuleList,
-                                                                                                       List,
-                                                                                                       Tuple)) and i < len(
-                                                                self.scale_net) else self.scale_net,
-                                                            shift_net=self.shift_net[i] if isinstance(self.shift_net,
-                                                                                                      (nn.ModuleList,
-                                                                                                       List,
-                                                                                                       Tuple)) and i < len(
-                                                                self.shift_net) else None) for i in range(num_trans)])
+        self.transforms = []
+        self.transforms.append(Actnorm(self.num_features))
+        self.transforms.append(Inv1by1Conv(self.num_features))
+        self.transforms.append(AffineCouplingFlow(dim=self.dim,
+                                                  keep_dim=self.keep_dim,
+                                                  scale_net=self.scale_net,
+                                                  glow_mode=True))
+
+    def forward(self, x: torch.Tensor,
+                log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
+        for transform in self.transforms:
+            x, ld = transform.forward(x)
+            log_det = log_det + ld
+        return x, log_det
+
+    def backward(self, z: torch.Tensor,
+                 log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
+        for transform in reversed(self.transforms):
+            z, ld = transform.backward(z)
+            log_det = log_det + ld
+        return z, log_det
 
 
-    def forward(self):
+# TODO: find a way to easily understand this operation
+class Squeeze(nn.Module):
+    r"""
+    Squeeze operation
+    """
 
+    def __init__(self):
+        """
+        Constructor
+        from normalizing pkg
+        """
+        super().__init__()
 
-    def backforward(self):
+    def forward(self, z: torch.Tensor):
+        log_det = 0
+        s = z.size()
+        z = z.view(s[0], s[1] // 4, 2, 2, s[2], s[3])  # check if our views is the sam
+        z = z.permute(0, 1, 4, 2, 5, 3).contiguous()
+        z = z.view(s[0], s[1] // 4, 2 * s[2], 2 * s[3])
+        return z, log_det
 
-"""
-
-
-
-
+    def backward(self, z: torch.Tensor):
+        log_det = 0
+        s = z.size()
+        z = z.view(*s[:2], s[2] // 2, 2, s[3] // 2, 2)
+        z = z.permute(0, 1, 3, 5, 2, 4).contiguous()
+        z = z.view(s[0], 4 * s[1], s[2] // 2, s[3] // 2)
+        return z, log_det

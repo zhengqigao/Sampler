@@ -23,7 +23,8 @@ class AffineCouplingFlow(BiProbTrans):
                  keep_dim: Union[List[int], Tuple[int], torch.Tensor],
                  scale_net: Optional[nn.Module] = None,
                  shift_net: Optional[nn.Module] = None,
-                 p_base: Optional[Distribution] = None):
+                 p_base: Optional[Distribution] = None,
+                 glow_mode: bool = False):
         super().__init__()
 
         self.dim = dim
@@ -37,14 +38,20 @@ class AffineCouplingFlow(BiProbTrans):
 
         self.scale_net = scale_net
         self.shift_net = shift_net
+        self.glow_mode = glow_mode
 
         self.p_base = p_base
 
     def forward(self, x: torch.Tensor,
                 log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         x_keep, x_trans = x[:, self.keep_dim], x[:, self.trans_dim]
-        s = self.scale_net(x_keep) if self.scale_net is not None else torch.zeros_like(x_trans)
-        t = self.shift_net(x_keep) if self.shift_net is not None else torch.zeros_like(x_trans)
+        if self.glow_mode:
+            all_param = self.scale_net(x_keep) if self.scale_net is not None else torch.zeros_like(x_trans) # for the glow case, we use a unified transform net
+            s = all_param[:, 0::2, ...]
+            t = all_param[:, 1::2, ...]
+        else:
+            s = self.scale_net(x_keep) if self.scale_net is not None else torch.zeros_like(x_trans)
+            t = self.shift_net(x_keep) if self.shift_net is not None else torch.zeros_like(x_trans)
 
         z = torch.zeros_like(x)
         z[:, self.keep_dim] = x_keep
