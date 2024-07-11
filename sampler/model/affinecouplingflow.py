@@ -63,8 +63,13 @@ class AffineCouplingFlow(BiProbTrans):
     def backward(self, z: torch.Tensor,
                  log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         z_keep, z_trans = z[:, self.keep_dim], z[:, self.trans_dim]
-        s = self.scale_net(z_keep) if self.scale_net is not None else torch.zeros_like(z_trans)
-        t = self.shift_net(z_keep) if self.shift_net is not None else torch.zeros_like(z_trans)
+        if self.glow_mode:
+            all_param = self.scale_net(z_keep) if self.scale_net is not None else torch.zeros_like(z_trans) # for the glow case, we use a unified transform net
+            s = all_param[:, 0::2, ...]
+            t = all_param[:, 1::2, ...]
+        else:
+            s = self.scale_net(z_keep) if self.scale_net is not None else torch.zeros_like(z_trans)
+            t = self.shift_net(z_keep) if self.shift_net is not None else torch.zeros_like(z_trans)
 
         x = torch.zeros_like(z)
         x[:, self.keep_dim] = z_keep

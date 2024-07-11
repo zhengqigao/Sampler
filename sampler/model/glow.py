@@ -152,23 +152,21 @@ class Glowblock(BiProbTrans):
     def __init__(self,
                  num_features: int,
                  num_trans: int,
-                 dim: int,
                  scale_net: Optional[Union[nn.Module, nn.ModuleList, List, Tuple]] = None,
                  shift_net: Optional[Union[nn.Module, nn.ModuleList, List, Tuple]] = None,
-                 keep_dim: Optional[Union[torch.Tensor, List[List[int]]]] = None,
+                 keep_dim: Optional[Union[torch.Tensor, List[int]]] = None,
                  p_base: Optional[Distribution] = None):
         super().__init__()
 
         self.num_features = num_features
         self.num_trans = num_trans
-        self.dim = dim
         self.scale_net = scale_net
         self.shift_net = shift_net
         self.p_base = p_base
 
-        # by default, keep_dim alternates between even and odd indices
+        # by default, keep_dim is the first half vector
         if keep_dim is None:
-            self.keep_dim = [list(range(i % 2 == 0, dim, 2)) for i in range(num_trans)]
+            self.keep_dim = [i for i in range(num_features//2)]
         elif len(keep_dim) != num_trans:
             raise ValueError(f"keep_dim should have length {self.num_trans}, but got {len(keep_dim)}.")
         else:
@@ -177,7 +175,7 @@ class Glowblock(BiProbTrans):
         self.transforms = []
         self.transforms.append(Actnorm(self.num_features))
         self.transforms.append(Inv1by1Conv(self.num_features))
-        self.transforms.append(AffineCouplingFlow(dim=self.dim,
+        self.transforms.append(AffineCouplingFlow(dim=self.num_features,
                                                   keep_dim=self.keep_dim,
                                                   scale_net=self.scale_net,
                                                   glow_mode=True))
