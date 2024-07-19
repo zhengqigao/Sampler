@@ -5,6 +5,7 @@ import torch.nn as nn
 import sys
 import os
 import math
+from typing import List, Union, Tuple, Optional
 
 sys.path.append(os.path.abspath("../"))
 from sampler._common import Distribution, Condistribution
@@ -411,6 +412,73 @@ class UnconditionalMultiGauss(Distribution):
 
 
 MultiGauss = UnconditionalMultiGauss
+
+
+
+class ClassCondGauss(Distribution):
+    """
+    Class conditional multivariate Gaussian distribution with diagonal covariance matrix
+    """
+
+    def __init__(self, shape, num_classes, T = None):
+        super().__init__()
+        self.shape = shape
+        self.dim = len(self.shape)
+        self.perm = [self.dim] + list(range(self.dim)) ##TODO: Reference
+        self.num_elements = np.prod(shape)
+        self.num_classes = num_classes
+        self.shift = nn.Parameter(torch.zeros(*self.shape, num_classes))
+        self.scale = nn.Parameter(torch.ones(*self.shape, num_classes))
+        self.T = T
+
+    def forward(self, num_samples=1, label_list=None, log_p: Optional[Union[float, torch.Tensor]] = 0.0):
+        if label_list is not None:
+            num_samples = len(label_list)
+        else:
+            label_list = torch.randint(self.num_classes, (num_samples,), device=self.shift.device)
+        if label_list.dim() == 1:
+            label_onehot = torch.zeros(
+                (self.num_classes, num_samples),
+                dtype=self.shift.dtype,
+                device=self.shift.device,
+            )
+            label_onehot.scatter_(0, label_list[None], 1)
+            label_list = label_onehot
+        else:
+            label_list = label_list.t()
+        eps = torch.randn(
+            (num_samples,) + self.shape, dtype=self.shift.dtype, device=self.shift.device
+        )  # TODO: further improvement: simplify device information
+        shift = torch.matmul(self.shift, label_list).permute(*self.perm)
+        scale = torch.matmul(self.scale, label_list).permute(*self.perm)
+        if self.T is not None:
+            scale = np.log(self.T) + scale
+        z = shift + torch.exp(scale) * eps
+        log_p += -0.5 * self.num_elements * np.log(2 * np.pi) - torch.sum(
+            scale + 0.5 * torch.pow(eps, 2), list(range(1, self.dim + 1))
+        ) # TODO: do I need log_p in forward?
+        return z, log_p
+
+    def log_prob(self, z, label_list, log_p: Optional[Union[float, torch.Tensor]] = 0.0):
+        if label_list.dim() == 1:
+            num_samples = len(label_list)
+            label_onehot = torch.zeros(
+                (self.num_classes, num_samples),
+                dtype=self.shift.dtype,
+                device=self.shift.device,
+            )
+            label_onehot.scatter_(0, label_list[None], 1)
+            label_list = label_onehot
+        else:
+            label_list = label_list.t()
+        shift = torch.matmul(self.shift, label_list).permute(*self.perm)
+        scale = torch.matmul(self.scale, label_list).permute(*self.perm)
+        if self.T is not None:
+            scale = np.log(self.T) + scale
+        log_p += -0.5 * self.num_elements * np.log(2 * np.pi) - torch.sum(
+            scale + 0.5 * torch.pow((z - shift) / scale, 2), list(range(1, self.dim + 1))
+        )
+        return log_p
 
 if __name__ == '__main__':
     func_list = ['potential1',

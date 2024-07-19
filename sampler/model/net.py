@@ -11,7 +11,7 @@ class ConvNet2d(nn.Module):
             channels: List[int],
             kernel_size: List[int],
             leaky: int = 0.0,
-            init_zeros: bool = True,
+            init_zeros: bool = False,
             weight_std: float = None,
     ):
         super().__init__()
@@ -22,7 +22,7 @@ class ConvNet2d(nn.Module):
                 channels[i],
                 channels[i + 1],
                 kernel_size[i],
-                padding=kernel_size[i] // 2,
+                padding="same",
                 bias=True,
             )
             if weight_std is not None:
@@ -34,7 +34,7 @@ class ConvNet2d(nn.Module):
                 channels[layer_num - 1],
                 channels[layer_num],
                 kernel_size[layer_num - 1],
-                padding=kernel_size[layer_num - 1] // 2,
+                padding="same",
             )
         )
         if init_zeros:

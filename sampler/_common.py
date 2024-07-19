@@ -164,7 +164,6 @@ class _BaseDistribution(nn.Module):
     def re_log_prob(self, *args, **kwargs):
         return self._log_prob(*args, **kwargs).to(self._device)
 
-
     def to(self, device: Union[torch.device, str]):
         self._device = device if isinstance(device, torch.device) else torch.device(device)
 
