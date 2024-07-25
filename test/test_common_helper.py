@@ -417,7 +417,10 @@ MultiGauss = UnconditionalMultiGauss
 
 class ClassCondGauss(Distribution):
     """
-    Class conditional multivariate Gaussian distribution with diagonal covariance matrix
+    Class conditional multivariate Gaussian distribution
+    For each class, a shift and scale parameter will be learnt to do transform on the sample eps with [shape]:
+    Reference:
+    Stimper et al., (2023). normflows: A PyTorch Package for Normalizing Flows. Journal of Open Source Software, 8(86), 5361, https://doi.org/10.21105/joss.05361
     """
 
     def __init__(self, shape, num_classes, T = None):
@@ -428,7 +431,7 @@ class ClassCondGauss(Distribution):
         self.num_elements = np.prod(shape)
         self.num_classes = num_classes
         self.shift = nn.Parameter(torch.zeros(*self.shape, num_classes))
-        self.scale = nn.Parameter(torch.ones(*self.shape, num_classes))
+        self.scale = nn.Parameter(torch.zeros(*self.shape, num_classes))
         self.T = T
 
     def forward(self, num_samples=1, label_list=None, log_p: Optional[Union[float, torch.Tensor]] = 0.0):
@@ -456,7 +459,7 @@ class ClassCondGauss(Distribution):
         z = shift + torch.exp(scale) * eps
         log_p += -0.5 * self.num_elements * np.log(2 * np.pi) - torch.sum(
             scale + 0.5 * torch.pow(eps, 2), list(range(1, self.dim + 1))
-        ) # TODO: do I need log_p in forward?
+        )
         return z, log_p
 
     def log_prob(self, z, label_list, log_p: Optional[Union[float, torch.Tensor]] = 0.0):
@@ -476,7 +479,7 @@ class ClassCondGauss(Distribution):
         if self.T is not None:
             scale = np.log(self.T) + scale
         log_p += -0.5 * self.num_elements * np.log(2 * np.pi) - torch.sum(
-            scale + 0.5 * torch.pow((z - shift) / scale, 2), list(range(1, self.dim + 1))
+            scale + 0.5 * torch.pow((z - shift) / torch.exp(scale), 2), list(range(1, self.dim + 1))
         )
         return log_p
 

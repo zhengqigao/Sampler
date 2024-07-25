@@ -28,6 +28,8 @@ class Actnorm(BiProbTrans):
         self.shift = nn.Parameter(torch.empty(num_features))
 
         self.reset_parameters()
+        self.batch_data = None
+
 
     def reset_parameters(self, batch_data: Optional[torch.Tensor] = None) -> None:
         if batch_data is None:
@@ -35,36 +37,49 @@ class Actnorm(BiProbTrans):
             nn.init.zeros_(self.shift)
         else:
             with torch.no_grad():
-                x = batch_data.permute(1, 0, *([2] * (batch_data.dim() - 2))).reshape(self.num_features, -1)
+                #print("ok")
+                x = batch_data.permute(1, 0, 2, 3).reshape(self.num_features, -1)
                 mean = x.mean(dim=1)
-                std = x.std(dim=1)
-                nn.init.constant_(self.shift, -mean)
-                nn.init.constant_(self.scale, 1 / std)
+                std = torch.log(x.std(dim=1)+1e-6)
+                #print(mean)
+                #self.scale = nn.Parameter(torch.empty(batch_data.shape[1:]))
+                #self.shift = nn.Parameter(torch.empty(batch_data.shape[1:]))
+                #nn.init.constant_(self.shift, mean)
+                self.shift.data = mean
+                #nn.init.constant_(self.scale, std)
+                self.scale.data = std
+                self.bath_data = batch_data
 
     def forward(self, x: torch.Tensor,
                 log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         n, c, *remain = x.shape
 
+
         shift = self.shift.view(1, c, *([1] * len(remain)))
         scale = self.scale.view(1, c, *([1] * len(remain)))
 
-        z = x * scale + shift
-        log_det = log_det + torch.sum(torch.log(torch.abs(self.scale))) * (1 if len(remain) == 0 else math.prod(remain))
+        z = x * torch.exp(scale) + shift
+        log_det = log_det - torch.sum(torch.abs(self.scale)) * (1 if len(remain) == 0 else math.prod(remain))
         return z, log_det
 
     def backward(self, z: torch.Tensor,
                  log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         n, c, *remain = z.shape
-
+        #print(n)
+        #print(c)
+        #print(remain)
+        #print(self.num_features)
+        if self.batch_data is None:
+            self.reset_parameters(z)
         shift = self.shift.view(1, c, *([1] * len(remain)))
         scale = self.scale.view(1, c, *([1] * len(remain)))
 
-        x = (z - shift) / scale
-        log_det = log_det - torch.sum(torch.log(torch.abs(self.scale))) * (1 if len(remain) == 0 else math.prod(remain))
+        x = (z - shift) * torch.exp(-scale)
+        log_det = log_det + torch.sum(torch.abs(self.scale)) * (1 if len(remain) == 0 else math.prod(remain))
         return x, log_det
 
 
-class Inv1by1Conv(nn.Module):
+class Inv1by1Conv(BiProbTrans):
     r"""
     The Invertible 1x1 Convolution described in ..[kingma2018glow].
     """
@@ -82,10 +97,10 @@ class Inv1by1Conv(nn.Module):
 
         super().__init__()
         self.num_features = num_features
-        self.p_base = p_base  ## what is this for?
+        self.p_base = p_base
         self.bias = bias
 
-        self.weight = nn.Parameter(torch.empty(num_features, num_features))
+        self.weight = nn.Parameter(torch.empty(num_features, num_features,device = "cuda:0"))
         self.bias = nn.Parameter(torch.empty(num_features)) if bias else None
         self.register_buffer('permutation', torch.eye(num_features))
 
@@ -96,11 +111,12 @@ class Inv1by1Conv(nn.Module):
         Initialize the weight and bias. Note that the original implementation requires to use the LU factorization,
         """
         nn.init.orthogonal_(self.weight)
-        LU, pivots = torch.linalg.lu_factor(self.weight)
-        P, L, U = torch.lu_unpack(LU, pivots)
-
-        self.weight = nn.Parameter(torch.tril(L, -1) + torch.triu(U, 0))
-        self.permutation = P
+        #print(self.weight.device)
+        #LU, pivots = torch.linalg.lu_factor(self.weight)
+        #print(LU.device)
+        #self.permutation, L, U = torch.lu_unpack(LU, pivots)
+        #print(L.device)
+        #self.weight = nn.Parameter(torch.tril(L, -1) + torch.triu(U, 0))
 
         if self.bias is not None:
             fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
@@ -108,35 +124,54 @@ class Inv1by1Conv(nn.Module):
             nn.init.uniform_(self.bias, -bound, bound)
 
     def reparametrize_u(self, weight: torch.Tensor, permutation: torch.Tensor, inverse: bool) -> torch.Tensor:
-        l, u = torch.tril(weight, -1) + torch.eye(*weight.shape), torch.triu(weight)
+        #print(f"weight device {weight.device}")
+        l, self.u = torch.tril(weight, -1) + torch.eye(*weight.shape,device = "cuda:0"), torch.triu(weight)
+        #print(l.device)
+        #print(u.device)
         if not inverse:
-            return torch.matmul(permutation, torch.matmul(l, u))
+            return torch.matmul(permutation, torch.matmul(l, self.u))
         else:
             p_inv = permutation.t()
-            l_inv = torch.linalg.solve_triangular(l, torch.eye(*l.shape), upper=False)
-            u_inv = torch.linalg.solve_triangular(u, torch.eye(*u.shape), upper=True)
-            return torch.matmul(u_inv, torch.matmul(l_inv, p_inv))
+            l_inv = torch.linalg.solve_triangular(l, torch.eye(*l.shape,device = "cuda:0"), upper=False)
+            self.u_inv = torch.linalg.solve_triangular(self.u, torch.eye(*self.u.shape,device = "cuda:0"), upper=True)
+            return torch.matmul(self.u_inv, torch.matmul(l_inv, p_inv))
 
     def forward(self, x: torch.Tensor, log_det: torch.Tensor = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         n, c, *remain = x.shape
 
-        weight = self.reparametrize_u(self.weight, self.permutation, inverse=False)
+        #weight = self.reparametrize_u(self.weight, self.permutation, inverse=False)
         bias = self.bias.unsqueeze(0).view(1, c, *[1] * len(remain)) if self.bias is not None else 0.0
 
-        z = torch.einsum('nc...,cd->nd...', x, weight) + bias
+        #z = torch.einsum('nc...,cd->nd...', x, weight) + bias not supported in GPU mode
 
-        log_det = log_det + torch.log(torch.diag(self.weight).abs()).sum() * math.prod(remain)
+        #weight = weight.view(c, c, 1, 1).to("cuda:0") #TODO: device
+        weight = self.weight.view(c, c, 1, 1)
+        z = torch.nn.functional.conv2d(x, weight)
+
+        #log_det = log_det - torch.log(torch.diag(self.u).abs()).sum() * math.prod(remain)
+        log_det = log_det - torch.slogdet(self.weight)[1] * math.prod(remain)
+
         return z, log_det
 
     def backward(self, z: torch.Tensor, log_det: torch.Tensor = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         n, c, *remain = z.shape
 
-        weight = self.reparametrize_u(self.weight, self.permutation, inverse=True)
+        #weight = self.reparametrize_u(self.weight, self.permutation, inverse=True)
         bias = self.bias.unsqueeze(0).view(1, c, *[1] * len(remain)) if self.bias is not None else 0.0
 
-        x = torch.einsum('nc...,cd->nd...', z - bias, weight)
+        #x = torch.einsum('nc...,cd->nd...', z - bias, weight)
+        z = z - bias
+        #weight = weight.view(c, c, 1, 1).to("cuda:0")
+        W_dtype = self.weight.dtype
+        if W_dtype == torch.float64:
+            weight = torch.inverse(self.weight)
+        else:
+            weight = torch.inverse(self.weight.double()).type(W_dtype)
+        weight = weight.view(c, c, 1, 1)
+        x = torch.nn.functional.conv2d(z, weight)
+        #log_det = log_det - torch.log(torch.diag(self.u_inv).abs()).sum() * math.prod(remain)
 
-        log_det = log_det - torch.log(torch.diag(self.weight).abs()).sum() * math.prod(remain)
+        log_det = log_det + torch.slogdet(self.weight)[1] * math.prod(remain)
         return x, log_det
 
 
@@ -155,7 +190,8 @@ class Glowblock(BiProbTrans):
                  scale_net: Optional[Union[nn.Module, nn.ModuleList, List, Tuple]] = None,
                  shift_net: Optional[Union[nn.Module, nn.ModuleList, List, Tuple]] = None,
                  keep_dim: Optional[Union[torch.Tensor, List[int]]] = None,
-                 p_base: Optional[Distribution] = None):
+                 p_base: Optional[Distribution] = None,
+                 mode: bool=True):
         super().__init__()
 
         self.num_features = num_features
@@ -164,9 +200,11 @@ class Glowblock(BiProbTrans):
         self.shift_net = shift_net
         self.p_base = p_base
 
-        # by default, keep_dim is the first half vector
         if keep_dim is None:
-            self.keep_dim = [i for i in range(num_features // 2)]
+            if mode:
+                self.keep_dim = [i for i in range(num_features // 2)]
+            else:
+                self.keep_dim = [i for i in range(num_features // 2, num_features)]
         elif len(keep_dim) != num_trans:
             raise ValueError(f"keep_dim should have length {self.num_trans}, but got {len(keep_dim)}.")
         else:
@@ -185,7 +223,6 @@ class Glowblock(BiProbTrans):
                 log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         for transform in self.transforms:
             x, log_det = transform.forward(x, log_det)
-            # print(log_det)
         return x, log_det
 
     def backward(self, z: torch.Tensor,
@@ -202,9 +239,6 @@ class Squeeze(nn.Module):
     """
 
     def __init__(self):
-        """
-        from normalizing flow pkd
-        """
         super().__init__()
 
     def backward(self, z: torch.Tensor, log_det: torch.Tensor = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -216,7 +250,7 @@ class Squeeze(nn.Module):
 
     def forward(self, z: torch.Tensor, log_det: torch.Tensor = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         s = z.size()
-        z = z.view(s[0], s[1] // 4, 2, 2, s[2], s[3])  # check if our views is the sam
+        z = z.view(s[0], s[1] // 4, 2, 2, s[2], s[3])
         z = z.permute(0, 1, 4, 2, 5, 3).contiguous()
         z = z.view(s[0], s[1] // 4, 2 * s[2], 2 * s[3])
         return z, log_det
@@ -248,7 +282,7 @@ class Split(BiProbTrans):
 
 class MultiscaleFlow(BiProbTrans):
     """
-    Normalizing Flow model with multiscale architecture, see RealNVP or Glow paper
+    Multiscale architecture for image learning
     """
 
     def __init__(self, p_base, flows, splits, transform=None, class_cond=True):
@@ -262,8 +296,6 @@ class MultiscaleFlow(BiProbTrans):
 
     def backward(self, x: torch.Tensor,
                 log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
-        # log_det = torch.zeros(len(x), dtype=x.dtype, device=x.device) ## why it is a list?
-
         z = [None] * len(self.p_base)
         for i in range(len(self.p_base)):
             for flow in self.flows[i]:
@@ -274,7 +306,7 @@ class MultiscaleFlow(BiProbTrans):
                 [x, z[i]], log_det = self.splits[i].backward(x, log_det)
         return z, log_det
 
-    def forward(self, z: list[torch.Tensor],
+    def forward(self, z: List[torch.Tensor],
                  log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
 
         for i in range(len(self.p_base)-1, -1, -1):
@@ -294,16 +326,16 @@ class MultiscaleFlow(BiProbTrans):
     def log_prob(self, z, y):
         #TODO: merge in our flow
         x, log_det = self.backward(z)
-        print(log_det)
+        log_det = -log_det
         for i in range(len(self.p_base)):
             if self.class_cond:
-                log_det = log_det + self.p_base[i].log_prob(x[i], y)
+                log_det = self.p_base[i].log_prob(x[i], y, log_det)
             else:
-                log_det += self.p_base[i].log_prob(x[i])
+                log_det = self.p_base[i].log_prob(x[i],log_det)
         return log_det
-    def sample(self, num_samples=1, y=None, temperature=None):
-        if temperature is not None:
-            self.set_temperature(temperature)
+    
+    def sample(self, num_samples=1, y=None):
+        #TODO: temperature
         log_q = 0
         for i in range(len(self.p_base)-1, -1, -1):
             if self.class_cond:
@@ -314,7 +346,6 @@ class MultiscaleFlow(BiProbTrans):
                 z = z_
             else:
                 z, log_q = self.splits[i]([z, z_], log_q)
-            #print(z)
             for flow in reversed(self.flows[i]):
                 z, log_q = flow(z, log_q)
         return z, log_q

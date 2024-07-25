@@ -10,8 +10,8 @@ class ConvNet2d(nn.Module):
             self,
             channels: List[int],
             kernel_size: List[int],
-            leaky: int = 0.0,
-            init_zeros: bool = False,
+            leaky: float = 0.0,
+            init_zeros: bool = True,
             weight_std: float = None,
     ):
         super().__init__()

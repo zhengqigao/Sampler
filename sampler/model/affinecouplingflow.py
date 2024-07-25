@@ -55,8 +55,11 @@ class AffineCouplingFlow(BiProbTrans):
 
         z = torch.zeros_like(x)
         z[:, self.keep_dim] = x_keep
-        z[:, self.trans_dim] = torch.exp(s) * x_trans + t
-        log_det = log_det - torch.sum(s, dim=list(range(1, s.dim())))  # the outputs of scalenet could be high-dim tensor
+        #z[:, self.trans_dim] = torch.exp(s) * x_trans + t
+        scale = torch.sigmoid(s+2)
+        z[:, self.trans_dim] = scale * x_trans + t
+        #log_det = log_det - torch.sum(s, dim=list(range(1, s.dim())))  # the outputs of scalenet could be high-dim tensor
+        log_det = log_det - torch.sum(torch.log(scale), dim=list(range(1, s.dim())))
         return z, log_det
 
     def backward(self, z: torch.Tensor,
@@ -72,8 +75,11 @@ class AffineCouplingFlow(BiProbTrans):
 
         x = torch.zeros_like(z)
         x[:, self.keep_dim] = z_keep
-        x[:, self.trans_dim] = (z_trans - t) * torch.exp(-s)
-        log_det = log_det + torch.sum(s, dim=list(range(1, s.dim())))
+        #x[:, self.trans_dim] = (z_trans - t) * torch.exp(-s)
+        scale = torch.sigmoid(s+2)
+        x[:, self.trans_dim] = (z_trans - t) / scale
+        #log_det = log_det + torch.sum(s, dim=list(range(1, s.dim())))
+        log_det = log_det + torch.sum(torch.log(scale), dim=list(range(1, s.dim())))
         return x, log_det  # Our implementation guarantees: x, a = model.backward(*model.forward(x, log_det = a))
 
 
