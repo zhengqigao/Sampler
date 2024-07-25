@@ -188,7 +188,6 @@ def test_MultiscaleFlow_image():
     # Move model on GPU if available
     enable_cuda = True
     device = torch.device('cuda' if torch.cuda.is_available() and enable_cuda else 'cpu')
-    print(device)
     model = model.to(device)
 
 
@@ -204,18 +203,8 @@ def test_MultiscaleFlow_image():
         except StopIteration:
             train_iter = iter(train_loader)
             x, y = next(train_iter)
-
-        ##act_norm reset
-        #if i==0:
-        #    for tmp_block_list in model.flows:
-        #        for tmp_block in tmp_block_list:
-        #            tmp_block[-1].reset_parameters[x]
-                
         optimizer.zero_grad()
-        #print(x.shape)
         loss = -torch.mean(model.log_prob(x.to(device), y.to(device)))
-        print(loss)
-            
         if ~(torch.isnan(loss) | torch.isinf(loss)):
             loss.backward()
             optimizer.step()
@@ -230,7 +219,6 @@ def test_MultiscaleFlow_image():
                 y = torch.arange(num_classes).repeat(num_sample).to(device)
                 x, _ = model.sample(y=y)
                 x_ = torch.clamp(x, 0, 1)
-                print(x_[0])
                 plt.figure(figsize=(10, 10))
                 plt.imshow(np.transpose(tv.utils.make_grid(x_, nrow=num_classes).cpu().numpy()*255, (1, 2, 0)),cmap="grey")
                 plt.savefig(f"current_result_glowh4{i}.png")
@@ -239,18 +227,6 @@ def test_MultiscaleFlow_image():
     plt.plot(loss_hist, label='loss')
     plt.legend()
     plt.savefig("loss.png")
-
-        # Model samples
-    num_sample = 10
-
-    with torch.no_grad():
-        y = torch.arange(num_classes).repeat(num_sample).to(device)
-        x, _ = model.sample(y=y)
-        x_ = torch.clamp(x, 0, 1)
-        print(x_[0])
-        plt.figure(figsize=(10, 10))
-        plt.imshow(np.transpose(tv.utils.make_grid(x_, nrow=num_classes).cpu().numpy()*255, (1, 2, 0)),cmap="grey")
-        plt.savefig("current_result.png")
     
 if __name__ == '__main__':
     #test_actnorm()

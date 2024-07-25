@@ -65,10 +65,6 @@ class Actnorm(BiProbTrans):
     def backward(self, z: torch.Tensor,
                  log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
         n, c, *remain = z.shape
-        #print(n)
-        #print(c)
-        #print(remain)
-        #print(self.num_features)
         if self.batch_data is None:
             self.reset_parameters(z)
         shift = self.shift.view(1, c, *([1] * len(remain)))
@@ -94,13 +90,14 @@ class Inv1by1Conv(BiProbTrans):
             bias (bool, optional): Whether to use bias. Defaults to False.
             p_base (Optional[Distribution], optional): The base distribution. Defaults to None.
         """
+        #TODO: LU part should be checked
 
         super().__init__()
         self.num_features = num_features
         self.p_base = p_base
         self.bias = bias
 
-        self.weight = nn.Parameter(torch.empty(num_features, num_features,device = "cuda:0"))
+        self.weight = nn.Parameter(torch.empty(num_features, num_features))
         self.bias = nn.Parameter(torch.empty(num_features)) if bias else None
         self.register_buffer('permutation', torch.eye(num_features))
 
@@ -111,11 +108,8 @@ class Inv1by1Conv(BiProbTrans):
         Initialize the weight and bias. Note that the original implementation requires to use the LU factorization,
         """
         nn.init.orthogonal_(self.weight)
-        #print(self.weight.device)
         #LU, pivots = torch.linalg.lu_factor(self.weight)
-        #print(LU.device)
         #self.permutation, L, U = torch.lu_unpack(LU, pivots)
-        #print(L.device)
         #self.weight = nn.Parameter(torch.tril(L, -1) + torch.triu(U, 0))
 
         if self.bias is not None:
@@ -124,10 +118,7 @@ class Inv1by1Conv(BiProbTrans):
             nn.init.uniform_(self.bias, -bound, bound)
 
     def reparametrize_u(self, weight: torch.Tensor, permutation: torch.Tensor, inverse: bool) -> torch.Tensor:
-        #print(f"weight device {weight.device}")
         l, self.u = torch.tril(weight, -1) + torch.eye(*weight.shape,device = "cuda:0"), torch.triu(weight)
-        #print(l.device)
-        #print(u.device)
         if not inverse:
             return torch.matmul(permutation, torch.matmul(l, self.u))
         else:
@@ -144,7 +135,6 @@ class Inv1by1Conv(BiProbTrans):
 
         #z = torch.einsum('nc...,cd->nd...', x, weight) + bias not supported in GPU mode
 
-        #weight = weight.view(c, c, 1, 1).to("cuda:0") #TODO: device
         weight = self.weight.view(c, c, 1, 1)
         z = torch.nn.functional.conv2d(x, weight)
 
@@ -232,10 +222,10 @@ class Glowblock(BiProbTrans):
         return z, log_det
 
 
-# TODO: find a way to easily understand this operation
 class Squeeze(nn.Module):
     r"""
-    Squeeze operation, Reference to vince
+    Squeeze operation
+    Backward: reduce the image [c, h, w] to [4c, h//2, w//2], See RealNVP[Dinh2017]
     """
 
     def __init__(self):
@@ -258,12 +248,19 @@ class Squeeze(nn.Module):
 
 class Split(BiProbTrans):
 
+
     def __init__(self, mode="pos"):
+        r"""
+
+        Args:
+            mode: "pos": split the tensor along dim1 x->[x1,x2]
+                  "inv": split the tensor along dim1 but in a different direction x->[x2, x1]
+        """
         super().__init__()
         self.mode = mode
 
     def backward(self, x: torch.Tensor,
-                log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[torch.Tensor, torch.Tensor]:
+                log_det: Optional[Union[float, torch.Tensor]] = 0.0) -> Tuple[List, torch.Tensor]:
         if self.mode == "pos":
             x1, x2 = x.chunk(2, dim=1)
         elif self.mode == "inv":
@@ -281,11 +278,15 @@ class Split(BiProbTrans):
 
 
 class MultiscaleFlow(BiProbTrans):
-    """
+    r"""
     Multiscale architecture for image learning
     """
 
-    def __init__(self, p_base, flows, splits, transform=None, class_cond=True):
+    def __init__(self, p_base:Optional[List[Distribution]] = None,
+                 flows: Optional[List[BiProbTrans]] = None,
+                 splits: Optional[List[BiProbTrans]] = None,
+                 transform=None,
+                 class_cond:bool=True):
         super().__init__()
         self.p_base = nn.ModuleList(p_base)
         self.num_levels = len(self.p_base)
@@ -323,8 +324,9 @@ class MultiscaleFlow(BiProbTrans):
         #   log_det += log_det_
         return z_, log_det
 
-    def log_prob(self, z, y):
-        #TODO: merge in our flow
+    def log_prob(self, z: torch.Tensor,
+                 y: Union[List, torch.Tensor]=None):
+        #TODO: merge in our flow, to define p_base_list module
         x, log_det = self.backward(z)
         log_det = -log_det
         for i in range(len(self.p_base)):
@@ -334,7 +336,8 @@ class MultiscaleFlow(BiProbTrans):
                 log_det = self.p_base[i].log_prob(x[i],log_det)
         return log_det
     
-    def sample(self, num_samples=1, y=None):
+    def sample(self, num_samples: int=1,
+               y: Union[List, torch.Tensor]=None):
         #TODO: temperature
         log_q = 0
         for i in range(len(self.p_base)-1, -1, -1):
