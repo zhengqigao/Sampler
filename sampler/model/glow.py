@@ -207,6 +207,7 @@ class Glowblock(BiProbTrans):
                                                   glow_mode=True))
         self.transforms.append(Inv1by1Conv(self.num_features))
         self.transforms.append(Actnorm(self.num_features))
+        self.transforms = torch.nn.ModuleList(self.transforms)
 
 
     def forward(self, x: torch.Tensor,
